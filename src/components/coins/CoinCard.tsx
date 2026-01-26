@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { TrendingUp, Users, DollarSign, Droplet } from 'lucide-react';
 import { Button } from '@/components/ui/button';

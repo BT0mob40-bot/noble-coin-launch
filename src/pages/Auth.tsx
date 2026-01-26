@@ -29,7 +29,9 @@ export default function Auth() {
 
   useEffect(() => {
     if (user && !loading) {
-      navigate('/dashboard');
+      // Redirect based on role - admins go to admin panel, users go to dashboard
+      // We'll let the auth context handle role loading, then redirect
+      navigate('/dashboard', { replace: true });
     }
   }, [user, loading, navigate]);
 

@@ -10,6 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
+import { SpiralLoader } from '@/components/ui/spiral-loader';
 import { 
   ArrowLeft, 
   TrendingUp, 
@@ -20,7 +21,8 @@ import {
   ShoppingCart,
   Wallet,
   Star,
-  ExternalLink
+  ExternalLink,
+  Phone
 } from 'lucide-react';
 import {
   Dialog,
@@ -59,9 +61,11 @@ export default function CoinDetail() {
   const [loading, setLoading] = useState(true);
   const [showBuyModal, setShowBuyModal] = useState(false);
   const [showSellModal, setShowSellModal] = useState(false);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [amount, setAmount] = useState('');
   const [phone, setPhone] = useState('');
   const [processing, setProcessing] = useState(false);
+  const [waitingForPayment, setWaitingForPayment] = useState(false);
   const [userHolding, setUserHolding] = useState<number>(0);
 
   useEffect(() => {
@@ -126,7 +130,9 @@ export default function CoinDetail() {
       return;
     }
 
-    if (!phone || phone.length < 10) {
+    // Format and validate phone number
+    let formattedPhone = phone.replace(/\s+/g, '').replace(/^\+/, '');
+    if (!formattedPhone || formattedPhone.length < 9) {
       toast.error('Please enter a valid phone number');
       return;
     }
@@ -135,25 +141,87 @@ export default function CoinDetail() {
     try {
       // Create transaction record
       const totalValue = amountNum * coin.price;
-      const { error } = await supabase.from('transactions').insert({
-        user_id: user.id,
-        coin_id: coin.id,
-        type: 'buy',
-        amount: amountNum,
-        price_per_coin: coin.price,
-        total_value: totalValue,
-        phone: phone,
-        status: 'pending',
+      const { data: transaction, error: txError } = await supabase
+        .from('transactions')
+        .insert({
+          user_id: user.id,
+          coin_id: coin.id,
+          type: 'buy',
+          amount: amountNum,
+          price_per_coin: coin.price,
+          total_value: totalValue,
+          phone: phone,
+          status: 'pending',
+        })
+        .select()
+        .single();
+
+      if (txError) throw txError;
+
+      // Close buy modal and show payment modal
+      setShowBuyModal(false);
+      setShowPaymentModal(true);
+      setWaitingForPayment(true);
+
+      // Initiate STK Push
+      const { data: stkData, error: stkError } = await supabase.functions.invoke('mpesa-stk-push', {
+        body: {
+          phone: formattedPhone,
+          amount: Math.round(totalValue),
+          transactionId: transaction.id,
+          accountReference: `${coin.symbol}-${transaction.id.slice(0, 8)}`,
+        },
       });
 
-      if (error) throw error;
+      if (stkError) {
+        console.error('STK Push error:', stkError);
+        toast.error('Failed to initiate M-PESA payment');
+        setWaitingForPayment(false);
+        setShowPaymentModal(false);
+        return;
+      }
 
-      toast.success('Transaction initiated! Check your phone for M-PESA prompt.');
-      setShowBuyModal(false);
-      setAmount('');
-      setPhone('');
+      if (!stkData?.success) {
+        toast.error(stkData?.error || 'Failed to send STK Push');
+        setWaitingForPayment(false);
+        setShowPaymentModal(false);
+        return;
+      }
+
+      toast.success('Check your phone for M-PESA prompt!');
+
+      // Poll for transaction status
+      const checkStatus = async () => {
+        const { data: updatedTx } = await supabase
+          .from('transactions')
+          .select('status')
+          .eq('id', transaction.id)
+          .single();
+
+        if (updatedTx?.status === 'completed') {
+          setWaitingForPayment(false);
+          setShowPaymentModal(false);
+          toast.success('Payment successful! Coins added to your wallet.');
+          fetchUserHolding();
+          setAmount('');
+          setPhone('');
+        } else if (updatedTx?.status === 'failed') {
+          setWaitingForPayment(false);
+          setShowPaymentModal(false);
+          toast.error('Payment failed or was cancelled.');
+        } else {
+          // Still pending, check again after 3 seconds
+          setTimeout(checkStatus, 3000);
+        }
+      };
+
+      // Start polling after 5 seconds
+      setTimeout(checkStatus, 5000);
+
     } catch (error: any) {
       toast.error(error.message || 'Failed to process transaction');
+      setWaitingForPayment(false);
+      setShowPaymentModal(false);
     } finally {
       setProcessing(false);
     }
@@ -503,6 +571,41 @@ export default function CoinDetail() {
               Sell Now
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Payment Processing Modal */}
+      <Dialog open={showPaymentModal} onOpenChange={(open) => !waitingForPayment && setShowPaymentModal(open)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-center">M-PESA Payment</DialogTitle>
+            <DialogDescription className="text-center">
+              {waitingForPayment ? 'Waiting for payment confirmation...' : 'Payment status'}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col items-center py-8">
+            {waitingForPayment ? (
+              <>
+                <SpiralLoader size="lg" text="Check your phone for M-PESA prompt" />
+                <div className="mt-6 text-center space-y-2">
+                  <div className="flex items-center justify-center gap-2 text-muted-foreground">
+                    <Phone className="h-4 w-4" />
+                    <span>{phone}</span>
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    Enter your M-PESA PIN to complete the payment
+                  </p>
+                </div>
+              </>
+            ) : (
+              <p className="text-muted-foreground">Processing complete</p>
+            )}
+          </div>
+          {!waitingForPayment && (
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setShowPaymentModal(false)}>Close</Button>
+            </DialogFooter>
+          )}
         </DialogContent>
       </Dialog>
 

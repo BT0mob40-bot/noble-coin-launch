@@ -7,10 +7,6 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { 
   Shield, 
@@ -18,7 +14,6 @@ import {
   Users, 
   Settings,
   Plus,
-  Edit2,
   Trash2,
   Loader2,
   AlertCircle,
@@ -26,17 +21,8 @@ import {
   Ban,
   TrendingUp,
   Star,
-  Sparkles
+  CreditCard
 } from 'lucide-react';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-  DialogFooter,
-} from '@/components/ui/dialog';
 import {
   Table,
   TableBody,
@@ -46,6 +32,8 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { toast } from 'sonner';
+import { MpesaSettings } from '@/components/admin/MpesaSettings';
+import { CoinFormDialog } from '@/components/admin/CoinFormDialog';
 
 interface Coin {
   id: string;
@@ -75,20 +63,6 @@ export default function Admin() {
   const [users, setUsers] = useState<UserWithRole[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreateCoin, setShowCreateCoin] = useState(false);
-  const [editingCoin, setEditingCoin] = useState<Coin | null>(null);
-
-  // Coin form state
-  const [coinForm, setCoinForm] = useState({
-    name: '',
-    symbol: '',
-    description: '',
-    price: 0.001,
-    total_supply: 1000000000,
-    logo_url: '',
-    whitepaper_url: '',
-    is_featured: false,
-    is_trending: false,
-  });
 
   useEffect(() => {
     fetchData();
@@ -97,13 +71,11 @@ export default function Admin() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      // Fetch all coins
       const { data: coinsData } = await supabase
         .from('coins')
         .select('*')
         .order('created_at', { ascending: false });
 
-      // Fetch users with roles
       const { data: profilesData } = await supabase
         .from('profiles')
         .select('user_id, email, created_at');
@@ -129,42 +101,6 @@ export default function Admin() {
       console.error('Error fetching admin data:', error);
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handleCreateCoin = async () => {
-    try {
-      const { error } = await supabase.from('coins').insert({
-        name: coinForm.name,
-        symbol: coinForm.symbol.toUpperCase(),
-        description: coinForm.description,
-        price: coinForm.price,
-        total_supply: coinForm.total_supply,
-        logo_url: coinForm.logo_url || null,
-        whitepaper_url: coinForm.whitepaper_url || null,
-        is_featured: coinForm.is_featured,
-        is_trending: coinForm.is_trending,
-        creator_id: user?.id,
-      });
-
-      if (error) throw error;
-
-      toast.success('Coin created successfully!');
-      setShowCreateCoin(false);
-      setCoinForm({
-        name: '',
-        symbol: '',
-        description: '',
-        price: 0.001,
-        total_supply: 1000000000,
-        logo_url: '',
-        whitepaper_url: '',
-        is_featured: false,
-        is_trending: false,
-      });
-      fetchData();
-    } catch (error: any) {
-      toast.error(error.message || 'Failed to create coin');
     }
   };
 
@@ -203,14 +139,12 @@ export default function Admin() {
   const handleBanUser = async (userId: string, isBanned: boolean) => {
     try {
       if (isBanned) {
-        // Remove banned role
         await supabase
           .from('user_roles')
           .delete()
           .eq('user_id', userId)
           .eq('role', 'banned');
       } else {
-        // Add banned role
         await supabase
           .from('user_roles')
           .insert({ user_id: userId, role: 'banned' });
@@ -290,10 +224,16 @@ export default function Admin() {
               Users
             </TabsTrigger>
             {isSuperAdmin && (
-              <TabsTrigger value="settings" className="gap-2">
-                <Settings className="h-4 w-4" />
-                Settings
-              </TabsTrigger>
+              <>
+                <TabsTrigger value="mpesa" className="gap-2">
+                  <CreditCard className="h-4 w-4" />
+                  M-PESA
+                </TabsTrigger>
+                <TabsTrigger value="settings" className="gap-2">
+                  <Settings className="h-4 w-4" />
+                  Settings
+                </TabsTrigger>
+              </>
             )}
           </TabsList>
 
@@ -305,105 +245,10 @@ export default function Admin() {
                   <CardTitle>Manage Coins</CardTitle>
                   <CardDescription>Create, edit, and manage coin listings</CardDescription>
                 </div>
-                <Dialog open={showCreateCoin} onOpenChange={setShowCreateCoin}>
-                  <DialogTrigger asChild>
-                    <Button variant="hero" className="gap-2">
-                      <Plus className="h-4 w-4" />
-                      Create Coin
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent className="max-w-2xl">
-                    <DialogHeader>
-                      <DialogTitle>Create New Coin</DialogTitle>
-                      <DialogDescription>Add a new coin to the launchpad</DialogDescription>
-                    </DialogHeader>
-                    <div className="grid gap-4 py-4">
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <Label>Coin Name</Label>
-                          <Input
-                            placeholder="e.g. Bitcoin"
-                            value={coinForm.name}
-                            onChange={(e) => setCoinForm({ ...coinForm, name: e.target.value })}
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label>Symbol</Label>
-                          <Input
-                            placeholder="e.g. BTC"
-                            value={coinForm.symbol}
-                            onChange={(e) => setCoinForm({ ...coinForm, symbol: e.target.value })}
-                          />
-                        </div>
-                      </div>
-                      <div className="space-y-2">
-                        <Label>Description</Label>
-                        <Textarea
-                          placeholder="Describe the coin..."
-                          value={coinForm.description}
-                          onChange={(e) => setCoinForm({ ...coinForm, description: e.target.value })}
-                        />
-                      </div>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <Label>Initial Price (KES)</Label>
-                          <Input
-                            type="number"
-                            step="0.001"
-                            value={coinForm.price}
-                            onChange={(e) => setCoinForm({ ...coinForm, price: parseFloat(e.target.value) })}
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label>Total Supply</Label>
-                          <Input
-                            type="number"
-                            value={coinForm.total_supply}
-                            onChange={(e) => setCoinForm({ ...coinForm, total_supply: parseInt(e.target.value) })}
-                          />
-                        </div>
-                      </div>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <Label>Logo URL</Label>
-                          <Input
-                            placeholder="https://..."
-                            value={coinForm.logo_url}
-                            onChange={(e) => setCoinForm({ ...coinForm, logo_url: e.target.value })}
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label>Whitepaper URL</Label>
-                          <Input
-                            placeholder="https://..."
-                            value={coinForm.whitepaper_url}
-                            onChange={(e) => setCoinForm({ ...coinForm, whitepaper_url: e.target.value })}
-                          />
-                        </div>
-                      </div>
-                      <div className="flex gap-6">
-                        <div className="flex items-center gap-2">
-                          <Switch
-                            checked={coinForm.is_featured}
-                            onCheckedChange={(checked) => setCoinForm({ ...coinForm, is_featured: checked })}
-                          />
-                          <Label>Featured</Label>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Switch
-                            checked={coinForm.is_trending}
-                            onCheckedChange={(checked) => setCoinForm({ ...coinForm, is_trending: checked })}
-                          />
-                          <Label>Trending</Label>
-                        </div>
-                      </div>
-                    </div>
-                    <DialogFooter>
-                      <Button variant="outline" onClick={() => setShowCreateCoin(false)}>Cancel</Button>
-                      <Button variant="hero" onClick={handleCreateCoin}>Create Coin</Button>
-                    </DialogFooter>
-                  </DialogContent>
-                </Dialog>
+                <Button variant="hero" className="gap-2" onClick={() => setShowCreateCoin(true)}>
+                  <Plus className="h-4 w-4" />
+                  Create Coin
+                </Button>
               </CardHeader>
               <CardContent>
                 {loading ? (
@@ -427,9 +272,9 @@ export default function Admin() {
                         <TableRow key={coin.id}>
                           <TableCell>
                             <div className="flex items-center gap-3">
-                              <div className="h-10 w-10 rounded-lg bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center">
+                              <div className="h-10 w-10 rounded-lg bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center overflow-hidden">
                                 {coin.logo_url ? (
-                                  <img src={coin.logo_url} alt={coin.name} className="h-8 w-8 rounded" />
+                                  <img src={coin.logo_url} alt={coin.name} className="h-full w-full object-cover" />
                                 ) : (
                                   <Coins className="h-5 w-5 text-primary" />
                                 )}
@@ -570,6 +415,13 @@ export default function Admin() {
             </Card>
           </TabsContent>
 
+          {/* M-PESA Tab */}
+          {isSuperAdmin && (
+            <TabsContent value="mpesa">
+              <MpesaSettings />
+            </TabsContent>
+          )}
+
           {/* Settings Tab */}
           {isSuperAdmin && (
             <TabsContent value="settings">
@@ -585,6 +437,16 @@ export default function Admin() {
             </TabsContent>
           )}
         </Tabs>
+
+        {/* Coin Form Dialog */}
+        {user && (
+          <CoinFormDialog
+            open={showCreateCoin}
+            onOpenChange={setShowCreateCoin}
+            onSuccess={fetchData}
+            userId={user.id}
+          />
+        )}
       </main>
 
       <Footer />

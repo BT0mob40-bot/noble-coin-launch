@@ -34,6 +34,7 @@ import {
 import { toast } from 'sonner';
 import { MpesaSettings } from '@/components/admin/MpesaSettings';
 import { CoinFormDialog } from '@/components/admin/CoinFormDialog';
+import { PlatformSettings } from '@/components/admin/PlatformSettings';
 
 interface Coin {
   id: string;
@@ -425,15 +426,7 @@ export default function Admin() {
           {/* Settings Tab */}
           {isSuperAdmin && (
             <TabsContent value="settings">
-              <Card className="glass-card">
-                <CardHeader>
-                  <CardTitle>Platform Settings</CardTitle>
-                  <CardDescription>Configure global platform settings</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-muted-foreground">Settings management coming soon...</p>
-                </CardContent>
-              </Card>
+              <PlatformSettings />
             </TabsContent>
           )}
         </Tabs>

@@ -189,8 +189,8 @@
 
   /* Scrollbar styling */
   ::-webkit-scrollbar {
-    width: 8px;
-    height: 8px;
+    width: 6px;
+    height: 6px;
   }
 
   ::-webkit-scrollbar-track {
@@ -205,6 +205,26 @@
 
   ::-webkit-scrollbar-thumb:hover {
     background: hsl(var(--primary) / 0.5);
+  }
+
+  /* Thin scrollbar variant */
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 4px;
+  }
+
+  /* Trading panel styles */
+  .trading-panel {
+    @apply glass-card;
+  }
+
+  /* Order book depth bars */
+  .depth-bar {
+    @apply absolute inset-y-0 right-0 opacity-20;
+  }
+
+  /* Font mono for trading */
+  .font-mono {
+    font-feature-settings: "tnum";
   }
 }
 

@@ -5,18 +5,19 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Phone, Wallet, AlertCircle, Percent } from 'lucide-react';
+import { Phone, Wallet, AlertCircle, Percent, ArrowDownLeft, CheckCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface TradingPanelProps {
   symbol: string;
   currentPrice: number;
   userBalance: number;
+  userFiatBalance: number;
   minBuyAmount: number;
   maxBuyAmount: number;
   feePercentage: number;
-  onBuy: (amount: number, phone: string) => void;
-  onSell: (amount: number, phone: string) => void;
+  onBuy: (amount: number, phone: string, useWallet: boolean) => void;
+  onSell: (amount: number, toWallet: boolean) => void;
   processing: boolean;
   isAuthenticated: boolean;
 }
@@ -25,6 +26,7 @@ export function TradingPanel({
   symbol,
   currentPrice,
   userBalance,
+  userFiatBalance,
   minBuyAmount,
   maxBuyAmount,
   feePercentage,
@@ -37,6 +39,8 @@ export function TradingPanel({
   const [amount, setAmount] = useState('');
   const [phone, setPhone] = useState('');
   const [sliderValue, setSliderValue] = useState([0]);
+  const [useWallet, setUseWallet] = useState(false);
+  const [sellToWallet, setSellToWallet] = useState(true);
 
   const amountNum = parseFloat(amount) || 0;
   const totalValue = amountNum * currentPrice;
@@ -48,8 +52,13 @@ export function TradingPanel({
     if (activeTab === 'sell' && userBalance > 0) {
       setAmount(((userBalance * value[0]) / 100).toFixed(0));
     } else if (activeTab === 'buy') {
-      const maxCoins = maxBuyAmount / currentPrice;
-      setAmount(((maxCoins * value[0]) / 100).toFixed(0));
+      if (useWallet && userFiatBalance > 0) {
+        const maxCoins = (userFiatBalance / currentPrice) * (1 - feePercentage / 100);
+        setAmount(((maxCoins * value[0]) / 100).toFixed(0));
+      } else {
+        const maxCoins = maxBuyAmount / currentPrice;
+        setAmount(((maxCoins * value[0]) / 100).toFixed(0));
+      }
     }
   };
 
@@ -57,14 +66,20 @@ export function TradingPanel({
 
   const handleSubmit = () => {
     if (activeTab === 'buy') {
-      onBuy(amountNum, phone);
+      onBuy(amountNum, phone, useWallet);
     } else {
-      onSell(amountNum, phone);
+      onSell(amountNum, sellToWallet);
     }
   };
 
-  const isValid = amountNum > 0 && phone.length >= 10 && 
-    (activeTab === 'buy' ? totalValue >= minBuyAmount && totalValue <= maxBuyAmount : amountNum <= userBalance);
+  const isValidBuy = amountNum > 0 && 
+    (useWallet ? totalWithFee <= userFiatBalance : phone.length >= 10) && 
+    totalValue >= minBuyAmount && 
+    totalValue <= maxBuyAmount;
+  
+  const isValidSell = amountNum > 0 && amountNum <= userBalance;
+
+  const isValid = activeTab === 'buy' ? isValidBuy : isValidSell;
 
   return (
     <div className="h-full flex flex-col">
@@ -88,12 +103,93 @@ export function TradingPanel({
           </TabsTrigger>
         </TabsList>
 
-        <div className="flex-1 p-4 space-y-4">
+        <div className="flex-1 p-4 space-y-4 overflow-y-auto">
           {/* Price Display */}
           <div className="flex items-center justify-between py-2 px-3 rounded-lg bg-muted/50">
             <span className="text-sm text-muted-foreground">Price</span>
             <span className="font-mono font-medium">KES {currentPrice.toFixed(6)}</span>
           </div>
+
+          {/* Buy Tab - Payment Method Selection */}
+          {activeTab === 'buy' && isAuthenticated && (
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => setUseWallet(false)}
+                className={cn(
+                  "flex items-center gap-2 p-3 rounded-lg border-2 transition-all",
+                  !useWallet 
+                    ? "border-success bg-success/10 text-success" 
+                    : "border-border bg-muted/30 text-muted-foreground hover:border-border/80"
+                )}
+              >
+                <Phone className="h-4 w-4" />
+                <span className="text-sm font-medium">M-PESA</span>
+                {!useWallet && <CheckCircle className="h-4 w-4 ml-auto" />}
+              </button>
+              <button
+                type="button"
+                onClick={() => setUseWallet(true)}
+                className={cn(
+                  "flex items-center gap-2 p-3 rounded-lg border-2 transition-all",
+                  useWallet 
+                    ? "border-success bg-success/10 text-success" 
+                    : "border-border bg-muted/30 text-muted-foreground hover:border-border/80"
+                )}
+              >
+                <Wallet className="h-4 w-4" />
+                <span className="text-sm font-medium">Wallet</span>
+                {useWallet && <CheckCircle className="h-4 w-4 ml-auto" />}
+              </button>
+            </div>
+          )}
+
+          {/* Wallet Balance Display (when using wallet) */}
+          {activeTab === 'buy' && useWallet && isAuthenticated && (
+            <div className="flex items-center justify-between py-2 px-3 rounded-lg bg-success/10 border border-success/30">
+              <span className="text-sm text-success flex items-center gap-2">
+                <Wallet className="h-4 w-4" />
+                Available
+              </span>
+              <span className="font-mono font-medium text-success">
+                KES {userFiatBalance.toLocaleString()}
+              </span>
+            </div>
+          )}
+
+          {/* Sell Tab - Destination Selection */}
+          {activeTab === 'sell' && isAuthenticated && (
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => setSellToWallet(true)}
+                className={cn(
+                  "flex items-center gap-2 p-3 rounded-lg border-2 transition-all",
+                  sellToWallet 
+                    ? "border-primary bg-primary/10 text-primary" 
+                    : "border-border bg-muted/30 text-muted-foreground hover:border-border/80"
+                )}
+              >
+                <ArrowDownLeft className="h-4 w-4" />
+                <span className="text-sm font-medium">To Wallet</span>
+                {sellToWallet && <CheckCircle className="h-4 w-4 ml-auto" />}
+              </button>
+              <button
+                type="button"
+                onClick={() => setSellToWallet(false)}
+                className={cn(
+                  "flex items-center gap-2 p-3 rounded-lg border-2 transition-all",
+                  !sellToWallet 
+                    ? "border-primary bg-primary/10 text-primary" 
+                    : "border-border bg-muted/30 text-muted-foreground hover:border-border/80"
+                )}
+              >
+                <Phone className="h-4 w-4" />
+                <span className="text-sm font-medium">To M-PESA</span>
+                {!sellToWallet && <CheckCircle className="h-4 w-4 ml-auto" />}
+              </button>
+            </div>
+          )}
 
           {/* Amount Input */}
           <div className="space-y-2">
@@ -138,20 +234,22 @@ export function TradingPanel({
             </div>
           </div>
 
-          {/* Phone Input */}
-          <div className="space-y-2">
-            <Label className="text-sm flex items-center gap-2">
-              <Phone className="h-4 w-4" />
-              M-PESA Phone Number
-            </Label>
-            <Input
-              type="tel"
-              placeholder="254712345678"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              className="h-12 font-mono bg-muted/30 border-border/50 focus:border-primary"
-            />
-          </div>
+          {/* Phone Input (when buying with M-PESA) */}
+          {activeTab === 'buy' && !useWallet && (
+            <div className="space-y-2">
+              <Label className="text-sm flex items-center gap-2">
+                <Phone className="h-4 w-4" />
+                M-PESA Phone Number
+              </Label>
+              <Input
+                type="tel"
+                placeholder="254712345678"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                className="h-12 font-mono bg-muted/30 border-border/50 focus:border-primary"
+              />
+            </div>
+          )}
 
           {/* Order Summary */}
           <div className="rounded-lg border border-border/50 bg-muted/20 p-4 space-y-2">
@@ -166,7 +264,9 @@ export function TradingPanel({
               <span className="font-mono text-warning">KES {fee.toFixed(2)}</span>
             </div>
             <div className="border-t border-border/50 pt-2 flex items-center justify-between">
-              <span className="font-medium">Total</span>
+              <span className="font-medium">
+                {activeTab === 'buy' ? 'Total Cost' : 'You Receive'}
+              </span>
               <span className="text-lg font-bold font-mono gradient-text">
                 KES {totalWithFee.toLocaleString(undefined, { minimumFractionDigits: 2 })}
               </span>
@@ -184,6 +284,12 @@ export function TradingPanel({
             <div className="flex items-center gap-2 text-sm text-destructive">
               <AlertCircle className="h-4 w-4" />
               Maximum buy amount is KES {maxBuyAmount.toLocaleString()}
+            </div>
+          )}
+          {useWallet && totalWithFee > userFiatBalance && activeTab === 'buy' && (
+            <div className="flex items-center gap-2 text-sm text-destructive">
+              <AlertCircle className="h-4 w-4" />
+              Insufficient wallet balance
             </div>
           )}
           {amountNum > userBalance && activeTab === 'sell' && (
@@ -215,7 +321,7 @@ export function TradingPanel({
             ) : activeTab === 'buy' ? (
               `Buy ${symbol}`
             ) : (
-              `Sell ${symbol}`
+              `Sell ${symbol} ${sellToWallet ? 'to Wallet' : 'to M-PESA'}`
             )}
           </Button>
 
@@ -223,7 +329,7 @@ export function TradingPanel({
           {isAuthenticated && userBalance > 0 && (
             <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground bg-muted/30 rounded-lg py-2">
               <Wallet className="h-4 w-4" />
-              Your Balance: <span className="font-medium text-foreground">{userBalance.toLocaleString()} {symbol}</span>
+              Your Holdings: <span className="font-medium text-foreground">{userBalance.toLocaleString()} {symbol}</span>
             </div>
           )}
         </div>

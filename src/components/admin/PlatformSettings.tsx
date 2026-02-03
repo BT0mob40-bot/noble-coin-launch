@@ -31,6 +31,7 @@ interface SiteSettings {
   fee_percentage: number;
   min_buy_amount: number;
   max_buy_amount: number;
+  admin_commission: number;
 }
 
 export function PlatformSettings() {
@@ -65,6 +66,7 @@ export function PlatformSettings() {
             min_buy_amount: 100,
             max_buy_amount: 100000,
             primary_color: '#00d4ff',
+            admin_commission: 2.5,
           })
           .select()
           .single();
@@ -95,6 +97,7 @@ export function PlatformSettings() {
           fee_percentage: settings.fee_percentage,
           min_buy_amount: settings.min_buy_amount,
           max_buy_amount: settings.max_buy_amount,
+          admin_commission: settings.admin_commission,
         })
         .eq('id', settings.id);
 
@@ -270,7 +273,18 @@ export function PlatformSettings() {
               className="w-full"
             />
             <p className="text-xs text-muted-foreground">
-              This fee is applied to all buy and sell transactions
+              This fee is applied to all buy and sell transactions (Admin commission)
+            </p>
+          </div>
+
+          {/* Admin Commission Info */}
+          <div className="p-4 rounded-lg bg-primary/5 border border-primary/20">
+            <div className="flex items-center gap-2 text-primary font-medium">
+              <DollarSign className="h-4 w-4" />
+              Commission Earnings
+            </div>
+            <p className="text-sm text-muted-foreground mt-1">
+              As admin, you earn {settings.fee_percentage}% on every transaction. View your earnings in the Commissions tab.
             </p>
           </div>
 

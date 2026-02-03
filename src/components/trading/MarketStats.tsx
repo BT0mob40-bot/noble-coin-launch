@@ -19,6 +19,7 @@ interface MarketStatsProps {
     volatility: number;
     total_supply: number;
     circulating_supply: number;
+    burned_supply?: number;
   };
   priceChange24h?: number;
 }
@@ -71,6 +72,17 @@ export function MarketStats({ coin, priceChange24h = 5.23 }: MarketStatsProps) {
       bgColor: 'bg-success/10',
     },
   ];
+
+  // Add burned supply if present
+  if (coin.burned_supply && coin.burned_supply > 0) {
+    stats.push({
+      label: 'Burned',
+      value: `${((coin.burned_supply / coin.total_supply) * 100).toFixed(1)}%`,
+      icon: Activity,
+      color: 'text-orange-400',
+      bgColor: 'bg-orange-400/10',
+    });
+  }
 
   return (
     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">

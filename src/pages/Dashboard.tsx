@@ -7,6 +7,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { WalletCard } from '@/components/wallet/WalletCard';
 import { 
   Wallet, 
   TrendingUp, 
@@ -15,7 +16,8 @@ import {
   ArrowUpRight, 
   ArrowDownRight,
   Loader2,
-  Package
+  Package,
+  RefreshCw
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
@@ -46,10 +48,15 @@ interface Transaction {
   };
 }
 
+interface WalletData {
+  fiat_balance: number;
+}
+
 export default function Dashboard() {
   const { user } = useAuth();
   const [holdings, setHoldings] = useState<Holding[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [wallet, setWallet] = useState<WalletData | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -89,11 +96,21 @@ export default function Dashboard() {
         .order('created_at', { ascending: false })
         .limit(20);
 
+      // Fetch wallet
+      const { data: walletData } = await supabase
+        .from('wallets')
+        .select('fiat_balance')
+        .eq('user_id', user?.id)
+        .single();
+
       if (holdingsData) {
         setHoldings(holdingsData as unknown as Holding[]);
       }
       if (txData) {
         setTransactions(txData as unknown as Transaction[]);
+      }
+      if (walletData) {
+        setWallet(walletData);
       }
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
@@ -113,6 +130,8 @@ export default function Dashboard() {
   const totalPnL = totalPortfolioValue - totalInvested;
   const pnlPercentage = totalInvested > 0 ? ((totalPnL / totalInvested) * 100) : 0;
 
+  const totalNetWorth = (wallet?.fiat_balance || 0) + totalPortfolioValue;
+
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
@@ -121,27 +140,48 @@ export default function Dashboard() {
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="mb-8"
+          className="flex items-center justify-between mb-8"
         >
-          <h1 className="text-3xl font-bold font-display mb-2">Dashboard</h1>
-          <p className="text-muted-foreground">
-            Welcome back, {user?.email?.split('@')[0]}
-          </p>
+          <div>
+            <h1 className="text-3xl font-bold font-display mb-2">Dashboard</h1>
+            <p className="text-muted-foreground">
+              Welcome back, {user?.email?.split('@')[0]}
+            </p>
+          </div>
+          <Button variant="outline" size="sm" onClick={fetchData} className="gap-2">
+            <RefreshCw className="h-4 w-4" />
+            Refresh
+          </Button>
         </motion.div>
 
         {/* Portfolio Stats */}
-        <div className="grid gap-4 md:grid-cols-3 mb-8">
+        <div className="grid gap-4 md:grid-cols-4 mb-8">
+          {/* Fiat Wallet */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.05 }}
+          >
+            {user && wallet && (
+              <WalletCard 
+                fiatBalance={wallet.fiat_balance} 
+                userId={user.id}
+                onBalanceChange={fetchData}
+              />
+            )}
+          </motion.div>
+
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1 }}
           >
-            <Card className="glass-card">
+            <Card className="glass-card h-full">
               <CardHeader className="flex flex-row items-center justify-between pb-2">
                 <CardTitle className="text-sm font-medium text-muted-foreground">
-                  Portfolio Value
+                  Crypto Portfolio
                 </CardTitle>
-                <Wallet className="h-4 w-4 text-muted-foreground" />
+                <Coins className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">
@@ -159,7 +199,7 @@ export default function Dashboard() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.2 }}
           >
-            <Card className="glass-card">
+            <Card className="glass-card h-full">
               <CardHeader className="flex flex-row items-center justify-between pb-2">
                 <CardTitle className="text-sm font-medium text-muted-foreground">
                   Total P&L
@@ -183,19 +223,19 @@ export default function Dashboard() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.3 }}
           >
-            <Card className="glass-card">
+            <Card className="glass-card h-full">
               <CardHeader className="flex flex-row items-center justify-between pb-2">
                 <CardTitle className="text-sm font-medium text-muted-foreground">
-                  Total Invested
+                  Net Worth
                 </CardTitle>
-                <Coins className="h-4 w-4 text-muted-foreground" />
+                <Wallet className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">
-                  KES {totalInvested.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                <div className="text-2xl font-bold gradient-text">
+                  KES {totalNetWorth.toLocaleString(undefined, { minimumFractionDigits: 2 })}
                 </div>
                 <p className="text-xs text-muted-foreground mt-1">
-                  Across all positions
+                  Fiat + Crypto
                 </p>
               </CardContent>
             </Card>
@@ -207,11 +247,11 @@ export default function Dashboard() {
           <TabsList>
             <TabsTrigger value="holdings" className="gap-2">
               <Coins className="h-4 w-4" />
-              Holdings
+              Crypto Holdings
             </TabsTrigger>
             <TabsTrigger value="transactions" className="gap-2">
               <History className="h-4 w-4" />
-              Transactions
+              Transaction History
             </TabsTrigger>
           </TabsList>
 
@@ -234,7 +274,7 @@ export default function Dashboard() {
                 </CardContent>
               </Card>
             ) : (
-              <div className="grid gap-4">
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                 {holdings.map((holding) => {
                   const currentValue = holding.amount * (holding.coin?.price || 0);
                   const costBasis = holding.amount * holding.average_buy_price;
@@ -247,39 +287,45 @@ export default function Dashboard() {
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
                     >
-                      <Card className="glass-card hover:border-primary/50 transition-colors">
-                        <CardContent className="p-4">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-4">
-                              <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center">
+                      <Link to={`/coin/${holding.coin?.id}`}>
+                        <Card className="glass-card hover:border-primary/50 transition-all cursor-pointer">
+                          <CardContent className="p-4">
+                            <div className="flex items-center gap-4 mb-4">
+                              <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center overflow-hidden">
                                 {holding.coin?.logo_url ? (
                                   <img 
                                     src={holding.coin.logo_url} 
                                     alt={holding.coin.name}
-                                    className="h-8 w-8 rounded-lg object-cover"
+                                    className="h-full w-full object-cover"
                                   />
                                 ) : (
                                   <Coins className="h-6 w-6 text-primary" />
                                 )}
                               </div>
-                              <div>
+                              <div className="flex-1">
                                 <h4 className="font-semibold">{holding.coin?.name}</h4>
                                 <p className="text-sm text-muted-foreground">
                                   {holding.amount.toLocaleString()} {holding.coin?.symbol}
                                 </p>
                               </div>
                             </div>
-                            <div className="text-right">
-                              <p className="font-semibold">
-                                KES {currentValue.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                              </p>
-                              <p className={`text-sm ${pnl >= 0 ? 'text-success' : 'text-destructive'}`}>
-                                {pnl >= 0 ? '+' : ''}{pnlPercent.toFixed(2)}%
-                              </p>
+                            <div className="grid grid-cols-2 gap-4">
+                              <div>
+                                <p className="text-xs text-muted-foreground">Value</p>
+                                <p className="font-semibold">
+                                  KES {currentValue.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                </p>
+                              </div>
+                              <div className="text-right">
+                                <p className="text-xs text-muted-foreground">P&L</p>
+                                <p className={`font-semibold ${pnl >= 0 ? 'text-success' : 'text-destructive'}`}>
+                                  {pnl >= 0 ? '+' : ''}{pnlPercent.toFixed(2)}%
+                                </p>
+                              </div>
                             </div>
-                          </div>
-                        </CardContent>
-                      </Card>
+                          </CardContent>
+                        </Card>
+                      </Link>
                     </motion.div>
                   );
                 })}
@@ -328,7 +374,7 @@ export default function Dashboard() {
                             <div>
                               <p className="font-medium capitalize">{tx.type} {tx.coin?.symbol}</p>
                               <p className="text-sm text-muted-foreground">
-                                {new Date(tx.created_at).toLocaleDateString()}
+                                {new Date(tx.created_at).toLocaleDateString()} at {new Date(tx.created_at).toLocaleTimeString()}
                               </p>
                             </div>
                           </div>
@@ -340,7 +386,7 @@ export default function Dashboard() {
                               KES {tx.total_value.toLocaleString()}
                             </p>
                           </div>
-                          <div className={`px-2 py-1 rounded text-xs font-medium ${
+                          <div className={`px-3 py-1 rounded-full text-xs font-medium ${
                             tx.status === 'completed' 
                               ? 'bg-success/10 text-success'
                               : tx.status === 'pending'

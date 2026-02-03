@@ -16,12 +16,15 @@ export type Database = {
     Tables: {
       coins: {
         Row: {
+          bonding_curve_factor: number
+          burned_supply: number
           circulating_supply: number
           created_at: string
           creator_id: string | null
           description: string | null
           holders_count: number
           id: string
+          initial_price: number
           is_active: boolean
           is_featured: boolean
           is_trending: boolean
@@ -38,12 +41,15 @@ export type Database = {
           whitepaper_url: string | null
         }
         Insert: {
+          bonding_curve_factor?: number
+          burned_supply?: number
           circulating_supply?: number
           created_at?: string
           creator_id?: string | null
           description?: string | null
           holders_count?: number
           id?: string
+          initial_price?: number
           is_active?: boolean
           is_featured?: boolean
           is_trending?: boolean
@@ -60,12 +66,15 @@ export type Database = {
           whitepaper_url?: string | null
         }
         Update: {
+          bonding_curve_factor?: number
+          burned_supply?: number
           circulating_supply?: number
           created_at?: string
           creator_id?: string | null
           description?: string | null
           holders_count?: number
           id?: string
+          initial_price?: number
           is_active?: boolean
           is_featured?: boolean
           is_trending?: boolean
@@ -82,6 +91,38 @@ export type Database = {
           whitepaper_url?: string | null
         }
         Relationships: []
+      }
+      commission_transactions: {
+        Row: {
+          amount: number
+          commission_rate: number
+          created_at: string
+          id: string
+          transaction_id: string | null
+        }
+        Insert: {
+          amount: number
+          commission_rate: number
+          created_at?: string
+          id?: string
+          transaction_id?: string | null
+        }
+        Update: {
+          amount?: number
+          commission_rate?: number
+          created_at?: string
+          id?: string
+          transaction_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "commission_transactions_transaction_id_fkey"
+            columns: ["transaction_id"]
+            isOneToOne: false
+            referencedRelation: "transactions"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       holdings: {
         Row: {
@@ -192,8 +233,22 @@ export type Database = {
       }
       site_settings: {
         Row: {
+          admin_commission: number
           created_at: string
+          cta_subtitle: string | null
+          cta_title: string | null
+          feature_1_description: string | null
+          feature_1_title: string | null
+          feature_2_description: string | null
+          feature_2_title: string | null
+          feature_3_description: string | null
+          feature_3_title: string | null
+          feature_4_description: string | null
+          feature_4_title: string | null
           fee_percentage: number
+          hero_badge: string | null
+          hero_subtitle: string | null
+          hero_title: string | null
           id: string
           logo_url: string | null
           max_buy_amount: number
@@ -201,11 +256,29 @@ export type Database = {
           primary_color: string | null
           site_description: string | null
           site_name: string
+          stats_tokens: string | null
+          stats_traders: string | null
+          stats_uptime: string | null
+          stats_volume: string | null
           updated_at: string
         }
         Insert: {
+          admin_commission?: number
           created_at?: string
+          cta_subtitle?: string | null
+          cta_title?: string | null
+          feature_1_description?: string | null
+          feature_1_title?: string | null
+          feature_2_description?: string | null
+          feature_2_title?: string | null
+          feature_3_description?: string | null
+          feature_3_title?: string | null
+          feature_4_description?: string | null
+          feature_4_title?: string | null
           fee_percentage?: number
+          hero_badge?: string | null
+          hero_subtitle?: string | null
+          hero_title?: string | null
           id?: string
           logo_url?: string | null
           max_buy_amount?: number
@@ -213,11 +286,29 @@ export type Database = {
           primary_color?: string | null
           site_description?: string | null
           site_name?: string
+          stats_tokens?: string | null
+          stats_traders?: string | null
+          stats_uptime?: string | null
+          stats_volume?: string | null
           updated_at?: string
         }
         Update: {
+          admin_commission?: number
           created_at?: string
+          cta_subtitle?: string | null
+          cta_title?: string | null
+          feature_1_description?: string | null
+          feature_1_title?: string | null
+          feature_2_description?: string | null
+          feature_2_title?: string | null
+          feature_3_description?: string | null
+          feature_3_title?: string | null
+          feature_4_description?: string | null
+          feature_4_title?: string | null
           fee_percentage?: number
+          hero_badge?: string | null
+          hero_subtitle?: string | null
+          hero_title?: string | null
           id?: string
           logo_url?: string | null
           max_buy_amount?: number
@@ -225,6 +316,10 @@ export type Database = {
           primary_color?: string | null
           site_description?: string | null
           site_name?: string
+          stats_tokens?: string | null
+          stats_traders?: string | null
+          stats_uptime?: string | null
+          stats_volume?: string | null
           updated_at?: string
         }
         Relationships: []
@@ -303,11 +398,43 @@ export type Database = {
         }
         Relationships: []
       }
+      wallets: {
+        Row: {
+          created_at: string
+          fiat_balance: number
+          id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          fiat_balance?: number
+          id?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          fiat_balance?: number
+          id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
+      calculate_bonding_price: {
+        Args: {
+          _bonding_factor: number
+          _circulating_supply: number
+          _initial_price: number
+        }
+        Returns: number
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]

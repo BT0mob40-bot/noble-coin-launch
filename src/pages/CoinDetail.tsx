@@ -35,6 +35,7 @@ interface CoinData {
   volatility: number;
   total_supply: number;
   circulating_supply: number;
+  burned_supply?: number;
   is_trending: boolean;
   is_featured: boolean;
   trading_paused: boolean;
@@ -46,6 +47,7 @@ interface SiteSettings {
   min_buy_amount: number;
   max_buy_amount: number;
   fee_percentage: number;
+  admin_commission: number;
 }
 
 export default function CoinDetail() {
@@ -58,10 +60,12 @@ export default function CoinDetail() {
   const [waitingForPayment, setWaitingForPayment] = useState(false);
   const [currentTransactionId, setCurrentTransactionId] = useState<string | null>(null);
   const [userHolding, setUserHolding] = useState<number>(0);
+  const [userFiatBalance, setUserFiatBalance] = useState<number>(0);
   const [settings, setSettings] = useState<SiteSettings>({
     min_buy_amount: 100,
     max_buy_amount: 100000,
     fee_percentage: 2.5,
+    admin_commission: 2.5,
   });
   const [processing, setProcessing] = useState(false);
 
@@ -73,7 +77,7 @@ export default function CoinDetail() {
 
   useEffect(() => {
     if (user && coin) {
-      fetchUserHolding();
+      fetchUserData();
     }
   }, [user, coin]);
 
@@ -82,7 +86,7 @@ export default function CoinDetail() {
     try {
       const [coinResult, settingsResult] = await Promise.all([
         supabase.from('coins').select('*').eq('id', id).maybeSingle(),
-        supabase.from('site_settings').select('min_buy_amount, max_buy_amount, fee_percentage').maybeSingle(),
+        supabase.from('site_settings').select('min_buy_amount, max_buy_amount, fee_percentage, admin_commission').maybeSingle(),
       ]);
 
       if (coinResult.error) throw coinResult.error;
@@ -103,87 +107,176 @@ export default function CoinDetail() {
     }
   };
 
-  const fetchUserHolding = async () => {
+  const fetchUserData = async () => {
     if (!user || !coin) return;
     
-    const { data } = await supabase
+    // Fetch holding
+    const { data: holdingData } = await supabase
       .from('holdings')
       .select('amount')
       .eq('user_id', user.id)
       .eq('coin_id', coin.id)
       .maybeSingle();
 
-    if (data) {
-      setUserHolding(data.amount);
+    if (holdingData) {
+      setUserHolding(holdingData.amount);
+    }
+
+    // Fetch wallet
+    const { data: walletData } = await supabase
+      .from('wallets')
+      .select('fiat_balance')
+      .eq('user_id', user.id)
+      .maybeSingle();
+
+    if (walletData) {
+      setUserFiatBalance(walletData.fiat_balance);
     }
   };
 
-  const handleBuy = async (amount: number, phone: string) => {
+  const handleBuy = async (amount: number, phone: string, useWallet: boolean) => {
     if (!user || !coin) {
       toast.error('Please sign in to buy coins');
       return;
     }
 
-    // Format phone number
-    let formattedPhone = phone.replace(/\s+/g, '').replace(/^\+/, '');
-    if (!formattedPhone || formattedPhone.length < 9) {
-      toast.error('Please enter a valid phone number');
-      return;
-    }
+    const totalValue = amount * coin.price;
+    const fee = totalValue * (settings.fee_percentage / 100);
+    const totalWithFee = totalValue + fee;
 
     setProcessing(true);
     try {
-      // Create transaction record
-      const totalValue = amount * coin.price;
-      const { data: transaction, error: txError } = await supabase
-        .from('transactions')
-        .insert({
-          user_id: user.id,
-          coin_id: coin.id,
-          type: 'buy',
-          amount: amount,
-          price_per_coin: coin.price,
-          total_value: totalValue,
-          phone: phone,
-          status: 'pending',
-        })
-        .select()
-        .single();
+      if (useWallet) {
+        // Buy with wallet balance
+        if (totalWithFee > userFiatBalance) {
+          toast.error('Insufficient wallet balance');
+          setProcessing(false);
+          return;
+        }
 
-      if (txError) throw txError;
+        // Create transaction
+        const { data: transaction, error: txError } = await supabase
+          .from('transactions')
+          .insert({
+            user_id: user.id,
+            coin_id: coin.id,
+            type: 'buy',
+            amount: amount,
+            price_per_coin: coin.price,
+            total_value: totalValue,
+            status: 'completed',
+          })
+          .select()
+          .single();
 
-      // Show payment modal
-      setCurrentTransactionId(transaction.id);
-      setShowPaymentModal(true);
-      setWaitingForPayment(true);
+        if (txError) throw txError;
 
-      // Initiate STK Push
-      const { data: stkData, error: stkError } = await supabase.functions.invoke('mpesa-stk-push', {
-        body: {
-          phone: formattedPhone,
-          amount: Math.round(totalValue),
-          transactionId: transaction.id,
-          accountReference: `${coin.symbol}-${transaction.id.slice(0, 8)}`,
-        },
-      });
+        // Deduct from wallet
+        await supabase
+          .from('wallets')
+          .update({ fiat_balance: userFiatBalance - totalWithFee })
+          .eq('user_id', user.id);
 
-      if (stkError) {
-        console.error('STK Push error:', stkError);
-        toast.error('Failed to initiate M-PESA payment');
-        setWaitingForPayment(false);
-        setShowPaymentModal(false);
-        return;
+        // Add commission record
+        await supabase
+          .from('commission_transactions')
+          .insert({
+            transaction_id: transaction.id,
+            amount: fee,
+            commission_rate: settings.fee_percentage,
+          });
+
+        // Update holdings
+        const { data: existingHolding } = await supabase
+          .from('holdings')
+          .select('id, amount, average_buy_price')
+          .eq('user_id', user.id)
+          .eq('coin_id', coin.id)
+          .maybeSingle();
+
+        if (existingHolding) {
+          const newAmount = existingHolding.amount + amount;
+          const newAvgPrice = ((existingHolding.amount * existingHolding.average_buy_price) + (amount * coin.price)) / newAmount;
+          await supabase
+            .from('holdings')
+            .update({ amount: newAmount, average_buy_price: newAvgPrice })
+            .eq('id', existingHolding.id);
+        } else {
+          await supabase
+            .from('holdings')
+            .insert({
+              user_id: user.id,
+              coin_id: coin.id,
+              amount: amount,
+              average_buy_price: coin.price,
+            });
+        }
+
+        // Update coin circulating supply (triggers bonding curve)
+        await supabase
+          .from('coins')
+          .update({ 
+            circulating_supply: coin.circulating_supply + amount,
+            holders_count: existingHolding ? coin.holders_count : coin.holders_count + 1
+          })
+          .eq('id', coin.id);
+
+        toast.success('Purchase successful!');
+        fetchUserData();
+        fetchData();
+      } else {
+        // Buy with M-PESA
+        let formattedPhone = phone.replace(/\s+/g, '').replace(/^\+/, '');
+        if (!formattedPhone || formattedPhone.length < 9) {
+          toast.error('Please enter a valid phone number');
+          setProcessing(false);
+          return;
+        }
+
+        // Create transaction record
+        const { data: transaction, error: txError } = await supabase
+          .from('transactions')
+          .insert({
+            user_id: user.id,
+            coin_id: coin.id,
+            type: 'buy',
+            amount: amount,
+            price_per_coin: coin.price,
+            total_value: totalValue,
+            phone: phone,
+            status: 'pending',
+          })
+          .select()
+          .single();
+
+        if (txError) throw txError;
+
+        // Show payment modal
+        setCurrentTransactionId(transaction.id);
+        setShowPaymentModal(true);
+        setWaitingForPayment(true);
+
+        // Initiate STK Push
+        const { data: stkData, error: stkError } = await supabase.functions.invoke('mpesa-stk-push', {
+          body: {
+            phone: formattedPhone,
+            amount: Math.round(totalWithFee),
+            transactionId: transaction.id,
+            accountReference: `${coin.symbol}-${transaction.id.slice(0, 8)}`,
+          },
+        });
+
+        if (stkError || !stkData?.success) {
+          console.error('STK Push error:', stkError);
+          toast.error(stkData?.error || 'Failed to initiate M-PESA payment');
+          setWaitingForPayment(false);
+          setShowPaymentModal(false);
+          return;
+        }
+
+        toast.success('Check your phone for M-PESA prompt!');
+        startPolling(transaction.id);
       }
-
-      if (!stkData?.success) {
-        toast.error(stkData?.error || 'Failed to send STK Push');
-        setWaitingForPayment(false);
-        setShowPaymentModal(false);
-        return;
-      }
-
-      toast.success('Check your phone for M-PESA prompt!');
-      startPolling(transaction.id);
     } catch (error: any) {
       toast.error(error.message || 'Failed to process transaction');
       setWaitingForPayment(false);
@@ -193,7 +286,7 @@ export default function CoinDetail() {
     }
   };
 
-  const handleSell = async (amount: number, phone: string) => {
+  const handleSell = async (amount: number, toWallet: boolean) => {
     if (!user || !coin) {
       toast.error('Please sign in to sell coins');
       return;
@@ -204,26 +297,37 @@ export default function CoinDetail() {
       return;
     }
 
-    if (!phone || phone.length < 10) {
-      toast.error('Please enter a valid phone number');
-      return;
-    }
-
     setProcessing(true);
     try {
       const totalValue = amount * coin.price;
-      const { error } = await supabase.from('transactions').insert({
-        user_id: user.id,
-        coin_id: coin.id,
-        type: 'sell',
-        amount: amount,
-        price_per_coin: coin.price,
-        total_value: totalValue,
-        phone: phone,
-        status: 'pending',
-      });
+      const fee = totalValue * (settings.fee_percentage / 100);
+      const netValue = totalValue - fee;
+
+      // Create transaction
+      const { data: transaction, error } = await supabase
+        .from('transactions')
+        .insert({
+          user_id: user.id,
+          coin_id: coin.id,
+          type: 'sell',
+          amount: amount,
+          price_per_coin: coin.price,
+          total_value: totalValue,
+          status: 'completed',
+        })
+        .select()
+        .single();
 
       if (error) throw error;
+
+      // Add commission record
+      await supabase
+        .from('commission_transactions')
+        .insert({
+          transaction_id: transaction.id,
+          amount: fee,
+          commission_rate: settings.fee_percentage,
+        });
 
       // Deduct from holdings
       const newAmount = userHolding - amount;
@@ -241,8 +345,29 @@ export default function CoinDetail() {
           .eq('coin_id', coin.id);
       }
 
-      toast.success('Sell order placed! Funds will be sent to your M-PESA.');
-      fetchUserHolding();
+      // Update coin circulating supply (triggers bonding curve)
+      await supabase
+        .from('coins')
+        .update({ 
+          circulating_supply: coin.circulating_supply - amount,
+          holders_count: newAmount <= 0 ? coin.holders_count - 1 : coin.holders_count
+        })
+        .eq('id', coin.id);
+
+      if (toWallet) {
+        // Add to fiat wallet
+        await supabase
+          .from('wallets')
+          .update({ fiat_balance: userFiatBalance + netValue })
+          .eq('user_id', user.id);
+        toast.success(`Sold! KES ${netValue.toLocaleString()} added to your wallet.`);
+      } else {
+        // In production, this would trigger B2C payment
+        toast.success('Sell order placed! Funds will be sent to your M-PESA.');
+      }
+
+      fetchUserData();
+      fetchData();
     } catch (error: any) {
       toast.error(error.message || 'Failed to process transaction');
     } finally {
@@ -262,7 +387,8 @@ export default function CoinDetail() {
         setWaitingForPayment(false);
         setShowPaymentModal(false);
         toast.success('Payment successful! Coins added to your wallet.');
-        fetchUserHolding();
+        fetchUserData();
+        fetchData();
       } else if (updatedTx?.status === 'failed') {
         setWaitingForPayment(false);
         setShowPaymentModal(false);
@@ -395,11 +521,12 @@ export default function CoinDetail() {
             className="lg:sticky lg:top-20 h-fit"
           >
             <Card className="glass-card overflow-hidden">
-              <CardContent className="p-0 h-[600px]">
+              <CardContent className="p-0 h-[650px]">
                 <TradingPanel
                   symbol={coin.symbol}
                   currentPrice={coin.price}
                   userBalance={userHolding}
+                  userFiatBalance={userFiatBalance}
                   minBuyAmount={settings.min_buy_amount}
                   maxBuyAmount={settings.max_buy_amount}
                   feePercentage={settings.fee_percentage}

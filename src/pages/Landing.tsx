@@ -4,8 +4,10 @@ import { Navbar } from '@/components/layout/Navbar';
 import { Footer } from '@/components/layout/Footer';
 import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
-import { Rocket, Shield, Zap, TrendingUp, ArrowRight, Coins, Users, Flame } from 'lucide-react';
+import { Rocket, Shield, Zap, TrendingUp, ArrowRight, Coins, Users, Flame, ArrowDown } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { SimulatedChart } from '@/components/landing/SimulatedChart';
+import { SimulatedOrderBook } from '@/components/landing/SimulatedOrderBook';
 
 interface SiteSettings {
   site_name: string;
@@ -26,6 +28,7 @@ interface SiteSettings {
   stats_uptime: string;
   cta_title: string;
   cta_subtitle: string;
+  coin_creation_fee?: number;
 }
 
 const defaultSettings: SiteSettings = {
@@ -47,6 +50,7 @@ const defaultSettings: SiteSettings = {
   stats_uptime: '99.9%',
   cta_title: 'Join the Revolution',
   cta_subtitle: 'Start trading crypto today with the easiest mobile money integration in Africa.',
+  coin_creation_fee: 500000,
 };
 
 const featureIcons = [
@@ -199,6 +203,95 @@ export default function Landing() {
         </div>
       </section>
 
+      {/* Live Trading Preview */}
+      <section className="py-20 border-t border-border/50 relative overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-primary/5 to-transparent" />
+        <div className="container relative z-10">
+          <motion.div
+            initial={{ opacity: 0 }}
+            whileInView={{ opacity: 1 }}
+            viewport={{ once: true }}
+            className="text-center mb-12"
+          >
+            <h2 className="text-3xl sm:text-4xl font-bold font-display mb-4">
+              Live <span className="gradient-text">Market Preview</span>
+            </h2>
+            <p className="text-muted-foreground max-w-2xl mx-auto">
+              Watch real-time simulated trading activity. Our bonding curve technology ensures fair pricing.
+            </p>
+          </motion.div>
+
+          <div className="grid md:grid-cols-3 gap-6">
+            {/* Chart 1 - Uptrend */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              className="glass-card p-4"
+            >
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-full bg-gradient-to-br from-success to-primary flex items-center justify-center">
+                    <span className="text-sm font-bold text-white">SL</span>
+                  </div>
+                  <div>
+                    <p className="font-semibold">SafariLion</p>
+                    <p className="text-xs text-success">+12.5%</p>
+                  </div>
+                </div>
+                <Button size="sm" variant="hero" onClick={() => navigate('/launchpad')}>
+                  Buy
+                </Button>
+              </div>
+              <SimulatedChart basePrice={0.05} trend="up" className="h-40" />
+            </motion.div>
+
+            {/* Chart 2 - Order Book */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: 0.1 }}
+              className="glass-card p-4"
+            >
+              <SimulatedOrderBook basePrice={0.0234} />
+            </motion.div>
+
+            {/* Chart 3 - Volatile */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: 0.2 }}
+              className="glass-card p-4"
+            >
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-full bg-gradient-to-br from-warning to-orange-500 flex items-center justify-center">
+                    <span className="text-sm font-bold text-white">NM</span>
+                  </div>
+                  <div>
+                    <p className="font-semibold">NairobiMeme</p>
+                    <p className="text-xs text-warning">High Volatility</p>
+                  </div>
+                </div>
+                <Button size="sm" variant="hero" onClick={() => navigate('/launchpad')}>
+                  Buy
+                </Button>
+              </div>
+              <SimulatedChart basePrice={0.001} trend="volatile" className="h-40" />
+            </motion.div>
+          </div>
+
+          <div className="text-center mt-8">
+            <Button variant="glass" size="lg" onClick={() => navigate('/launchpad')} className="gap-2">
+              View All Tokens
+              <ArrowRight className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      </section>
+
       {/* Features Section */}
       <section className="py-20 border-t border-border/50 relative">
         <div className="absolute inset-0 bg-gradient-to-b from-transparent via-primary/5 to-transparent" />
@@ -301,6 +394,41 @@ export default function Landing() {
               </p>
             </motion.div>
           </div>
+        </div>
+      </section>
+
+      {/* Coin Creation Fee Section */}
+      <section className="py-20 border-t border-border/50">
+        <div className="container">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            whileInView={{ opacity: 1, scale: 1 }}
+            viewport={{ once: true }}
+            className="glass-card p-8 sm:p-12 text-center relative overflow-hidden"
+          >
+            <div className="absolute inset-0 bg-gradient-to-r from-warning/10 via-transparent to-warning/10" />
+            <div className="relative z-10">
+              <Coins className="h-12 w-12 text-warning mx-auto mb-6" />
+              <h2 className="text-3xl sm:text-4xl font-bold font-display mb-4">
+                Launch Your Own Token
+              </h2>
+              <p className="text-muted-foreground max-w-xl mx-auto mb-6">
+                Create your token on our platform. The creation fee helps ensure quality projects and prevents spam.
+              </p>
+              <div className="inline-block p-6 rounded-xl bg-warning/10 border border-warning/30 mb-6">
+                <p className="text-sm text-muted-foreground mb-2">Coin Creation Fee</p>
+                <p className="text-4xl font-bold text-warning">
+                  KES {(settings.coin_creation_fee || 500000).toLocaleString()}
+                </p>
+              </div>
+              <div className="flex flex-col sm:flex-row gap-4 justify-center">
+                <Button variant="hero" size="lg" onClick={() => navigate('/auth')} className="gap-2">
+                  <Rocket className="h-5 w-5" />
+                  Start Creating
+                </Button>
+              </div>
+            </div>
+          </motion.div>
         </div>
       </section>
 

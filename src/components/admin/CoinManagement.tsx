@@ -257,22 +257,27 @@ export function CoinManagement({ userId, isSuperAdmin }: CoinManagementProps) {
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-1">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleUpdateCoin(coin.id, { is_featured: !coin.is_featured })}
-                          title="Toggle Featured"
-                        >
-                          <Star className={`h-4 w-4 ${coin.is_featured ? 'fill-yellow-400 text-yellow-400' : ''}`} />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleUpdateCoin(coin.id, { is_trending: !coin.is_trending })}
-                          title="Toggle Trending"
-                        >
-                          <TrendingUp className={`h-4 w-4 ${coin.is_trending ? 'text-success' : ''}`} />
-                        </Button>
+                        {/* Only Super Admin can set Featured/Trending */}
+                        {isSuperAdmin && (
+                          <>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleUpdateCoin(coin.id, { is_featured: !coin.is_featured })}
+                              title="Toggle Featured (Super Admin Only)"
+                            >
+                              <Star className={`h-4 w-4 ${coin.is_featured ? 'fill-yellow-400 text-yellow-400' : ''}`} />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleUpdateCoin(coin.id, { is_trending: !coin.is_trending })}
+                              title="Toggle Trending (Super Admin Only)"
+                            >
+                              <TrendingUp className={`h-4 w-4 ${coin.is_trending ? 'text-success' : ''}`} />
+                            </Button>
+                          </>
+                        )}
                         <Button
                           variant="ghost"
                           size="icon"

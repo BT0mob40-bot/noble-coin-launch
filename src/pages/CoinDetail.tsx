@@ -81,6 +81,32 @@ export default function CoinDetail() {
     }
   }, [user, coin]);
 
+  // Real-time subscription for coin price updates
+  useEffect(() => {
+    if (!id) return;
+
+    const channel = supabase
+      .channel(`coin-${id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'coins',
+          filter: `id=eq.${id}`,
+        },
+        (payload) => {
+          console.log('Real-time coin update:', payload.new);
+          setCoin(payload.new as CoinData);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [id]);
+
   const fetchData = async () => {
     setLoading(true);
     try {

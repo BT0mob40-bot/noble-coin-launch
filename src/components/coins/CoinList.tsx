@@ -2,13 +2,15 @@ import { useState } from 'react';
 import { CoinCard } from './CoinCard';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Flame, Sparkles, Star, Loader2 } from 'lucide-react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { useEffect } from 'react';
 
 type FilterTab = 'trending' | 'latest' | 'featured';
 
 export function CoinList() {
   const [activeTab, setActiveTab] = useState<FilterTab>('trending');
+  const queryClient = useQueryClient();
 
   const { data: coins, isLoading } = useQuery({
     queryKey: ['coins', activeTab],
@@ -31,6 +33,30 @@ export function CoinList() {
       return data;
     },
   });
+
+  // Real-time subscription for coin updates
+  useEffect(() => {
+    const channel = supabase
+      .channel('coins-realtime')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'coins',
+        },
+        (payload) => {
+          console.log('Coin update:', payload);
+          // Invalidate and refetch
+          queryClient.invalidateQueries({ queryKey: ['coins'] });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [queryClient]);
 
   return (
     <div className="space-y-6">

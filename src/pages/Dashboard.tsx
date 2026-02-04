@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { WalletCard } from '@/components/wallet/WalletCard';
+import { ReferralCard } from '@/components/referral/ReferralCard';
 import { 
   Wallet, 
   TrendingUp, 
@@ -17,7 +18,8 @@ import {
   ArrowDownRight,
   Loader2,
   Package,
-  RefreshCw
+  RefreshCw,
+  Gift
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
@@ -253,6 +255,10 @@ export default function Dashboard() {
               <History className="h-4 w-4" />
               Transaction History
             </TabsTrigger>
+            <TabsTrigger value="referrals" className="gap-2">
+              <Gift className="h-4 w-4" />
+              Referrals
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="holdings">
@@ -402,6 +408,10 @@ export default function Dashboard() {
                 ))}
               </div>
             )}
+          </TabsContent>
+
+          <TabsContent value="referrals">
+            {user && <ReferralCard userId={user.id} />}
           </TabsContent>
         </Tabs>
       </main>

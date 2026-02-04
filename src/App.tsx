@@ -11,7 +11,11 @@ import Launchpad from "./pages/Launchpad";
 import CoinDetail from "./pages/CoinDetail";
 import Dashboard from "./pages/Dashboard";
 import Admin from "./pages/Admin";
+import Terms from "./pages/Terms";
+import Privacy from "./pages/Privacy";
+import About from "./pages/About";
 import NotFound from "./pages/NotFound";
+import ErrorPage from "./pages/Error";
 
 const queryClient = new QueryClient();
 
@@ -28,6 +32,10 @@ const App = () => (
             <Route path="/auth" element={<Auth />} />
             <Route path="/launchpad" element={<Launchpad />} />
             <Route path="/coin/:id" element={<CoinDetail />} />
+            <Route path="/terms" element={<Terms />} />
+            <Route path="/privacy" element={<Privacy />} />
+            <Route path="/about" element={<About />} />
+            <Route path="/error" element={<ErrorPage />} />
             
             {/* Protected Routes - User */}
             <Route 

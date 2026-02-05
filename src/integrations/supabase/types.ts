@@ -16,16 +16,19 @@ export type Database = {
     Tables: {
       coins: {
         Row: {
+          approval_status: string | null
           bonding_curve_factor: number
           burned_supply: number
           circulating_supply: number
           created_at: string
+          creation_fee_paid: boolean
           creator_id: string | null
           description: string | null
           holders_count: number
           id: string
           initial_price: number
           is_active: boolean
+          is_approved: boolean
           is_featured: boolean
           is_trending: boolean
           liquidity: number
@@ -41,16 +44,19 @@ export type Database = {
           whitepaper_url: string | null
         }
         Insert: {
+          approval_status?: string | null
           bonding_curve_factor?: number
           burned_supply?: number
           circulating_supply?: number
           created_at?: string
+          creation_fee_paid?: boolean
           creator_id?: string | null
           description?: string | null
           holders_count?: number
           id?: string
           initial_price?: number
           is_active?: boolean
+          is_approved?: boolean
           is_featured?: boolean
           is_trending?: boolean
           liquidity?: number
@@ -66,16 +72,19 @@ export type Database = {
           whitepaper_url?: string | null
         }
         Update: {
+          approval_status?: string | null
           bonding_curve_factor?: number
           burned_supply?: number
           circulating_supply?: number
           created_at?: string
+          creation_fee_paid?: boolean
           creator_id?: string | null
           description?: string | null
           holders_count?: number
           id?: string
           initial_price?: number
           is_active?: boolean
+          is_approved?: boolean
           is_featured?: boolean
           is_trending?: boolean
           liquidity?: number
@@ -206,6 +215,8 @@ export type Database = {
           full_name: string | null
           id: string
           phone: string | null
+          referral_code: string | null
+          referred_by: string | null
           updated_at: string
           user_id: string
         }
@@ -216,6 +227,8 @@ export type Database = {
           full_name?: string | null
           id?: string
           phone?: string | null
+          referral_code?: string | null
+          referred_by?: string | null
           updated_at?: string
           user_id: string
         }
@@ -226,14 +239,62 @@ export type Database = {
           full_name?: string | null
           id?: string
           phone?: string | null
+          referral_code?: string | null
+          referred_by?: string | null
           updated_at?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      referral_commissions: {
+        Row: {
+          amount: number
+          created_at: string
+          id: string
+          referral_id: string
+          transaction_id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          id?: string
+          referral_id: string
+          transaction_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          id?: string
+          referral_id?: string
+          transaction_id?: string
+        }
+        Relationships: []
+      }
+      referrals: {
+        Row: {
+          created_at: string
+          id: string
+          referred_id: string
+          referrer_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          referred_id: string
+          referrer_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          referred_id?: string
+          referrer_id?: string
         }
         Relationships: []
       }
       site_settings: {
         Row: {
           admin_commission: number
+          coin_creation_fee: number
           created_at: string
           cta_subtitle: string | null
           cta_title: string | null
@@ -254,6 +315,7 @@ export type Database = {
           max_buy_amount: number
           min_buy_amount: number
           primary_color: string | null
+          referral_commission_percentage: number
           site_description: string | null
           site_name: string
           stats_tokens: string | null
@@ -264,6 +326,7 @@ export type Database = {
         }
         Insert: {
           admin_commission?: number
+          coin_creation_fee?: number
           created_at?: string
           cta_subtitle?: string | null
           cta_title?: string | null
@@ -284,6 +347,7 @@ export type Database = {
           max_buy_amount?: number
           min_buy_amount?: number
           primary_color?: string | null
+          referral_commission_percentage?: number
           site_description?: string | null
           site_name?: string
           stats_tokens?: string | null
@@ -294,6 +358,7 @@ export type Database = {
         }
         Update: {
           admin_commission?: number
+          coin_creation_fee?: number
           created_at?: string
           cta_subtitle?: string | null
           cta_title?: string | null
@@ -314,6 +379,7 @@ export type Database = {
           max_buy_amount?: number
           min_buy_amount?: number
           primary_color?: string | null
+          referral_commission_percentage?: number
           site_description?: string | null
           site_name?: string
           stats_tokens?: string | null
@@ -435,6 +501,8 @@ export type Database = {
         }
         Returns: number
       }
+      generate_referral_code: { Args: never; Returns: string }
+      get_base_url: { Args: never; Returns: string }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]

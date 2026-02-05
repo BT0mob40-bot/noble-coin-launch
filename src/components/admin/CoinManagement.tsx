@@ -341,6 +341,7 @@ export function CoinManagement({ userId, isSuperAdmin }: CoinManagementProps) {
         onOpenChange={setShowCreateCoin}
         onSuccess={fetchCoins}
         userId={userId}
+        isSuperAdmin={isSuperAdmin}
       />
 
       {/* Burn Dialog */}

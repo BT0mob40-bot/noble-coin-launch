@@ -1,11 +1,12 @@
-import { useState, useEffect } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useState, useEffect, useRef } from 'react';
+import { useParams, useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Navbar } from '@/components/layout/Navbar';
 import { Footer } from '@/components/layout/Footer';
 import { useAuth } from '@/lib/auth-context';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import { SpiralLoader } from '@/components/ui/spiral-loader';
 import { TradingChart } from '@/components/trading/TradingChart';
 import { OrderBook } from '@/components/trading/OrderBook';
@@ -13,7 +14,7 @@ import { TradeHistory } from '@/components/trading/TradeHistory';
 import { TradingPanel } from '@/components/trading/TradingPanel';
 import { MarketStats } from '@/components/trading/MarketStats';
 import { CoinInfo } from '@/components/trading/CoinInfo';
-import { ArrowLeft, Loader2, AlertCircle } from 'lucide-react';
+import { ArrowLeft, Loader2, AlertCircle, ArrowDown } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -52,8 +53,10 @@ interface SiteSettings {
 
 export default function CoinDetail() {
   const { id } = useParams<{ id: string }>();
+  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const tradingPanelRef = useRef<HTMLDivElement>(null);
   const [coin, setCoin] = useState<CoinData | null>(null);
   const [loading, setLoading] = useState(true);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
@@ -80,6 +83,16 @@ export default function CoinDetail() {
       fetchUserData();
     }
   }, [user, coin]);
+
+  // Auto-scroll to trading panel if action=buy
+  useEffect(() => {
+    const action = searchParams.get('action');
+    if (action === 'buy' && tradingPanelRef.current && !loading) {
+      setTimeout(() => {
+        tradingPanelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 500);
+    }
+  }, [searchParams, loading, coin]);
 
   // Real-time subscription for coin price updates
   useEffect(() => {
@@ -158,6 +171,10 @@ export default function CoinDetail() {
     if (walletData) {
       setUserFiatBalance(walletData.fiat_balance);
     }
+  };
+
+  const scrollToTrading = () => {
+    tradingPanelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
 
   const handleBuy = async (amount: number, phone: string, useWallet: boolean) => {
@@ -446,7 +463,7 @@ export default function CoinDetail() {
     <div className="min-h-screen bg-background">
       <Navbar />
       
-      <main className="container pt-20 pb-8">
+      <main className="container pt-20 pb-8 px-4 sm:px-6">
         {/* Back Button */}
         <Link 
           to="/launchpad" 
@@ -461,12 +478,25 @@ export default function CoinDetail() {
           <motion.div
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
-            className="mb-4 p-4 rounded-lg bg-warning/10 border border-warning/20 flex items-center gap-3"
+            className="mb-4 p-3 sm:p-4 rounded-lg bg-warning/10 border border-warning/20 flex items-center gap-3"
           >
-            <AlertCircle className="h-5 w-5 text-warning" />
-            <span className="text-warning font-medium">Trading is currently paused for this coin</span>
+            <AlertCircle className="h-5 w-5 text-warning flex-shrink-0" />
+            <span className="text-warning font-medium text-sm sm:text-base">Trading is currently paused for this coin</span>
           </motion.div>
         )}
+
+        {/* Mobile Buy Button - Fixed */}
+        <div className="lg:hidden fixed bottom-4 left-4 right-4 z-40">
+          <Button 
+            variant="hero" 
+            size="lg" 
+            className="w-full gap-2 shadow-xl"
+            onClick={scrollToTrading}
+          >
+            <ArrowDown className="h-5 w-5" />
+            Buy {coin.symbol}
+          </Button>
+        </div>
 
         {/* Market Stats */}
         <motion.div
@@ -488,7 +518,7 @@ export default function CoinDetail() {
               transition={{ delay: 0.1 }}
             >
               <Card className="glass-card overflow-hidden">
-                <CardContent className="p-4 h-[450px]">
+                <CardContent className="p-2 sm:p-4 h-[300px] sm:h-[450px]">
                   <TradingChart 
                     symbol={coin.symbol} 
                     currentPrice={coin.price} 
@@ -499,14 +529,14 @@ export default function CoinDetail() {
             </motion.div>
 
             {/* Order Book & Trade History */}
-            <div className="grid gap-4 md:grid-cols-2">
+            <div className="grid gap-4 sm:grid-cols-2">
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.2 }}
               >
-                <Card className="glass-card h-[400px]">
-                  <CardContent className="p-4 h-full">
+                <Card className="glass-card h-[300px] sm:h-[400px]">
+                  <CardContent className="p-2 sm:p-4 h-full">
                     <OrderBook currentPrice={coin.price} symbol={coin.symbol} />
                   </CardContent>
                 </Card>
@@ -517,8 +547,8 @@ export default function CoinDetail() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.3 }}
               >
-                <Card className="glass-card h-[400px]">
-                  <CardContent className="p-4 h-full">
+                <Card className="glass-card h-[300px] sm:h-[400px]">
+                  <CardContent className="p-2 sm:p-4 h-full">
                     <TradeHistory currentPrice={coin.price} symbol={coin.symbol} />
                   </CardContent>
                 </Card>
@@ -532,7 +562,7 @@ export default function CoinDetail() {
               transition={{ delay: 0.4 }}
             >
               <Card className="glass-card">
-                <CardContent className="p-6">
+                <CardContent className="p-4 sm:p-6">
                   <CoinInfo coin={coin} />
                 </CardContent>
               </Card>
@@ -541,13 +571,15 @@ export default function CoinDetail() {
 
           {/* Right Column - Trading Panel */}
           <motion.div
+            ref={tradingPanelRef}
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: 0.2 }}
-            className="lg:sticky lg:top-20 h-fit"
+            className="lg:sticky lg:top-20 h-fit mb-20 lg:mb-0"
+            id="trading-panel"
           >
             <Card className="glass-card overflow-hidden">
-              <CardContent className="p-0 h-[650px]">
+              <CardContent className="p-0 h-[550px] sm:h-[650px]">
                 <TradingPanel
                   symbol={coin.symbol}
                   currentPrice={coin.price}
@@ -571,7 +603,7 @@ export default function CoinDetail() {
 
       {/* Payment Modal */}
       <Dialog open={showPaymentModal} onOpenChange={setShowPaymentModal}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-md mx-4">
           <DialogHeader>
             <DialogTitle>Processing Payment</DialogTitle>
             <DialogDescription>

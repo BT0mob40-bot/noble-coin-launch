@@ -6,19 +6,19 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Switch } from '@/components/ui/switch';
 import { Slider } from '@/components/ui/slider';
 import { 
   Settings, 
   Loader2, 
   Save, 
-  Palette, 
   Globe, 
   CreditCard,
   Percent,
   Image as ImageIcon,
   DollarSign,
-  AlertTriangle
+  AlertTriangle,
+  Coins,
+  Gift
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -32,6 +32,8 @@ interface SiteSettings {
   min_buy_amount: number;
   max_buy_amount: number;
   admin_commission: number;
+  coin_creation_fee: number;
+  referral_commission_percentage: number;
 }
 
 export function PlatformSettings() {
@@ -54,7 +56,7 @@ export function PlatformSettings() {
       if (error) throw error;
       
       if (data) {
-        setSettings(data);
+        setSettings(data as SiteSettings);
       } else {
         // Create default settings if none exist
         const { data: newSettings, error: createError } = await supabase
@@ -67,12 +69,14 @@ export function PlatformSettings() {
             max_buy_amount: 100000,
             primary_color: '#00d4ff',
             admin_commission: 2.5,
+            coin_creation_fee: 5000,
+            referral_commission_percentage: 5,
           })
           .select()
           .single();
 
         if (createError) throw createError;
-        setSettings(newSettings);
+        setSettings(newSettings as SiteSettings);
       }
     } catch (error) {
       console.error('Error fetching settings:', error);
@@ -98,6 +102,8 @@ export function PlatformSettings() {
           min_buy_amount: settings.min_buy_amount,
           max_buy_amount: settings.max_buy_amount,
           admin_commission: settings.admin_commission,
+          coin_creation_fee: settings.coin_creation_fee,
+          referral_commission_percentage: settings.referral_commission_percentage,
         })
         .eq('id', settings.id);
 
@@ -158,20 +164,20 @@ export function PlatformSettings() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* Branding Settings */}
       <Card className="glass-card">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
+        <CardHeader className="p-4 sm:p-6">
+          <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
             <Globe className="h-5 w-5 text-primary" />
             Branding & Appearance
           </CardTitle>
-          <CardDescription>Customize your platform's identity</CardDescription>
+          <CardDescription className="text-xs sm:text-sm">Customize your platform's identity</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-2">
+        <CardContent className="space-y-4 p-4 sm:p-6 pt-0 sm:pt-0">
+          <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
-              <Label>Site Name</Label>
+              <Label className="text-sm">Site Name</Label>
               <Input
                 value={settings.site_name}
                 onChange={(e) => setSettings({ ...settings, site_name: e.target.value })}
@@ -179,25 +185,26 @@ export function PlatformSettings() {
               />
             </div>
             <div className="space-y-2">
-              <Label>Primary Color</Label>
+              <Label className="text-sm">Primary Color</Label>
               <div className="flex gap-2">
                 <Input
                   type="color"
                   value={settings.primary_color || '#00d4ff'}
                   onChange={(e) => setSettings({ ...settings, primary_color: e.target.value })}
-                  className="w-16 h-10 p-1 cursor-pointer"
+                  className="w-12 sm:w-16 h-10 p-1 cursor-pointer"
                 />
                 <Input
                   value={settings.primary_color || '#00d4ff'}
                   onChange={(e) => setSettings({ ...settings, primary_color: e.target.value })}
                   placeholder="#00d4ff"
+                  className="flex-1"
                 />
               </div>
             </div>
           </div>
 
           <div className="space-y-2">
-            <Label>Site Description</Label>
+            <Label className="text-sm">Site Description</Label>
             <Textarea
               value={settings.site_description || ''}
               onChange={(e) => setSettings({ ...settings, site_description: e.target.value })}
@@ -207,16 +214,16 @@ export function PlatformSettings() {
           </div>
 
           <div className="space-y-2">
-            <Label>Site Logo</Label>
+            <Label className="text-sm">Site Logo</Label>
             <div className="flex items-center gap-4">
-              <div className="h-20 w-20 rounded-xl bg-muted/50 border border-border flex items-center justify-center overflow-hidden">
+              <div className="h-16 w-16 sm:h-20 sm:w-20 rounded-xl bg-muted/50 border border-border flex items-center justify-center overflow-hidden flex-shrink-0">
                 {settings.logo_url ? (
                   <img src={settings.logo_url} alt="Logo" className="h-full w-full object-cover" />
                 ) : (
-                  <ImageIcon className="h-8 w-8 text-muted-foreground" />
+                  <ImageIcon className="h-6 w-6 sm:h-8 sm:w-8 text-muted-foreground" />
                 )}
               </div>
-              <div>
+              <div className="flex-1">
                 <Label htmlFor="logo-upload" className="cursor-pointer">
                   <Button variant="outline" size="sm" disabled={uploading} asChild>
                     <span>
@@ -247,18 +254,18 @@ export function PlatformSettings() {
 
       {/* Trading Settings */}
       <Card className="glass-card">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
+        <CardHeader className="p-4 sm:p-6">
+          <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
             <CreditCard className="h-5 w-5 text-primary" />
             Trading Configuration
           </CardTitle>
-          <CardDescription>Set transaction limits and fees</CardDescription>
+          <CardDescription className="text-xs sm:text-sm">Set transaction limits and fees</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-6">
+        <CardContent className="space-y-6 p-4 sm:p-6 pt-0 sm:pt-0">
           {/* Fee Percentage */}
           <div className="space-y-4">
             <div className="flex items-center justify-between">
-              <Label className="flex items-center gap-2">
+              <Label className="flex items-center gap-2 text-sm">
                 <Percent className="h-4 w-4" />
                 Transaction Fee
               </Label>
@@ -273,27 +280,16 @@ export function PlatformSettings() {
               className="w-full"
             />
             <p className="text-xs text-muted-foreground">
-              This fee is applied to all buy and sell transactions (Admin commission)
+              Applied to all buy and sell transactions
             </p>
           </div>
 
-          {/* Admin Commission Info */}
-          <div className="p-4 rounded-lg bg-primary/5 border border-primary/20">
-            <div className="flex items-center gap-2 text-primary font-medium">
-              <DollarSign className="h-4 w-4" />
-              Commission Earnings
-            </div>
-            <p className="text-sm text-muted-foreground mt-1">
-              As admin, you earn {settings.fee_percentage}% on every transaction. View your earnings in the Commissions tab.
-            </p>
-          </div>
-
-          <div className="grid gap-4 md:grid-cols-2">
+          <div className="grid gap-4 sm:grid-cols-2">
             {/* Minimum Buy Amount */}
             <div className="space-y-2">
-              <Label className="flex items-center gap-2">
+              <Label className="flex items-center gap-2 text-sm">
                 <DollarSign className="h-4 w-4" />
-                Minimum Buy Amount (KES)
+                Min Buy Amount (KES)
               </Label>
               <Input
                 type="number"
@@ -301,16 +297,13 @@ export function PlatformSettings() {
                 onChange={(e) => setSettings({ ...settings, min_buy_amount: parseFloat(e.target.value) || 0 })}
                 placeholder="100"
               />
-              <p className="text-xs text-muted-foreground">
-                Users cannot buy less than this amount
-              </p>
             </div>
 
             {/* Maximum Buy Amount */}
             <div className="space-y-2">
-              <Label className="flex items-center gap-2">
+              <Label className="flex items-center gap-2 text-sm">
                 <DollarSign className="h-4 w-4" />
-                Maximum Buy Amount (KES)
+                Max Buy Amount (KES)
               </Label>
               <Input
                 type="number"
@@ -318,10 +311,72 @@ export function PlatformSettings() {
                 onChange={(e) => setSettings({ ...settings, max_buy_amount: parseFloat(e.target.value) || 0 })}
                 placeholder="100000"
               />
-              <p className="text-xs text-muted-foreground">
-                Users cannot buy more than this amount per transaction
-              </p>
             </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Coin Creation & Referral Settings */}
+      <Card className="glass-card">
+        <CardHeader className="p-4 sm:p-6">
+          <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+            <Coins className="h-5 w-5 text-warning" />
+            Coin Creation & Referrals
+          </CardTitle>
+          <CardDescription className="text-xs sm:text-sm">Configure gas fees and referral commissions</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6 p-4 sm:p-6 pt-0 sm:pt-0">
+          {/* Gas Fee */}
+          <div className="space-y-2">
+            <Label className="flex items-center gap-2 text-sm">
+              <Coins className="h-4 w-4 text-warning" />
+              Coin Creation Gas Fee (KES)
+            </Label>
+            <Input
+              type="number"
+              value={settings.coin_creation_fee}
+              onChange={(e) => setSettings({ ...settings, coin_creation_fee: parseFloat(e.target.value) || 0 })}
+              placeholder="5000"
+              className="text-lg font-mono"
+            />
+            <p className="text-xs text-muted-foreground">
+              Admins must pay this fee via M-PESA when creating new coins
+            </p>
+          </div>
+
+          {/* Referral Commission */}
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <Label className="flex items-center gap-2 text-sm">
+                <Gift className="h-4 w-4 text-success" />
+                Referral Commission
+              </Label>
+              <span className="text-lg font-bold text-success">{settings.referral_commission_percentage}%</span>
+            </div>
+            <Slider
+              value={[settings.referral_commission_percentage]}
+              onValueChange={(value) => setSettings({ ...settings, referral_commission_percentage: value[0] })}
+              min={0}
+              max={20}
+              step={0.5}
+              className="w-full"
+            />
+            <p className="text-xs text-muted-foreground">
+              Users earn this percentage on trades made by their referrals
+            </p>
+          </div>
+
+          {/* Info Box */}
+          <div className="p-4 rounded-lg bg-primary/5 border border-primary/20">
+            <div className="flex items-center gap-2 text-primary font-medium text-sm">
+              <DollarSign className="h-4 w-4" />
+              Revenue Summary
+            </div>
+            <ul className="text-xs text-muted-foreground mt-2 space-y-1">
+              <li>• Transaction Fee: {settings.fee_percentage}% on all trades</li>
+              <li>• Gas Fee: KES {settings.coin_creation_fee.toLocaleString()} per coin created</li>
+              <li>• Referral Payout: {settings.referral_commission_percentage}% to referrers</li>
+            </ul>
           </div>
         </CardContent>
       </Card>
@@ -330,7 +385,7 @@ export function PlatformSettings() {
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="flex justify-end"
+        className="flex justify-end pb-4"
       >
         <Button onClick={handleSave} disabled={saving} className="gap-2" size="lg">
           {saving ? (

@@ -2,11 +2,14 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useAuth } from '@/lib/auth-context';
+import { useSiteSettings } from '@/lib/site-settings-context';
+import { useReferral, getReferralCode, clearReferralCode } from '@/hooks/use-referral';
+import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Rocket, Loader2, Mail, Lock, AlertCircle } from 'lucide-react';
+import { Rocket, Loader2, Mail, Lock, AlertCircle, Gift } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { z } from 'zod';
 
@@ -19,13 +22,26 @@ export default function Auth() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { user, signIn, signUp, loading } = useAuth();
+  const { settings } = useSiteSettings();
+  
+  // Capture referral code from URL
+  useReferral();
+  
   const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'signin');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [referralCode, setReferralCode] = useState<string | null>(null);
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+
+  // Check for stored referral code
+  useEffect(() => {
+    const storedRef = getReferralCode();
+    const urlRef = searchParams.get('ref');
+    setReferralCode(urlRef || storedRef);
+  }, [searchParams]);
 
   useEffect(() => {
     if (user && !loading) {
@@ -34,6 +50,39 @@ export default function Auth() {
       navigate('/dashboard', { replace: true });
     }
   }, [user, loading, navigate]);
+
+  const processReferral = async (newUserId: string) => {
+    const refCode = getReferralCode();
+    if (!refCode) return;
+
+    try {
+      // Find the referrer by referral code
+      const { data: referrerProfile } = await supabase
+        .from('profiles')
+        .select('user_id')
+        .eq('referral_code', refCode)
+        .maybeSingle();
+
+      if (referrerProfile && referrerProfile.user_id !== newUserId) {
+        // Create referral relationship
+        await supabase.from('referrals').insert({
+          referrer_id: referrerProfile.user_id,
+          referred_id: newUserId,
+        });
+
+        // Update new user's profile with referred_by
+        await supabase
+          .from('profiles')
+          .update({ referred_by: refCode })
+          .eq('user_id', newUserId);
+
+        // Clear the referral code after successful processing
+        clearReferralCode();
+      }
+    } catch (error) {
+      console.error('Error processing referral:', error);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -97,10 +146,14 @@ export default function Auth() {
         
         <div className="relative z-10 flex flex-col justify-center p-12">
           <Link to="/" className="flex items-center gap-3 mb-12">
-            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-accent">
-              <Rocket className="h-7 w-7 text-primary-foreground" />
-            </div>
-            <span className="text-2xl font-bold font-display gradient-text">CryptoLaunch</span>
+            {settings.logo_url ? (
+              <img src={settings.logo_url} alt={settings.site_name} className="h-12 w-12 rounded-xl object-cover" />
+            ) : (
+              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-accent">
+                <Rocket className="h-7 w-7 text-primary-foreground" />
+              </div>
+            )}
+            <span className="text-2xl font-bold font-display gradient-text">{settings.site_name}</span>
           </Link>
           
           <h1 className="text-4xl font-bold font-display mb-4">
@@ -114,7 +167,7 @@ export default function Auth() {
       </div>
 
       {/* Right Panel - Auth Form */}
-      <div className="flex-1 flex items-center justify-center p-8">
+      <div className="flex-1 flex items-center justify-center p-4 sm:p-8">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -122,15 +175,34 @@ export default function Auth() {
         >
           <div className="lg:hidden flex items-center gap-3 mb-8">
             <Link to="/" className="flex items-center gap-2">
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-to-br from-primary to-accent">
-                <Rocket className="h-5 w-5 text-primary-foreground" />
-              </div>
-              <span className="text-xl font-bold font-display gradient-text">CryptoLaunch</span>
+              {settings.logo_url ? (
+                <img src={settings.logo_url} alt={settings.site_name} className="h-10 w-10 rounded-lg object-cover" />
+              ) : (
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-to-br from-primary to-accent">
+                  <Rocket className="h-5 w-5 text-primary-foreground" />
+                </div>
+              )}
+              <span className="text-xl font-bold font-display gradient-text">{settings.site_name}</span>
             </Link>
           </div>
 
+          {/* Referral Banner */}
+          {referralCode && activeTab === 'signup' && (
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="mb-6 p-3 rounded-lg bg-success/10 border border-success/30 flex items-center gap-3"
+            >
+              <Gift className="h-5 w-5 text-success flex-shrink-0" />
+              <div>
+                <p className="text-sm font-medium text-success">You've been referred!</p>
+                <p className="text-xs text-muted-foreground">Create your account to get started</p>
+              </div>
+            </motion.div>
+          )}
+
           <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsList className="grid w-full grid-cols-2 mb-8">
+            <TabsList className="grid w-full grid-cols-2 mb-6 sm:mb-8">
               <TabsTrigger value="signin">Sign In</TabsTrigger>
               <TabsTrigger value="signup">Sign Up</TabsTrigger>
             </TabsList>
@@ -138,8 +210,8 @@ export default function Auth() {
             <TabsContent value="signin">
               <div className="space-y-6">
                 <div className="space-y-2 text-center">
-                  <h2 className="text-2xl font-bold font-display">Welcome Back</h2>
-                  <p className="text-muted-foreground">Sign in to access your portfolio</p>
+                  <h2 className="text-xl sm:text-2xl font-bold font-display">Welcome Back</h2>
+                  <p className="text-muted-foreground text-sm">Sign in to access your portfolio</p>
                 </div>
 
                 {error && (
@@ -205,8 +277,8 @@ export default function Auth() {
             <TabsContent value="signup">
               <div className="space-y-6">
                 <div className="space-y-2 text-center">
-                  <h2 className="text-2xl font-bold font-display">Create Account</h2>
-                  <p className="text-muted-foreground">Start trading crypto with M-PESA</p>
+                  <h2 className="text-xl sm:text-2xl font-bold font-display">Create Account</h2>
+                  <p className="text-muted-foreground text-sm">Start trading crypto with M-PESA</p>
                 </div>
 
                 {error && (
@@ -265,7 +337,10 @@ export default function Auth() {
                 </form>
 
                 <p className="text-xs text-center text-muted-foreground">
-                  By creating an account, you agree to our Terms of Service and Privacy Policy.
+                  By creating an account, you agree to our{' '}
+                  <Link to="/terms" className="text-primary hover:underline">Terms of Service</Link>
+                  {' '}and{' '}
+                  <Link to="/privacy" className="text-primary hover:underline">Privacy Policy</Link>.
                 </p>
               </div>
             </TabsContent>

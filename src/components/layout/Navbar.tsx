@@ -2,31 +2,36 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/lib/auth-context';
 import { useSiteSettings } from '@/lib/site-settings-context';
-import { Rocket, User, LogOut, LayoutDashboard, Shield, Wallet, Menu, X } from 'lucide-react';
+import { Rocket, User, LogOut, LayoutDashboard, Shield, Wallet, Menu, Plus, Search } from 'lucide-react';
 import { useState } from 'react';
+import { Input } from '@/components/ui/input';
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import {
-  Sheet,
-  SheetContent,
-  SheetTrigger,
-  SheetClose,
+  Sheet, SheetContent, SheetTrigger, SheetClose,
 } from '@/components/ui/sheet';
 
 export function Navbar() {
-  const { user, isAdmin, signOut } = useAuth();
+  const { user, isAdmin, isSuperAdmin, signOut } = useAuth();
   const { settings } = useSiteSettings();
   const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [contractSearch, setContractSearch] = useState('');
+  const [showSearch, setShowSearch] = useState(false);
 
   const handleSignOut = async () => {
     await signOut();
     navigate('/');
+  };
+
+  const handleContractSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (contractSearch.trim()) {
+      navigate(`/launchpad?search=${encodeURIComponent(contractSearch.trim())}`);
+      setContractSearch('');
+      setShowSearch(false);
+    }
   };
 
   return (
@@ -34,11 +39,7 @@ export function Navbar() {
       <nav className="container flex h-14 sm:h-16 items-center justify-between px-4 sm:px-6">
         <Link to="/" className="flex items-center gap-2 text-lg sm:text-xl font-bold font-display">
           {settings.logo_url ? (
-            <img 
-              src={settings.logo_url} 
-              alt={settings.site_name} 
-              className="h-8 w-8 sm:h-9 sm:w-9 rounded-lg object-cover"
-            />
+            <img src={settings.logo_url} alt={settings.site_name} className="h-8 w-8 sm:h-9 sm:w-9 rounded-lg object-cover" />
           ) : (
             <div className="flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-lg bg-gradient-to-br from-primary to-accent">
               <Rocket className="h-4 w-4 sm:h-5 sm:w-5 text-primary-foreground" />
@@ -48,23 +49,52 @@ export function Navbar() {
         </Link>
 
         {/* Desktop Nav */}
-        <div className="hidden md:flex items-center gap-6">
-          <Link to="/launchpad" className="text-muted-foreground hover:text-foreground transition-colors">
+        <div className="hidden md:flex items-center gap-4">
+          <Link to="/launchpad" className="text-muted-foreground hover:text-foreground transition-colors text-sm">
             Launchpad
           </Link>
           {user && (
-            <Link to="/dashboard" className="text-muted-foreground hover:text-foreground transition-colors">
+            <Link to="/dashboard" className="text-muted-foreground hover:text-foreground transition-colors text-sm">
               Portfolio
             </Link>
           )}
-          <Link to="/about" className="text-muted-foreground hover:text-foreground transition-colors">
+          <Link to="/about" className="text-muted-foreground hover:text-foreground transition-colors text-sm">
             About
           </Link>
+
+          {/* Contract Search */}
+          {showSearch ? (
+            <form onSubmit={handleContractSearch} className="flex items-center gap-2">
+              <Input
+                placeholder="Search contract..."
+                value={contractSearch}
+                onChange={(e) => setContractSearch(e.target.value)}
+                className="h-8 w-40 text-xs bg-muted/30"
+                autoFocus
+                onBlur={() => { if (!contractSearch) setShowSearch(false); }}
+              />
+            </form>
+          ) : (
+            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setShowSearch(true)}>
+              <Search className="h-4 w-4" />
+            </Button>
+          )}
         </div>
 
         <div className="flex items-center gap-2 sm:gap-3">
           {user ? (
             <>
+              {/* Create Coin Button */}
+              <Button
+                variant="hero"
+                size="sm"
+                className="gap-1.5 hidden sm:flex text-xs"
+                onClick={() => navigate('/create-coin')}
+              >
+                <Plus className="h-3.5 w-3.5" />
+                Create Coin
+              </Button>
+
               {/* Desktop User Menu */}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -82,10 +112,14 @@ export function Navbar() {
                     <Wallet className="mr-2 h-4 w-4" />
                     My Wallet
                   </DropdownMenuItem>
-                  {isAdmin && (
+                  <DropdownMenuItem onClick={() => navigate('/create-coin')}>
+                    <Plus className="mr-2 h-4 w-4" />
+                    Create Coin
+                  </DropdownMenuItem>
+                  {isSuperAdmin && (
                     <DropdownMenuItem onClick={() => navigate('/admin')}>
                       <Shield className="mr-2 h-4 w-4" />
-                      Admin Panel
+                      Super Admin
                     </DropdownMenuItem>
                   )}
                   <DropdownMenuSeparator />
@@ -115,6 +149,19 @@ export function Navbar() {
                       </div>
                     </div>
 
+                    {/* Mobile Contract Search */}
+                    <form onSubmit={handleContractSearch}>
+                      <div className="relative">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input
+                          placeholder="Search contract address..."
+                          value={contractSearch}
+                          onChange={(e) => setContractSearch(e.target.value)}
+                          className="pl-9 bg-muted/30"
+                        />
+                      </div>
+                    </form>
+
                     <div className="flex flex-col gap-1">
                       <SheetClose asChild>
                         <Link to="/launchpad" className="flex items-center gap-3 p-3 rounded-lg hover:bg-muted transition-colors">
@@ -129,16 +176,22 @@ export function Navbar() {
                         </Link>
                       </SheetClose>
                       <SheetClose asChild>
+                        <Link to="/create-coin" className="flex items-center gap-3 p-3 rounded-lg hover:bg-muted transition-colors">
+                          <Plus className="h-5 w-5 text-muted-foreground" />
+                          Create Coin
+                        </Link>
+                      </SheetClose>
+                      <SheetClose asChild>
                         <Link to="/dashboard" className="flex items-center gap-3 p-3 rounded-lg hover:bg-muted transition-colors">
                           <Wallet className="h-5 w-5 text-muted-foreground" />
                           My Wallet
                         </Link>
                       </SheetClose>
-                      {isAdmin && (
+                      {isSuperAdmin && (
                         <SheetClose asChild>
                           <Link to="/admin" className="flex items-center gap-3 p-3 rounded-lg hover:bg-muted transition-colors">
                             <Shield className="h-5 w-5 text-muted-foreground" />
-                            Admin Panel
+                            Super Admin
                           </Link>
                         </SheetClose>
                       )}
@@ -152,7 +205,7 @@ export function Navbar() {
 
                     <div className="border-t border-border pt-4">
                       <SheetClose asChild>
-                        <button 
+                        <button
                           onClick={handleSignOut}
                           className="flex items-center gap-3 p-3 rounded-lg hover:bg-destructive/10 transition-colors text-destructive w-full"
                         >
@@ -167,7 +220,6 @@ export function Navbar() {
             </>
           ) : (
             <>
-              {/* Mobile Menu for non-logged in */}
               <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
                 <SheetTrigger asChild>
                   <Button variant="ghost" size="icon" className="md:hidden">
@@ -190,27 +242,18 @@ export function Navbar() {
                     </SheetClose>
                     <div className="border-t border-border pt-4 flex flex-col gap-2">
                       <SheetClose asChild>
-                        <Button variant="ghost" className="w-full justify-start" onClick={() => navigate('/auth')}>
-                          Sign In
-                        </Button>
+                        <Button variant="ghost" className="w-full justify-start" onClick={() => navigate('/auth')}>Sign In</Button>
                       </SheetClose>
                       <SheetClose asChild>
-                        <Button variant="hero" className="w-full" onClick={() => navigate('/auth?tab=signup')}>
-                          Get Started
-                        </Button>
+                        <Button variant="hero" className="w-full" onClick={() => navigate('/auth?tab=signup')}>Get Started</Button>
                       </SheetClose>
                     </div>
                   </div>
                 </SheetContent>
               </Sheet>
 
-              {/* Desktop Buttons */}
-              <Button variant="ghost" size="sm" onClick={() => navigate('/auth')} className="hidden md:inline-flex">
-                Sign In
-              </Button>
-              <Button variant="hero" size="sm" onClick={() => navigate('/auth?tab=signup')} className="hidden md:inline-flex">
-                Get Started
-              </Button>
+              <Button variant="ghost" size="sm" onClick={() => navigate('/auth')} className="hidden md:inline-flex">Sign In</Button>
+              <Button variant="hero" size="sm" onClick={() => navigate('/auth?tab=signup')} className="hidden md:inline-flex">Get Started</Button>
             </>
           )}
         </div>

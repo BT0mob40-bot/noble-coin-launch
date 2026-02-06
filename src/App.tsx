@@ -12,6 +12,7 @@ import Launchpad from "./pages/Launchpad";
 import CoinDetail from "./pages/CoinDetail";
 import Dashboard from "./pages/Dashboard";
 import Admin from "./pages/Admin";
+import CreateCoin from "./pages/CreateCoin";
 import Terms from "./pages/Terms";
 import Privacy from "./pages/Privacy";
 import About from "./pages/About";
@@ -38,27 +39,37 @@ const App = () => (
               <Route path="/privacy" element={<Privacy />} />
               <Route path="/about" element={<About />} />
               <Route path="/error" element={<ErrorPage />} />
-              
+
               {/* Protected Routes - User */}
-              <Route 
-                path="/dashboard" 
+              <Route
+                path="/dashboard"
                 element={
                   <ProtectedRoute>
                     <Dashboard />
                   </ProtectedRoute>
-                } 
+                }
               />
-              
-              {/* Protected Routes - Admin */}
-              <Route 
-                path="/admin" 
+
+              {/* Create Coin - Any authenticated user */}
+              <Route
+                path="/create-coin"
+                element={
+                  <ProtectedRoute>
+                    <CreateCoin />
+                  </ProtectedRoute>
+                }
+              />
+
+              {/* Super Admin Only */}
+              <Route
+                path="/admin"
                 element={
                   <ProtectedRoute requireAdmin>
                     <Admin />
                   </ProtectedRoute>
-                } 
+                }
               />
-              
+
               {/* Catch-all 404 */}
               <Route path="*" element={<NotFound />} />
             </Routes>

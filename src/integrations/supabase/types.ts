@@ -20,6 +20,7 @@ export type Database = {
           bonding_curve_factor: number
           burned_supply: number
           circulating_supply: number
+          contract_address: string | null
           created_at: string
           creation_fee_paid: boolean
           creator_id: string | null
@@ -48,6 +49,7 @@ export type Database = {
           bonding_curve_factor?: number
           burned_supply?: number
           circulating_supply?: number
+          contract_address?: string | null
           created_at?: string
           creation_fee_paid?: boolean
           creator_id?: string | null
@@ -76,6 +78,7 @@ export type Database = {
           bonding_curve_factor?: number
           burned_supply?: number
           circulating_supply?: number
+          contract_address?: string | null
           created_at?: string
           creation_fee_paid?: boolean
           creator_id?: string | null

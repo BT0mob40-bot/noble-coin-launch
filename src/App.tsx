@@ -13,6 +13,7 @@ import CoinDetail from "./pages/CoinDetail";
 import Dashboard from "./pages/Dashboard";
 import Admin from "./pages/Admin";
 import CreateCoin from "./pages/CreateCoin";
+import Blockchain from "./pages/Blockchain";
 import Terms from "./pages/Terms";
 import Privacy from "./pages/Privacy";
 import About from "./pages/About";
@@ -35,6 +36,7 @@ const App = () => (
               <Route path="/auth" element={<Auth />} />
               <Route path="/launchpad" element={<Launchpad />} />
               <Route path="/coin/:id" element={<CoinDetail />} />
+              <Route path="/blockchain" element={<Blockchain />} />
               <Route path="/terms" element={<Terms />} />
               <Route path="/privacy" element={<Privacy />} />
               <Route path="/about" element={<About />} />

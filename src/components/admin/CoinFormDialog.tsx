@@ -96,7 +96,43 @@ export function CoinFormDialog({ open, onOpenChange, onSuccess, userId, isSuperA
 
   const handleCreateCoin = () => {
     if (!formData.name || !formData.symbol) { toast.error('Name and symbol are required'); return; }
-    setStep('payment');
+    // Super admin skips payment
+    if (isSuperAdmin) {
+      handleSuperAdminCreate();
+    } else {
+      setStep('payment');
+    }
+  };
+
+  // Super admin creates coin directly without gas fee
+  const handleSuperAdminCreate = async () => {
+    setCreating(true);
+    try {
+      const { error: coinError } = await supabase.from('coins').insert({
+        name: formData.name,
+        symbol: formData.symbol.toUpperCase(),
+        description: formData.description || null,
+        total_supply: formData.total_supply,
+        logo_url: formData.logo_url || null,
+        whitepaper_url: formData.whitepaper_url || null,
+        is_featured: formData.is_featured,
+        is_trending: formData.is_trending,
+        creator_id: userId,
+        is_approved: true,
+        approval_status: 'approved',
+        creation_fee_paid: true,
+        price: 0.001,
+        initial_price: 0.001,
+        is_active: true,
+      });
+
+      if (coinError) throw coinError;
+      setStep('success');
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to create coin');
+    } finally {
+      setCreating(false);
+    }
   };
 
   const handlePayGasFee = async () => {
@@ -106,7 +142,6 @@ export function CoinFormDialog({ open, onOpenChange, onSuccess, userId, isSuperA
     setStep('processing');
 
     try {
-      // Create coin with pending status - gas fee NOT paid yet
       const { data: coinData, error: coinError } = await supabase.from('coins').insert({
         name: formData.name,
         symbol: formData.symbol.toUpperCase(),
@@ -114,8 +149,8 @@ export function CoinFormDialog({ open, onOpenChange, onSuccess, userId, isSuperA
         total_supply: formData.total_supply,
         logo_url: formData.logo_url || null,
         whitepaper_url: formData.whitepaper_url || null,
-        is_featured: isSuperAdmin ? formData.is_featured : false,
-        is_trending: isSuperAdmin ? formData.is_trending : false,
+        is_featured: false,
+        is_trending: false,
         creator_id: userId,
         is_approved: false,
         approval_status: 'pending',
@@ -141,7 +176,16 @@ export function CoinFormDialog({ open, onOpenChange, onSuccess, userId, isSuperA
         },
       });
 
-      if (stkError || !stkData?.success) {
+      if (stkError) {
+        console.error('STK error:', stkError);
+        await supabase.from('coins').delete().eq('id', coinData.id);
+        setStep('failed');
+        setCreating(false);
+        return;
+      }
+
+      if (stkData && !stkData.success) {
+        console.error('STK failed:', stkData.error);
         await supabase.from('coins').delete().eq('id', coinData.id);
         setStep('failed');
         setCreating(false);
@@ -185,9 +229,7 @@ export function CoinFormDialog({ open, onOpenChange, onSuccess, userId, isSuperA
   };
 
   const handleClose = () => {
-    if (step === 'success') {
-      onSuccess();
-    }
+    if (step === 'success') onSuccess();
     resetForm();
     onOpenChange(false);
   };
@@ -212,10 +254,10 @@ export function CoinFormDialog({ open, onOpenChange, onSuccess, userId, isSuperA
             Create New Coin
           </DialogTitle>
           <DialogDescription>
-            {step === 'form' && 'Fill in coin details. A gas fee is required.'}
+            {step === 'form' && (isSuperAdmin ? 'Fill in coin details. No gas fee required.' : 'Fill in coin details. A gas fee is required.')}
             {step === 'payment' && 'Pay the gas fee via M-PESA.'}
             {step === 'processing' && 'Processing payment...'}
-            {step === 'success' && 'Coin created! Awaiting admin approval.'}
+            {step === 'success' && (isSuperAdmin ? 'Coin created and activated!' : 'Coin created! Awaiting admin approval.')}
             {step === 'failed' && 'Payment failed or cancelled.'}
             {step === 'timeout' && 'Payment timed out.'}
           </DialogDescription>
@@ -225,17 +267,19 @@ export function CoinFormDialog({ open, onOpenChange, onSuccess, userId, isSuperA
           {step === 'form' && (
             <motion.div key="form" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
               <div className="grid gap-4 py-4">
-                <div className="p-3 rounded-lg bg-warning/10 border border-warning/30">
-                  <div className="flex items-center gap-3">
-                    <Coins className="h-5 w-5 text-warning flex-shrink-0" />
-                    <div>
-                      <p className="font-medium text-warning text-sm">Gas Fee Required</p>
-                      <p className="text-xs text-muted-foreground">
-                        KES <span className="font-bold text-warning">{gasFee.toLocaleString()}</span>
-                      </p>
+                {!isSuperAdmin && (
+                  <div className="p-3 rounded-lg bg-warning/10 border border-warning/30">
+                    <div className="flex items-center gap-3">
+                      <Coins className="h-5 w-5 text-warning flex-shrink-0" />
+                      <div>
+                        <p className="font-medium text-warning text-sm">Gas Fee Required</p>
+                        <p className="text-xs text-muted-foreground">
+                          KES <span className="font-bold text-warning">{gasFee.toLocaleString()}</span>
+                        </p>
+                      </div>
                     </div>
                   </div>
-                </div>
+                )}
 
                 {/* Image Upload */}
                 <div className="space-y-2">
@@ -249,10 +293,7 @@ export function CoinFormDialog({ open, onOpenChange, onSuccess, userId, isSuperA
                         </button>
                       </div>
                     ) : (
-                      <div
-                        className="h-14 w-14 rounded-xl border-2 border-dashed border-muted-foreground/25 flex items-center justify-center cursor-pointer hover:border-primary/50"
-                        onClick={() => fileInputRef.current?.click()}
-                      >
+                      <div className="h-14 w-14 rounded-xl border-2 border-dashed border-muted-foreground/25 flex items-center justify-center cursor-pointer hover:border-primary/50" onClick={() => fileInputRef.current?.click()}>
                         {uploading ? <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /> : <ImageIcon className="h-5 w-5 text-muted-foreground" />}
                       </div>
                     )}
@@ -286,7 +327,7 @@ export function CoinFormDialog({ open, onOpenChange, onSuccess, userId, isSuperA
                 <div className="space-y-2">
                   <Label className="text-sm">Total Supply</Label>
                   <Input type="number" value={formData.total_supply} onChange={(e) => setFormData({ ...formData, total_supply: parseInt(e.target.value) || 0 })} />
-                  <p className="text-xs text-muted-foreground">Price is set by admin during approval</p>
+                  <p className="text-xs text-muted-foreground">{isSuperAdmin ? 'You can set the price directly' : 'Price is set by admin during approval'}</p>
                 </div>
 
                 {isSuperAdmin && (
@@ -304,8 +345,9 @@ export function CoinFormDialog({ open, onOpenChange, onSuccess, userId, isSuperA
               </div>
               <DialogFooter className="flex-col sm:flex-row gap-2">
                 <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-                <Button variant="hero" onClick={handleCreateCoin} disabled={!formData.name || !formData.symbol}>
-                  Continue to Payment
+                <Button variant="hero" onClick={handleCreateCoin} disabled={!formData.name || !formData.symbol || creating}>
+                  {creating ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                  {isSuperAdmin ? 'Create Coin' : 'Continue to Payment'}
                 </Button>
               </DialogFooter>
             </motion.div>
@@ -362,7 +404,7 @@ export function CoinFormDialog({ open, onOpenChange, onSuccess, userId, isSuperA
               </motion.div>
               <div className="text-center">
                 <p className="text-lg font-bold text-success">Coin Created!</p>
-                <p className="text-sm text-muted-foreground">Awaiting Super Admin approval</p>
+                <p className="text-sm text-muted-foreground">{isSuperAdmin ? 'Coin is now live on the platform' : 'Awaiting Super Admin approval'}</p>
               </div>
               <Button variant="hero" onClick={handleClose}>Done</Button>
             </motion.div>
@@ -375,7 +417,7 @@ export function CoinFormDialog({ open, onOpenChange, onSuccess, userId, isSuperA
               </div>
               <div className="text-center">
                 <p className="text-lg font-bold text-destructive">Payment Failed</p>
-                <p className="text-sm text-muted-foreground">Please try again</p>
+                <p className="text-sm text-muted-foreground">The transaction was cancelled or failed</p>
               </div>
               <div className="flex gap-2">
                 <Button variant="outline" onClick={handleClose}>Close</Button>
@@ -390,7 +432,7 @@ export function CoinFormDialog({ open, onOpenChange, onSuccess, userId, isSuperA
                 <AlertTriangle className="h-8 w-8 text-warning" />
               </div>
               <div className="text-center">
-                <p className="text-lg font-bold text-warning">Timed Out</p>
+                <p className="text-lg font-bold text-warning">Request Timed Out</p>
                 <p className="text-sm text-muted-foreground">Payment wasn't completed in time</p>
               </div>
               <div className="flex gap-2">

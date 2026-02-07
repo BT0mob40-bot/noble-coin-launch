@@ -71,19 +71,12 @@ export default function CoinDetail() {
   });
   const [processing, setProcessing] = useState(false);
   const [mobileTab, setMobileTab] = useState<'chart' | 'orderbook' | 'trades'>('chart');
+  const [pendingBuyAmount, setPendingBuyAmount] = useState(0);
 
-  // Multiplier calculation
-  const priceMultiplier = coin && coin.initial_price > 0
-    ? coin.price / coin.initial_price
-    : 1;
+  const priceMultiplier = coin && coin.initial_price > 0 ? coin.price / coin.initial_price : 1;
 
-  useEffect(() => {
-    if (id) fetchData();
-  }, [id]);
-
-  useEffect(() => {
-    if (user && coin) fetchUserData();
-  }, [user, coin]);
+  useEffect(() => { if (id) fetchData(); }, [id]);
+  useEffect(() => { if (user && coin) fetchUserData(); }, [user, coin]);
 
   useEffect(() => {
     const action = searchParams.get('action');
@@ -98,14 +91,8 @@ export default function CoinDetail() {
     if (!id) return;
     const channel = supabase
       .channel(`coin-${id}`)
-      .on('postgres_changes', {
-        event: 'UPDATE',
-        schema: 'public',
-        table: 'coins',
-        filter: `id=eq.${id}`,
-      }, (payload) => {
-        setCoin(payload.new as CoinData);
-      })
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'coins', filter: `id=eq.${id}` },
+        (payload) => { setCoin(payload.new as CoinData); })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [id]);
@@ -161,13 +148,11 @@ export default function CoinDetail() {
           .select().single();
         if (txError) throw txError;
 
-        // Deduct wallet, add commission, update holdings, update coin supply
         await Promise.all([
           supabase.from('wallets').update({ fiat_balance: userFiatBalance - totalWithFee }).eq('user_id', user.id),
           supabase.from('commission_transactions').insert({ transaction_id: transaction.id, amount: fee, commission_rate: settings.fee_percentage }),
         ]);
 
-        // Update holdings
         const { data: existingHolding } = await supabase
           .from('holdings').select('id, amount, average_buy_price')
           .eq('user_id', user.id).eq('coin_id', coin.id).maybeSingle();
@@ -189,7 +174,6 @@ export default function CoinDetail() {
         fetchUserData();
         fetchData();
       } else {
-        // M-PESA buy
         let formattedPhone = phone.replace(/\s+/g, '').replace(/^\+/, '');
         if (!formattedPhone || formattedPhone.length < 9) { toast.error('Please enter a valid phone number'); setProcessing(false); return; }
 
@@ -200,6 +184,7 @@ export default function CoinDetail() {
         if (txError) throw txError;
 
         setCurrentTransactionId(transaction.id);
+        setPendingBuyAmount(amount);
         setPaymentStatus('waiting');
         setShowPaymentModal(true);
 
@@ -207,7 +192,15 @@ export default function CoinDetail() {
           body: { phone: formattedPhone, amount: Math.round(totalWithFee), transactionId: transaction.id, accountReference: `${coin.symbol}-${transaction.id.slice(0, 8)}` },
         });
 
-        if (stkError || !stkData?.success) {
+        if (stkError) {
+          console.error('STK push error:', stkError);
+          setPaymentStatus('failed');
+          return;
+        }
+
+        // Check if function returned error in body
+        if (stkData && !stkData.success) {
+          console.error('STK push failed:', stkData.error);
           setPaymentStatus('failed');
           return;
         }
@@ -216,6 +209,7 @@ export default function CoinDetail() {
         startPolling(transaction.id, amount);
       }
     } catch (error: any) {
+      console.error('Buy error:', error);
       toast.error(error.message || 'Failed to process transaction');
       setPaymentStatus('failed');
     } finally {
@@ -280,25 +274,6 @@ export default function CoinDetail() {
 
       if (updatedTx?.status === 'completed') {
         setPaymentStatus('success');
-        // Auto-allocate holdings
-        if (coin && user) {
-          const { data: existingHolding } = await supabase
-            .from('holdings').select('id, amount, average_buy_price')
-            .eq('user_id', user.id).eq('coin_id', coin.id).maybeSingle();
-
-          if (existingHolding) {
-            const newAmt = existingHolding.amount + buyAmount;
-            const newAvg = ((existingHolding.amount * existingHolding.average_buy_price) + (buyAmount * coin.price)) / newAmt;
-            await supabase.from('holdings').update({ amount: newAmt, average_buy_price: newAvg }).eq('id', existingHolding.id);
-          } else {
-            await supabase.from('holdings').insert({ user_id: user.id, coin_id: coin.id, amount: buyAmount, average_buy_price: coin.price });
-          }
-
-          await supabase.from('coins').update({
-            circulating_supply: coin.circulating_supply + buyAmount,
-            holders_count: existingHolding ? coin.holders_count : coin.holders_count + 1,
-          }).eq('id', coin.id);
-        }
         fetchUserData();
         fetchData();
       } else if (updatedTx?.status === 'failed') {
@@ -327,22 +302,17 @@ export default function CoinDetail() {
   if (!coin) return null;
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background overflow-x-hidden">
       <Navbar />
 
-      <main className="container pt-20 pb-24 lg:pb-8 px-3 sm:px-6">
+      <main className="w-full max-w-7xl mx-auto pt-20 pb-24 lg:pb-8 px-3 sm:px-4 md:px-6">
         {/* Back + Multiplier */}
         <div className="flex items-center justify-between mb-4">
-          <Link
-            to="/launchpad"
-            className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors text-sm"
-          >
+          <Link to="/launchpad" className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors text-sm">
             <ArrowLeft className="h-4 w-4" />
             <span className="hidden sm:inline">Back to Launchpad</span>
             <span className="sm:hidden">Back</span>
           </Link>
-
-          {/* Price Multiplier */}
           {priceMultiplier > 1 && (
             <motion.div
               initial={{ scale: 0.8, opacity: 0 }}
@@ -350,33 +320,23 @@ export default function CoinDetail() {
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-success/10 border border-success/30"
             >
               <TrendingUp className="h-4 w-4 text-success" />
-              <span className="font-bold text-success text-sm">
-                {priceMultiplier.toFixed(2)}x
-              </span>
+              <span className="font-bold text-success text-sm">{priceMultiplier.toFixed(2)}x</span>
             </motion.div>
           )}
         </div>
 
-        {/* Trading Paused Warning */}
+        {/* Trading Paused */}
         {coin.trading_paused && (
-          <motion.div
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="mb-4 p-3 rounded-lg bg-warning/10 border border-warning/20 flex items-center gap-3"
-          >
+          <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}
+            className="mb-4 p-3 rounded-lg bg-warning/10 border border-warning/20 flex items-center gap-3">
             <AlertCircle className="h-5 w-5 text-warning flex-shrink-0" />
             <span className="text-warning font-medium text-sm">Trading is currently paused</span>
           </motion.div>
         )}
 
-        {/* Mobile Buy Button - Fixed at bottom */}
+        {/* Mobile Buy Button */}
         <div className="lg:hidden fixed bottom-4 left-4 right-4 z-40">
-          <Button
-            variant="hero"
-            size="lg"
-            className="w-full gap-2 shadow-xl"
-            onClick={scrollToTrading}
-          >
+          <Button variant="hero" size="lg" className="w-full gap-2 shadow-xl" onClick={scrollToTrading}>
             <ArrowDown className="h-5 w-5" />
             Buy {coin.symbol}
           </Button>
@@ -384,19 +344,10 @@ export default function CoinDetail() {
 
         {/* Contract Info */}
         {coin.contract_address && (
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="mb-4"
-          >
+          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="mb-4">
             <Card className="glass-card">
               <CardContent className="p-3 sm:p-4">
-                <CoinContractInfo
-                  contractAddress={coin.contract_address}
-                  coinName={coin.name}
-                  coinSymbol={coin.symbol}
-                  coinId={coin.id}
-                />
+                <CoinContractInfo contractAddress={coin.contract_address} coinName={coin.name} coinSymbol={coin.symbol} coinId={coin.id} />
               </CardContent>
             </Card>
           </motion.div>
@@ -410,7 +361,7 @@ export default function CoinDetail() {
         {/* Main Trading Layout */}
         <div className="grid gap-4 lg:grid-cols-[1fr_320px]">
           {/* Left Column */}
-          <div className="space-y-4">
+          <div className="space-y-4 min-w-0">
             {/* Mobile: Tabbed Chart/OrderBook/Trades */}
             <div className="lg:hidden">
               <Tabs value={mobileTab} onValueChange={(v) => setMobileTab(v as typeof mobileTab)}>
@@ -421,21 +372,21 @@ export default function CoinDetail() {
                 </TabsList>
                 <TabsContent value="chart">
                   <Card className="glass-card overflow-hidden">
-                    <CardContent className="p-2 h-[280px]">
+                    <CardContent className="p-1 sm:p-2 h-[250px] sm:h-[280px]">
                       <TradingChart symbol={coin.symbol} currentPrice={coin.price} volatility={coin.volatility} />
                     </CardContent>
                   </Card>
                 </TabsContent>
                 <TabsContent value="orderbook">
-                  <Card className="glass-card">
-                    <CardContent className="p-2 h-[300px]">
+                  <Card className="glass-card overflow-hidden">
+                    <CardContent className="p-1 sm:p-2 h-[280px] overflow-auto">
                       <OrderBook currentPrice={coin.price} symbol={coin.symbol} />
                     </CardContent>
                   </Card>
                 </TabsContent>
                 <TabsContent value="trades">
-                  <Card className="glass-card">
-                    <CardContent className="p-2 h-[300px]">
+                  <Card className="glass-card overflow-hidden">
+                    <CardContent className="p-1 sm:p-2 h-[280px] overflow-auto">
                       <TradeHistory currentPrice={coin.price} symbol={coin.symbol} />
                     </CardContent>
                   </Card>
@@ -452,13 +403,13 @@ export default function CoinDetail() {
               </Card>
 
               <div className="grid gap-4 grid-cols-2">
-                <Card className="glass-card h-[400px]">
-                  <CardContent className="p-4 h-full">
+                <Card className="glass-card h-[400px] overflow-hidden">
+                  <CardContent className="p-4 h-full overflow-auto">
                     <OrderBook currentPrice={coin.price} symbol={coin.symbol} />
                   </CardContent>
                 </Card>
-                <Card className="glass-card h-[400px]">
-                  <CardContent className="p-4 h-full">
+                <Card className="glass-card h-[400px] overflow-hidden">
+                  <CardContent className="p-4 h-full overflow-auto">
                     <TradeHistory currentPrice={coin.price} symbol={coin.symbol} />
                   </CardContent>
                 </Card>
@@ -479,11 +430,11 @@ export default function CoinDetail() {
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: 0.2 }}
-            className="lg:sticky lg:top-20 h-fit mb-20 lg:mb-0"
+            className="lg:sticky lg:top-20 h-fit mb-20 lg:mb-0 min-w-0"
             id="trading-panel"
           >
             <Card className="glass-card overflow-hidden">
-              <CardContent className="p-0 h-[550px] sm:h-[650px]">
+              <CardContent className="p-0 min-h-[500px]">
                 <TradingPanel
                   symbol={coin.symbol}
                   currentPrice={coin.price}
@@ -517,7 +468,7 @@ export default function CoinDetail() {
         }}
         status={paymentStatus}
         coinSymbol={coin.symbol}
-        amount={0}
+        amount={pendingBuyAmount * coin.price}
         onRetry={() => {
           setPaymentStatus('waiting');
           setShowPaymentModal(false);

@@ -2,18 +2,20 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/lib/auth-context';
 import { useSiteSettings } from '@/lib/site-settings-context';
-import { Rocket, User, LogOut, LayoutDashboard, Shield, Wallet, Menu, Plus, Search } from 'lucide-react';
+import { Rocket, User, LogOut, LayoutDashboard, Shield, Wallet, Menu, Plus, Search, Blocks } from 'lucide-react';
 import { useState } from 'react';
 import { Input } from '@/components/ui/input';
+import { supabase } from '@/integrations/supabase/client';
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import {
   Sheet, SheetContent, SheetTrigger, SheetClose,
 } from '@/components/ui/sheet';
+import { toast } from 'sonner';
 
 export function Navbar() {
-  const { user, isAdmin, isSuperAdmin, signOut } = useAuth();
+  const { user, isSuperAdmin, signOut } = useAuth();
   const { settings } = useSiteSettings();
   const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -25,13 +27,62 @@ export function Navbar() {
     navigate('/');
   };
 
-  const handleContractSearch = (e: React.FormEvent) => {
+  const handleContractSearch = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (contractSearch.trim()) {
-      navigate(`/launchpad?search=${encodeURIComponent(contractSearch.trim())}`);
+    const query = contractSearch.trim();
+    if (!query) return;
+
+    // Search by exact contract address first
+    const { data: exactMatch } = await supabase
+      .from('coins')
+      .select('id')
+      .eq('contract_address', query)
+      .eq('is_active', true)
+      .maybeSingle();
+
+    if (exactMatch) {
+      navigate(`/coin/${exactMatch.id}`);
       setContractSearch('');
       setShowSearch(false);
+      return;
     }
+
+    // Search by partial contract address
+    const { data: partialMatch } = await supabase
+      .from('coins')
+      .select('id')
+      .ilike('contract_address', `%${query}%`)
+      .eq('is_active', true)
+      .limit(1)
+      .maybeSingle();
+
+    if (partialMatch) {
+      navigate(`/coin/${partialMatch.id}`);
+      setContractSearch('');
+      setShowSearch(false);
+      return;
+    }
+
+    // Search by name or symbol
+    const { data: nameMatch } = await supabase
+      .from('coins')
+      .select('id')
+      .or(`name.ilike.%${query}%,symbol.ilike.%${query}%`)
+      .eq('is_active', true)
+      .limit(1)
+      .maybeSingle();
+
+    if (nameMatch) {
+      navigate(`/coin/${nameMatch.id}`);
+      setContractSearch('');
+      setShowSearch(false);
+      return;
+    }
+
+    toast.error('No coin found with that contract address or name');
+    navigate(`/launchpad?search=${encodeURIComponent(query)}`);
+    setContractSearch('');
+    setShowSearch(false);
   };
 
   return (
@@ -58,18 +109,18 @@ export function Navbar() {
               Portfolio
             </Link>
           )}
-          <Link to="/about" className="text-muted-foreground hover:text-foreground transition-colors text-sm">
-            About
+          <Link to="/blockchain" className="text-muted-foreground hover:text-foreground transition-colors text-sm">
+            Learn
           </Link>
 
           {/* Contract Search */}
           {showSearch ? (
             <form onSubmit={handleContractSearch} className="flex items-center gap-2">
               <Input
-                placeholder="Search contract..."
+                placeholder="Search contract or name..."
                 value={contractSearch}
                 onChange={(e) => setContractSearch(e.target.value)}
-                className="h-8 w-40 text-xs bg-muted/30"
+                className="h-8 w-48 text-xs bg-muted/30"
                 autoFocus
                 onBlur={() => { if (!contractSearch) setShowSearch(false); }}
               />
@@ -84,18 +135,11 @@ export function Navbar() {
         <div className="flex items-center gap-2 sm:gap-3">
           {user ? (
             <>
-              {/* Create Coin Button */}
-              <Button
-                variant="hero"
-                size="sm"
-                className="gap-1.5 hidden sm:flex text-xs"
-                onClick={() => navigate('/create-coin')}
-              >
+              <Button variant="hero" size="sm" className="gap-1.5 hidden sm:flex text-xs" onClick={() => navigate('/create-coin')}>
                 <Plus className="h-3.5 w-3.5" />
                 Create Coin
               </Button>
 
-              {/* Desktop User Menu */}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="glass" size="sm" className="gap-2 hidden md:flex">
@@ -116,6 +160,10 @@ export function Navbar() {
                     <Plus className="mr-2 h-4 w-4" />
                     Create Coin
                   </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => navigate('/blockchain')}>
+                    <Blocks className="mr-2 h-4 w-4" />
+                    How It Works
+                  </DropdownMenuItem>
                   {isSuperAdmin && (
                     <DropdownMenuItem onClick={() => navigate('/admin')}>
                       <Shield className="mr-2 h-4 w-4" />
@@ -130,7 +178,6 @@ export function Navbar() {
                 </DropdownMenuContent>
               </DropdownMenu>
 
-              {/* Mobile Menu */}
               <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
                 <SheetTrigger asChild>
                   <Button variant="ghost" size="icon" className="md:hidden">
@@ -149,8 +196,7 @@ export function Navbar() {
                       </div>
                     </div>
 
-                    {/* Mobile Contract Search */}
-                    <form onSubmit={handleContractSearch}>
+                    <form onSubmit={(e) => { handleContractSearch(e); setMobileOpen(false); }}>
                       <div className="relative">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                         <Input
@@ -165,52 +211,42 @@ export function Navbar() {
                     <div className="flex flex-col gap-1">
                       <SheetClose asChild>
                         <Link to="/launchpad" className="flex items-center gap-3 p-3 rounded-lg hover:bg-muted transition-colors">
-                          <Rocket className="h-5 w-5 text-muted-foreground" />
-                          Launchpad
+                          <Rocket className="h-5 w-5 text-muted-foreground" /> Launchpad
                         </Link>
                       </SheetClose>
                       <SheetClose asChild>
                         <Link to="/dashboard" className="flex items-center gap-3 p-3 rounded-lg hover:bg-muted transition-colors">
-                          <LayoutDashboard className="h-5 w-5 text-muted-foreground" />
-                          Dashboard
+                          <LayoutDashboard className="h-5 w-5 text-muted-foreground" /> Dashboard
                         </Link>
                       </SheetClose>
                       <SheetClose asChild>
                         <Link to="/create-coin" className="flex items-center gap-3 p-3 rounded-lg hover:bg-muted transition-colors">
-                          <Plus className="h-5 w-5 text-muted-foreground" />
-                          Create Coin
+                          <Plus className="h-5 w-5 text-muted-foreground" /> Create Coin
                         </Link>
                       </SheetClose>
                       <SheetClose asChild>
                         <Link to="/dashboard" className="flex items-center gap-3 p-3 rounded-lg hover:bg-muted transition-colors">
-                          <Wallet className="h-5 w-5 text-muted-foreground" />
-                          My Wallet
+                          <Wallet className="h-5 w-5 text-muted-foreground" /> My Wallet
+                        </Link>
+                      </SheetClose>
+                      <SheetClose asChild>
+                        <Link to="/blockchain" className="flex items-center gap-3 p-3 rounded-lg hover:bg-muted transition-colors">
+                          <Blocks className="h-5 w-5 text-muted-foreground" /> How It Works
                         </Link>
                       </SheetClose>
                       {isSuperAdmin && (
                         <SheetClose asChild>
                           <Link to="/admin" className="flex items-center gap-3 p-3 rounded-lg hover:bg-muted transition-colors">
-                            <Shield className="h-5 w-5 text-muted-foreground" />
-                            Super Admin
+                            <Shield className="h-5 w-5 text-muted-foreground" /> Super Admin
                           </Link>
                         </SheetClose>
                       )}
-                      <SheetClose asChild>
-                        <Link to="/about" className="flex items-center gap-3 p-3 rounded-lg hover:bg-muted transition-colors">
-                          <User className="h-5 w-5 text-muted-foreground" />
-                          About
-                        </Link>
-                      </SheetClose>
                     </div>
 
                     <div className="border-t border-border pt-4">
                       <SheetClose asChild>
-                        <button
-                          onClick={handleSignOut}
-                          className="flex items-center gap-3 p-3 rounded-lg hover:bg-destructive/10 transition-colors text-destructive w-full"
-                        >
-                          <LogOut className="h-5 w-5" />
-                          Sign Out
+                        <button onClick={handleSignOut} className="flex items-center gap-3 p-3 rounded-lg hover:bg-destructive/10 transition-colors text-destructive w-full">
+                          <LogOut className="h-5 w-5" /> Sign Out
                         </button>
                       </SheetClose>
                     </div>
@@ -230,14 +266,12 @@ export function Navbar() {
                   <div className="flex flex-col gap-4 mt-6">
                     <SheetClose asChild>
                       <Link to="/launchpad" className="flex items-center gap-3 p-3 rounded-lg hover:bg-muted transition-colors">
-                        <Rocket className="h-5 w-5 text-muted-foreground" />
-                        Launchpad
+                        <Rocket className="h-5 w-5 text-muted-foreground" /> Launchpad
                       </Link>
                     </SheetClose>
                     <SheetClose asChild>
-                      <Link to="/about" className="flex items-center gap-3 p-3 rounded-lg hover:bg-muted transition-colors">
-                        <User className="h-5 w-5 text-muted-foreground" />
-                        About
+                      <Link to="/blockchain" className="flex items-center gap-3 p-3 rounded-lg hover:bg-muted transition-colors">
+                        <Blocks className="h-5 w-5 text-muted-foreground" /> How It Works
                       </Link>
                     </SheetClose>
                     <div className="border-t border-border pt-4 flex flex-col gap-2">

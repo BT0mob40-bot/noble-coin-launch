@@ -7,8 +7,15 @@ import { supabase } from '@/integrations/supabase/client';
 import { CoinFormDialog } from '@/components/admin/CoinFormDialog';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Plus, Coins, Loader2 } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Plus, Coins, Loader2, Phone, CreditCard } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
+} from '@/components/ui/dialog';
+import { toast } from 'sonner';
+import { SpiralLoader } from '@/components/ui/spiral-loader';
 
 interface UserCoin {
   id: string;
@@ -27,10 +34,23 @@ export default function CreateCoin() {
   const [showDialog, setShowDialog] = useState(false);
   const [myCoins, setMyCoins] = useState<UserCoin[]>([]);
   const [loading, setLoading] = useState(true);
+  const [payingCoinId, setPayingCoinId] = useState<string | null>(null);
+  const [payPhone, setPayPhone] = useState('');
+  const [payProcessing, setPayProcessing] = useState(false);
+  const [showPayDialog, setShowPayDialog] = useState(false);
+  const [gasFee, setGasFee] = useState(5000);
 
   useEffect(() => {
     if (user) fetchMyCoins();
   }, [user]);
+
+  useEffect(() => {
+    const fetchSettings = async () => {
+      const { data } = await supabase.from('site_settings').select('coin_creation_fee').maybeSingle();
+      if (data?.coin_creation_fee) setGasFee(data.coin_creation_fee);
+    };
+    fetchSettings();
+  }, []);
 
   const fetchMyCoins = async () => {
     if (!user) return;
@@ -49,10 +69,8 @@ export default function CreateCoin() {
     }
   };
 
-  // Auto-assign coin_creator role when creating a coin
   const handleCreateSuccess = async () => {
     if (user) {
-      // Check if already has coin_creator role
       const { data: existingRole } = await supabase
         .from('user_roles')
         .select('id')
@@ -65,6 +83,65 @@ export default function CreateCoin() {
       }
     }
     fetchMyCoins();
+  };
+
+  const handlePayGasFee = async () => {
+    if (!payingCoinId || !payPhone || payPhone.length < 9) {
+      toast.error('Enter a valid phone number');
+      return;
+    }
+
+    setPayProcessing(true);
+    try {
+      let formattedPhone = payPhone.replace(/\s+/g, '').replace(/^\+/, '');
+      if (formattedPhone.startsWith('0')) formattedPhone = '254' + formattedPhone.substring(1);
+      else if (!formattedPhone.startsWith('254')) formattedPhone = '254' + formattedPhone;
+
+      const { data: stkData, error: stkError } = await supabase.functions.invoke('mpesa-stk-push', {
+        body: {
+          phone: formattedPhone,
+          amount: Math.round(gasFee),
+          transactionId: payingCoinId,
+          accountReference: `GAS-PAY`,
+          type: 'coin_creation',
+        },
+      });
+
+      if (stkError || (stkData && !stkData.success)) {
+        toast.error('Failed to send STK push. Try again.');
+        setPayProcessing(false);
+        return;
+      }
+
+      toast.success('Check your phone for M-PESA prompt!');
+
+      // Poll for payment
+      let attempts = 0;
+      const maxAttempts = 40;
+      const checkPayment = async () => {
+        attempts++;
+        const { data: coin } = await supabase.from('coins').select('creation_fee_paid').eq('id', payingCoinId).single();
+        if (coin?.creation_fee_paid) {
+          toast.success('Gas fee paid! Coin is now pending approval.');
+          setShowPayDialog(false);
+          setPayProcessing(false);
+          setPayPhone('');
+          setPayingCoinId(null);
+          fetchMyCoins();
+          return;
+        }
+        if (attempts >= maxAttempts) {
+          toast.error('Payment timed out. Please try again.');
+          setPayProcessing(false);
+          return;
+        }
+        setTimeout(checkPayment, 3000);
+      };
+      setTimeout(checkPayment, 5000);
+    } catch (error: any) {
+      toast.error(error.message || 'Payment failed');
+      setPayProcessing(false);
+    }
   };
 
   if (!user) return null;
@@ -88,7 +165,6 @@ export default function CreateCoin() {
           </div>
         </motion.div>
 
-        {/* My Coins */}
         <div>
           <h2 className="text-lg font-semibold mb-4">My Coins</h2>
           {loading ? (
@@ -110,44 +186,57 @@ export default function CreateCoin() {
           ) : (
             <div className="grid gap-3 sm:gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {myCoins.map((coin) => (
-                <Link key={coin.id} to={coin.is_approved ? `/coin/${coin.id}` : '#'}>
-                  <Card className="glass-card hover:border-primary/50 transition-all cursor-pointer">
-                    <CardContent className="p-4">
-                      <div className="flex items-center gap-3 mb-3">
-                        <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center overflow-hidden">
-                          {coin.logo_url ? (
-                            <img src={coin.logo_url} alt={coin.name} className="h-full w-full object-cover" />
-                          ) : (
-                            <Coins className="h-5 w-5 text-primary" />
-                          )}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <h4 className="font-semibold text-sm truncate">{coin.name}</h4>
-                          <p className="text-xs text-muted-foreground">{coin.symbol}</p>
-                        </div>
-                        <div className={`px-2 py-1 rounded-full text-xs font-medium ${
-                          !coin.creation_fee_paid
-                            ? 'bg-destructive/10 text-destructive'
-                            : coin.approval_status === 'pending'
-                            ? 'bg-warning/10 text-warning'
-                            : coin.is_approved
-                            ? 'bg-success/10 text-success'
-                            : 'bg-destructive/10 text-destructive'
-                        }`}>
-                          {!coin.creation_fee_paid ? 'Unpaid' : coin.approval_status === 'pending' ? 'Pending' : coin.is_approved ? 'Active' : 'Rejected'}
-                        </div>
+                <Card key={coin.id} className="glass-card hover:border-primary/50 transition-all">
+                  <CardContent className="p-4">
+                    <div className="flex items-center gap-3 mb-3">
+                      <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center overflow-hidden">
+                        {coin.logo_url ? (
+                          <img src={coin.logo_url} alt={coin.name} className="h-full w-full object-cover" />
+                        ) : (
+                          <Coins className="h-5 w-5 text-primary" />
+                        )}
                       </div>
-                      {coin.contract_address && (
-                        <p className="text-xs font-mono text-muted-foreground truncate">
-                          {coin.contract_address}
-                        </p>
-                      )}
-                      {coin.is_approved && (
-                        <p className="text-sm font-mono mt-2">KES {coin.price.toFixed(6)}</p>
-                      )}
-                    </CardContent>
-                  </Card>
-                </Link>
+                      <div className="flex-1 min-w-0">
+                        <h4 className="font-semibold text-sm truncate">{coin.name}</h4>
+                        <p className="text-xs text-muted-foreground">{coin.symbol}</p>
+                      </div>
+                      <div className={`px-2 py-1 rounded-full text-xs font-medium ${
+                        !coin.creation_fee_paid
+                          ? 'bg-destructive/10 text-destructive'
+                          : coin.approval_status === 'pending'
+                          ? 'bg-warning/10 text-warning'
+                          : coin.is_approved
+                          ? 'bg-success/10 text-success'
+                          : 'bg-destructive/10 text-destructive'
+                      }`}>
+                        {!coin.creation_fee_paid ? 'Unpaid' : coin.approval_status === 'pending' ? 'Pending' : coin.is_approved ? 'Active' : 'Rejected'}
+                      </div>
+                    </div>
+                    {coin.contract_address && (
+                      <p className="text-xs font-mono text-muted-foreground truncate mb-2">{coin.contract_address}</p>
+                    )}
+                    {/* Pay button for unpaid coins */}
+                    {!coin.creation_fee_paid && (
+                      <Button
+                        variant="hero"
+                        size="sm"
+                        className="w-full gap-2 mt-1"
+                        onClick={() => {
+                          setPayingCoinId(coin.id);
+                          setShowPayDialog(true);
+                        }}
+                      >
+                        <CreditCard className="h-3.5 w-3.5" />
+                        Pay Gas Fee (KES {gasFee.toLocaleString()})
+                      </Button>
+                    )}
+                    {coin.is_approved && (
+                      <Link to={`/coin/${coin.id}`}>
+                        <Button variant="outline" size="sm" className="w-full mt-1">View Coin</Button>
+                      </Link>
+                    )}
+                  </CardContent>
+                </Card>
               ))}
             </div>
           )}
@@ -163,6 +252,49 @@ export default function CreateCoin() {
         userId={user.id}
         isSuperAdmin={false}
       />
+
+      {/* Pay Gas Fee Dialog */}
+      <Dialog open={showPayDialog} onOpenChange={(v) => { if (!payProcessing) setShowPayDialog(v); }}>
+        <DialogContent className="max-w-sm mx-4">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CreditCard className="h-5 w-5 text-warning" />
+              Pay Gas Fee
+            </DialogTitle>
+            <DialogDescription>
+              Pay KES {gasFee.toLocaleString()} via M-PESA to list your coin
+            </DialogDescription>
+          </DialogHeader>
+          {payProcessing ? (
+            <div className="py-8 flex flex-col items-center gap-4">
+              <SpiralLoader size="lg" />
+              <p className="text-sm text-muted-foreground">Waiting for M-PESA confirmation...</p>
+              <p className="text-xs text-primary">Check your phone for STK push</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div className="p-3 rounded-lg bg-warning/10 border border-warning/30 text-center">
+                <p className="text-xl font-bold text-warning">KES {gasFee.toLocaleString()}</p>
+              </div>
+              <div className="space-y-2">
+                <Label className="flex items-center gap-2 text-sm">
+                  <Phone className="h-4 w-4" /> M-PESA Phone
+                </Label>
+                <Input
+                  type="tel"
+                  placeholder="254712345678"
+                  value={payPhone}
+                  onChange={(e) => setPayPhone(e.target.value)}
+                  className="h-12 text-lg font-mono"
+                />
+              </div>
+              <Button variant="hero" className="w-full" onClick={handlePayGasFee} disabled={!payPhone || payPhone.length < 9}>
+                Pay Now
+              </Button>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

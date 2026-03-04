@@ -46,14 +46,8 @@ export function WalletCard({ fiatBalance, userId, onBalanceChange }: WalletCardP
 
   const handleDeposit = async () => {
     const depositAmount = parseFloat(amount);
-    if (!depositAmount || !phone) {
-      toast.error('Please fill all fields');
-      return;
-    }
-    if (depositAmount < minDeposit) {
-      toast.error(`Minimum deposit is KES ${minDeposit}`);
-      return;
-    }
+    if (!depositAmount || !phone) { toast.error('Please fill all fields'); return; }
+    if (depositAmount < minDeposit) { toast.error(`Minimum deposit is KES ${minDeposit}`); return; }
 
     setDepositStatus('processing');
     try {
@@ -62,56 +56,32 @@ export function WalletCard({ fiatBalance, userId, onBalanceChange }: WalletCardP
       else if (!formattedPhone.startsWith('254')) formattedPhone = '254' + formattedPhone;
 
       const { data, error } = await supabase.functions.invoke('mpesa-stk-push', {
-        body: {
-          phone: formattedPhone,
-          amount: Math.round(depositAmount),
-          type: 'deposit',
-          userId,
-          accountReference: `DEPOSIT-${userId.slice(0, 8)}`,
-        },
+        body: { phone: formattedPhone, amount: Math.round(depositAmount), type: 'deposit', userId, accountReference: `DEPOSIT-${userId.slice(0, 8)}` },
       });
 
-      if (error) {
-        console.error('Deposit STK error:', error);
-        setDepositStatus('failed');
-        return;
-      }
-
-      if (data && !data.success) {
-        console.error('Deposit STK failed:', data.error);
+      if (error || (data && !data.success)) {
+        console.error('Deposit STK error:', error || data?.error);
         setDepositStatus('failed');
         return;
       }
 
       toast.success('STK Push sent! Check your phone.');
 
-      // Poll for balance change
       const initialBalance = fiatBalance;
       let attempts = 0;
       const maxAttempts = 40;
 
       const checkDeposit = async () => {
         attempts++;
-        const { data: wallet } = await supabase
-          .from('wallets')
-          .select('fiat_balance')
-          .eq('user_id', userId)
-          .single();
-
+        const { data: wallet } = await supabase.from('wallets').select('fiat_balance').eq('user_id', userId).single();
         if (wallet && wallet.fiat_balance > initialBalance) {
           setDepositStatus('success');
           onBalanceChange();
           return;
         }
-
-        if (attempts >= maxAttempts) {
-          setDepositStatus('timeout');
-          return;
-        }
-
+        if (attempts >= maxAttempts) { setDepositStatus('timeout'); return; }
         setTimeout(checkDeposit, 3000);
       };
-
       setTimeout(checkDeposit, 5000);
     } catch (error: any) {
       console.error('Deposit error:', error);
@@ -120,30 +90,17 @@ export function WalletCard({ fiatBalance, userId, onBalanceChange }: WalletCardP
   };
 
   const handleWithdraw = async () => {
-    if (!amount || !phone) {
-      toast.error('Please fill all fields');
-      return;
-    }
-
+    if (!amount || !phone) { toast.error('Please fill all fields'); return; }
     const withdrawAmount = parseFloat(amount);
-    if (withdrawAmount > fiatBalance) {
-      toast.error('Insufficient balance');
-      return;
-    }
+    if (withdrawAmount > fiatBalance) { toast.error('Insufficient balance'); return; }
 
     setProcessing(true);
     try {
-      const { error } = await supabase
-        .from('wallets')
-        .update({ fiat_balance: fiatBalance - withdrawAmount })
-        .eq('user_id', userId);
-
+      const { error } = await supabase.from('wallets').update({ fiat_balance: fiatBalance - withdrawAmount }).eq('user_id', userId);
       if (error) throw error;
-
       toast.success('Withdrawal initiated! Funds will be sent to your M-PESA.');
       setShowWithdraw(false);
-      setAmount('');
-      setPhone('');
+      setAmount(''); setPhone('');
       onBalanceChange();
     } catch (error: any) {
       toast.error(error.message || 'Failed to process withdrawal');
@@ -153,36 +110,31 @@ export function WalletCard({ fiatBalance, userId, onBalanceChange }: WalletCardP
   };
 
   const closeDeposit = () => {
-    setShowDeposit(false);
-    setDepositStatus('form');
-    setAmount('');
-    setPhone('');
-    setElapsed(0);
+    setShowDeposit(false); setDepositStatus('form'); setAmount(''); setPhone(''); setElapsed(0);
   };
 
   return (
     <>
-      <Card className="glass-card overflow-hidden">
+      <Card className="glass-card overflow-hidden h-full">
         <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-accent/5" />
-        <CardHeader className="flex flex-row items-center justify-between pb-2 relative">
-          <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-            <Wallet className="h-4 w-4" />
-            Fiat Wallet
+        <CardHeader className="flex flex-row items-center justify-between pb-1 relative p-2.5 sm:p-4 sm:pb-2">
+          <CardTitle className="text-[10px] sm:text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+            <Wallet className="h-3 w-3 sm:h-3.5 sm:w-3.5" /> Fiat Wallet
           </CardTitle>
-          <Button variant="ghost" size="icon" onClick={onBalanceChange}>
-            <RefreshCw className="h-4 w-4" />
+          <Button variant="ghost" size="icon" onClick={onBalanceChange} className="h-6 w-6 sm:h-7 sm:w-7">
+            <RefreshCw className="h-3 w-3" />
           </Button>
         </CardHeader>
-        <CardContent className="relative">
-          <div className="text-3xl font-bold gradient-text mb-4">
-            KES {fiatBalance.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+        <CardContent className="relative p-2.5 pt-0 sm:p-4 sm:pt-0">
+          <div className="text-lg sm:text-2xl font-bold gradient-text font-mono mb-2 sm:mb-3">
+            KES {fiatBalance.toLocaleString(undefined, { minimumFractionDigits: 0 })}
           </div>
-          <div className="flex gap-2">
-            <Button variant="success" size="sm" className="flex-1 gap-2" onClick={() => setShowDeposit(true)}>
-              <ArrowDownLeft className="h-4 w-4" /> Deposit
+          <div className="flex gap-1.5 sm:gap-2">
+            <Button variant="success" size="sm" className="flex-1 gap-1 h-7 sm:h-8 text-[10px] sm:text-xs" onClick={() => setShowDeposit(true)}>
+              <ArrowDownLeft className="h-3 w-3" /> Deposit
             </Button>
-            <Button variant="outline" size="sm" className="flex-1 gap-2" onClick={() => setShowWithdraw(true)}>
-              <ArrowUpRight className="h-4 w-4" /> Withdraw
+            <Button variant="outline" size="sm" className="flex-1 gap-1 h-7 sm:h-8 text-[10px] sm:text-xs" onClick={() => setShowWithdraw(true)}>
+              <ArrowUpRight className="h-3 w-3" /> Withdraw
             </Button>
           </div>
         </CardContent>
@@ -192,96 +144,90 @@ export function WalletCard({ fiatBalance, userId, onBalanceChange }: WalletCardP
       <Dialog open={showDeposit} onOpenChange={(v) => { if (depositStatus !== 'processing') { if (!v) closeDeposit(); else setShowDeposit(v); } }}>
         <DialogContent className="glass-card border-border/50 max-w-sm mx-4">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <ArrowDownLeft className="h-5 w-5 text-success" />
-              Deposit via M-PESA
+            <DialogTitle className="flex items-center gap-2 text-sm sm:text-base">
+              <ArrowDownLeft className="h-4 w-4 text-success" /> Deposit via M-PESA
             </DialogTitle>
-            <DialogDescription>
-              {depositStatus === 'form' && 'Fund your wallet using M-PESA mobile money'}
+            <DialogDescription className="text-xs sm:text-sm">
+              {depositStatus === 'form' && 'Fund your wallet using M-PESA'}
               {depositStatus === 'processing' && 'Waiting for M-PESA confirmation...'}
               {depositStatus === 'success' && 'Deposit successful!'}
               {depositStatus === 'failed' && 'Deposit failed or cancelled'}
               {depositStatus === 'timeout' && 'Request timed out'}
             </DialogDescription>
           </DialogHeader>
-
           <AnimatePresence mode="wait">
             {depositStatus === 'form' && (
-              <motion.div key="form" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="space-y-4">
-                <div className="space-y-2">
-                  <Label>Amount (KES)</Label>
-                  <Input type="number" placeholder={`Min ${minDeposit}`} value={amount} onChange={(e) => setAmount(e.target.value)} className="bg-muted/30 h-12 text-lg font-mono" />
-                  <p className="text-xs text-muted-foreground">Minimum deposit: KES {minDeposit.toLocaleString()}</p>
+              <motion.div key="form" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="space-y-3">
+                <div className="space-y-1.5">
+                  <Label className="text-xs sm:text-sm">Amount (KES)</Label>
+                  <Input type="number" placeholder={`Min ${minDeposit}`} value={amount} onChange={(e) => setAmount(e.target.value)} className="bg-muted/30 h-10 sm:h-12 text-sm sm:text-lg font-mono" />
+                  <p className="text-[10px] sm:text-xs text-muted-foreground">Minimum: KES {minDeposit.toLocaleString()}</p>
                 </div>
-                <div className="space-y-2">
-                  <Label className="flex items-center gap-2"><Phone className="h-4 w-4" /> M-PESA Phone Number</Label>
-                  <Input type="tel" placeholder="254712345678" value={phone} onChange={(e) => setPhone(e.target.value)} className="bg-muted/30 h-12 font-mono" />
+                <div className="space-y-1.5">
+                  <Label className="flex items-center gap-1.5 text-xs sm:text-sm"><Phone className="h-3.5 w-3.5" /> M-PESA Phone</Label>
+                  <Input type="tel" placeholder="254712345678" value={phone} onChange={(e) => setPhone(e.target.value)} className="bg-muted/30 h-10 sm:h-12 font-mono text-sm" />
                 </div>
-                <Button variant="success" className="w-full gap-2 h-12" onClick={handleDeposit} disabled={!amount || !phone || parseFloat(amount) < minDeposit}>
+                <Button variant="success" className="w-full gap-2 h-10 sm:h-12 text-sm" onClick={handleDeposit} disabled={!amount || !phone || parseFloat(amount) < minDeposit}>
                   Deposit KES {amount || '0'}
                 </Button>
               </motion.div>
             )}
-
             {depositStatus === 'processing' && (
-              <motion.div key="processing" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="py-8 flex flex-col items-center gap-4">
+              <motion.div key="processing" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="py-6 flex flex-col items-center gap-3">
                 <SpiralLoader size="lg" />
-                <p className="text-sm text-muted-foreground">Check your phone for STK push</p>
-                <div className="flex items-center gap-2 text-xs">
-                  <Clock className="h-3.5 w-3.5 text-primary" />
+                <p className="text-xs text-muted-foreground">Check your phone for STK push</p>
+                <div className="flex items-center gap-1.5 text-xs">
+                  <Clock className="h-3 w-3 text-primary" />
                   <span className="font-mono text-primary">{formatTime(elapsed)}</span>
                 </div>
-                <div className="w-full max-w-xs space-y-2">
-                  <div className="flex items-center gap-2 text-xs">
-                    <CheckCircle className="h-3.5 w-3.5 text-success" />
+                <div className="w-full max-w-xs space-y-1.5">
+                  <div className="flex items-center gap-1.5 text-[10px] sm:text-xs">
+                    <CheckCircle className="h-3 w-3 text-success" />
                     <span className="text-success">STK Push sent</span>
                   </div>
-                  <div className="flex items-center gap-2 text-xs">
+                  <div className="flex items-center gap-1.5 text-[10px] sm:text-xs">
                     <motion.div animate={{ opacity: [0.3, 1, 0.3] }} transition={{ duration: 1.5, repeat: Infinity }}>
-                      <Clock className="h-3.5 w-3.5 text-warning" />
+                      <Clock className="h-3 w-3 text-warning" />
                     </motion.div>
                     <span className="text-warning">Awaiting PIN entry...</span>
                   </div>
                 </div>
               </motion.div>
             )}
-
             {depositStatus === 'success' && (
-              <motion.div key="success" initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="py-8 flex flex-col items-center gap-4">
+              <motion.div key="success" initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="py-6 flex flex-col items-center gap-3">
                 <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: 'spring', damping: 10 }}
-                  className="h-16 w-16 rounded-full bg-success/20 flex items-center justify-center">
-                  <CheckCircle className="h-8 w-8 text-success" />
+                  className="h-14 w-14 rounded-full bg-success/20 flex items-center justify-center">
+                  <CheckCircle className="h-7 w-7 text-success" />
                 </motion.div>
-                <p className="text-lg font-bold text-success">Deposit Successful!</p>
-                <p className="text-sm text-muted-foreground">Funds have been added to your wallet</p>
-                <Button variant="hero" onClick={closeDeposit}>Done</Button>
+                <p className="text-base font-bold text-success">Deposit Successful!</p>
+                <p className="text-xs text-muted-foreground">Funds added to your wallet</p>
+                <Button variant="hero" size="sm" onClick={closeDeposit}>Done</Button>
               </motion.div>
             )}
-
             {depositStatus === 'failed' && (
-              <motion.div key="failed" initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="py-8 flex flex-col items-center gap-4">
-                <div className="h-16 w-16 rounded-full bg-destructive/20 flex items-center justify-center">
-                  <XCircle className="h-8 w-8 text-destructive" />
+              <motion.div key="failed" initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="py-6 flex flex-col items-center gap-3">
+                <div className="h-14 w-14 rounded-full bg-destructive/20 flex items-center justify-center">
+                  <XCircle className="h-7 w-7 text-destructive" />
                 </div>
-                <p className="text-lg font-bold text-destructive">Deposit Failed</p>
-                <p className="text-sm text-muted-foreground">The transaction was cancelled or failed</p>
+                <p className="text-base font-bold text-destructive">Deposit Failed</p>
+                <p className="text-xs text-muted-foreground">Transaction cancelled or failed</p>
                 <div className="flex gap-2">
-                  <Button variant="outline" onClick={closeDeposit}>Close</Button>
-                  <Button variant="hero" onClick={() => setDepositStatus('form')}>Try Again</Button>
+                  <Button variant="outline" size="sm" onClick={closeDeposit}>Close</Button>
+                  <Button variant="hero" size="sm" onClick={() => setDepositStatus('form')}>Try Again</Button>
                 </div>
               </motion.div>
             )}
-
             {depositStatus === 'timeout' && (
-              <motion.div key="timeout" initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="py-8 flex flex-col items-center gap-4">
-                <div className="h-16 w-16 rounded-full bg-warning/20 flex items-center justify-center">
-                  <AlertTriangle className="h-8 w-8 text-warning" />
+              <motion.div key="timeout" initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="py-6 flex flex-col items-center gap-3">
+                <div className="h-14 w-14 rounded-full bg-warning/20 flex items-center justify-center">
+                  <AlertTriangle className="h-7 w-7 text-warning" />
                 </div>
-                <p className="text-lg font-bold text-warning">Request Timed Out</p>
-                <p className="text-sm text-muted-foreground">Payment wasn't completed in time</p>
+                <p className="text-base font-bold text-warning">Request Timed Out</p>
+                <p className="text-xs text-muted-foreground">Payment wasn't completed in time</p>
                 <div className="flex gap-2">
-                  <Button variant="outline" onClick={closeDeposit}>Close</Button>
-                  <Button variant="hero" onClick={() => setDepositStatus('form')}>Try Again</Button>
+                  <Button variant="outline" size="sm" onClick={closeDeposit}>Close</Button>
+                  <Button variant="hero" size="sm" onClick={() => setDepositStatus('form')}>Try Again</Button>
                 </div>
               </motion.div>
             )}
@@ -293,26 +239,24 @@ export function WalletCard({ fiatBalance, userId, onBalanceChange }: WalletCardP
       <Dialog open={showWithdraw} onOpenChange={setShowWithdraw}>
         <DialogContent className="glass-card border-border/50 max-w-sm mx-4">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <ArrowUpRight className="h-5 w-5 text-primary" />
-              Withdraw to M-PESA
+            <DialogTitle className="flex items-center gap-2 text-sm sm:text-base">
+              <ArrowUpRight className="h-4 w-4 text-primary" /> Withdraw to M-PESA
             </DialogTitle>
-            <DialogDescription>Withdraw funds to your M-PESA number</DialogDescription>
+            <DialogDescription className="text-xs sm:text-sm">Withdraw funds to your M-PESA</DialogDescription>
           </DialogHeader>
-
-          <div className="space-y-4">
-            <div className="p-3 rounded-lg bg-muted/50 text-sm">
-              Available Balance: <span className="font-bold">KES {fiatBalance.toLocaleString()}</span>
+          <div className="space-y-3">
+            <div className="p-2.5 rounded-lg bg-muted/50 text-xs sm:text-sm">
+              Available: <span className="font-bold font-mono">KES {fiatBalance.toLocaleString()}</span>
             </div>
-            <div className="space-y-2">
-              <Label>Amount (KES)</Label>
-              <Input type="number" placeholder="1000" value={amount} onChange={(e) => setAmount(e.target.value)} className="bg-muted/30" max={fiatBalance} />
+            <div className="space-y-1.5">
+              <Label className="text-xs sm:text-sm">Amount (KES)</Label>
+              <Input type="number" placeholder="1000" value={amount} onChange={(e) => setAmount(e.target.value)} className="bg-muted/30 h-10 font-mono" max={fiatBalance} />
             </div>
-            <div className="space-y-2">
-              <Label className="flex items-center gap-2"><Phone className="h-4 w-4" /> M-PESA Phone Number</Label>
-              <Input type="tel" placeholder="254712345678" value={phone} onChange={(e) => setPhone(e.target.value)} className="bg-muted/30" />
+            <div className="space-y-1.5">
+              <Label className="flex items-center gap-1.5 text-xs sm:text-sm"><Phone className="h-3.5 w-3.5" /> M-PESA Phone</Label>
+              <Input type="tel" placeholder="254712345678" value={phone} onChange={(e) => setPhone(e.target.value)} className="bg-muted/30 h-10 font-mono" />
             </div>
-            <Button className="w-full gap-2" onClick={handleWithdraw} disabled={processing}>
+            <Button className="w-full gap-2 h-10" onClick={handleWithdraw} disabled={processing}>
               {processing ? <Loader2 className="h-4 w-4 animate-spin" /> : <>Withdraw KES {amount || '0'}</>}
             </Button>
           </div>

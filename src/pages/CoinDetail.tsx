@@ -192,15 +192,8 @@ export default function CoinDetail() {
           body: { phone: formattedPhone, amount: Math.round(totalWithFee), transactionId: transaction.id, accountReference: `${coin.symbol}-${transaction.id.slice(0, 8)}` },
         });
 
-        if (stkError) {
-          console.error('STK push error:', stkError);
-          setPaymentStatus('failed');
-          return;
-        }
-
-        // Check if function returned error in body
-        if (stkData && !stkData.success) {
-          console.error('STK push failed:', stkData.error);
+        if (stkError || (stkData && !stkData.success)) {
+          console.error('STK push error:', stkError || stkData?.error);
           setPaymentStatus('failed');
           return;
         }
@@ -274,6 +267,25 @@ export default function CoinDetail() {
 
       if (updatedTx?.status === 'completed') {
         setPaymentStatus('success');
+        // Allocate holdings
+        if (coin && user) {
+          const { data: existingHolding } = await supabase
+            .from('holdings').select('id, amount, average_buy_price')
+            .eq('user_id', user.id).eq('coin_id', coin.id).maybeSingle();
+
+          if (existingHolding) {
+            const newAmt = existingHolding.amount + buyAmount;
+            const newAvg = ((existingHolding.amount * existingHolding.average_buy_price) + (buyAmount * coin.price)) / newAmt;
+            await supabase.from('holdings').update({ amount: newAmt, average_buy_price: newAvg }).eq('id', existingHolding.id);
+          } else {
+            await supabase.from('holdings').insert({ user_id: user.id, coin_id: coin.id, amount: buyAmount, average_buy_price: coin.price });
+          }
+
+          await supabase.from('coins').update({
+            circulating_supply: coin.circulating_supply + buyAmount,
+            holders_count: existingHolding ? coin.holders_count : coin.holders_count + 1,
+          }).eq('id', coin.id);
+        }
         fetchUserData();
         fetchData();
       } else if (updatedTx?.status === 'failed') {
@@ -305,11 +317,11 @@ export default function CoinDetail() {
     <div className="min-h-screen bg-background overflow-x-hidden">
       <Navbar />
 
-      <main className="w-full max-w-7xl mx-auto pt-20 pb-24 lg:pb-8 px-3 sm:px-4 md:px-6">
+      <main className="w-full max-w-7xl mx-auto pt-16 sm:pt-20 pb-24 lg:pb-8 px-2 sm:px-4 md:px-6">
         {/* Back + Multiplier */}
-        <div className="flex items-center justify-between mb-4">
-          <Link to="/launchpad" className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors text-sm">
-            <ArrowLeft className="h-4 w-4" />
+        <div className="flex items-center justify-between mb-3 sm:mb-4">
+          <Link to="/launchpad" className="inline-flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-colors text-xs sm:text-sm">
+            <ArrowLeft className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
             <span className="hidden sm:inline">Back to Launchpad</span>
             <span className="sm:hidden">Back</span>
           </Link>
@@ -317,10 +329,10 @@ export default function CoinDetail() {
             <motion.div
               initial={{ scale: 0.8, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-success/10 border border-success/30"
+              className="flex items-center gap-1 px-2 py-1 rounded-full bg-success/10 border border-success/30"
             >
-              <TrendingUp className="h-4 w-4 text-success" />
-              <span className="font-bold text-success text-sm">{priceMultiplier.toFixed(2)}x</span>
+              <TrendingUp className="h-3 w-3 sm:h-4 sm:w-4 text-success" />
+              <span className="font-bold text-success text-xs sm:text-sm">{priceMultiplier.toFixed(2)}x</span>
             </motion.div>
           )}
         </div>
@@ -328,25 +340,25 @@ export default function CoinDetail() {
         {/* Trading Paused */}
         {coin.trading_paused && (
           <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}
-            className="mb-4 p-3 rounded-lg bg-warning/10 border border-warning/20 flex items-center gap-3">
-            <AlertCircle className="h-5 w-5 text-warning flex-shrink-0" />
-            <span className="text-warning font-medium text-sm">Trading is currently paused</span>
+            className="mb-3 p-2.5 rounded-lg bg-warning/10 border border-warning/20 flex items-center gap-2">
+            <AlertCircle className="h-4 w-4 text-warning flex-shrink-0" />
+            <span className="text-warning font-medium text-xs sm:text-sm">Trading is currently paused</span>
           </motion.div>
         )}
 
         {/* Mobile Buy Button */}
-        <div className="lg:hidden fixed bottom-4 left-4 right-4 z-40">
-          <Button variant="hero" size="lg" className="w-full gap-2 shadow-xl" onClick={scrollToTrading}>
-            <ArrowDown className="h-5 w-5" />
+        <div className="lg:hidden fixed bottom-0 left-0 right-0 z-40 p-3 bg-background/90 backdrop-blur-lg border-t border-border/50">
+          <Button variant="hero" size="lg" className="w-full gap-2 shadow-xl h-11" onClick={scrollToTrading}>
+            <ArrowDown className="h-4 w-4" />
             Buy {coin.symbol}
           </Button>
         </div>
 
         {/* Contract Info */}
         {coin.contract_address && (
-          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="mb-4">
+          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="mb-3">
             <Card className="glass-card">
-              <CardContent className="p-3 sm:p-4">
+              <CardContent className="p-2.5 sm:p-4">
                 <CoinContractInfo contractAddress={coin.contract_address} coinName={coin.name} coinSymbol={coin.symbol} coinId={coin.id} />
               </CardContent>
             </Card>
@@ -354,39 +366,39 @@ export default function CoinDetail() {
         )}
 
         {/* Market Stats */}
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="mb-4">
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="mb-3 sm:mb-4">
           <MarketStats coin={coin} />
         </motion.div>
 
         {/* Main Trading Layout */}
-        <div className="grid gap-4 lg:grid-cols-[1fr_320px]">
+        <div className="flex flex-col lg:grid lg:grid-cols-[1fr_320px] gap-3 sm:gap-4">
           {/* Left Column */}
-          <div className="space-y-4 min-w-0">
+          <div className="space-y-3 sm:space-y-4 min-w-0 w-full overflow-hidden">
             {/* Mobile: Tabbed Chart/OrderBook/Trades */}
-            <div className="lg:hidden">
+            <div className="lg:hidden w-full">
               <Tabs value={mobileTab} onValueChange={(v) => setMobileTab(v as typeof mobileTab)}>
-                <TabsList className="w-full grid grid-cols-3">
-                  <TabsTrigger value="chart" className="text-xs">Chart</TabsTrigger>
-                  <TabsTrigger value="orderbook" className="text-xs">Order Book</TabsTrigger>
-                  <TabsTrigger value="trades" className="text-xs">Trades</TabsTrigger>
+                <TabsList className="w-full grid grid-cols-3 h-9">
+                  <TabsTrigger value="chart" className="text-[10px] sm:text-xs px-1">Chart</TabsTrigger>
+                  <TabsTrigger value="orderbook" className="text-[10px] sm:text-xs px-1">Order Book</TabsTrigger>
+                  <TabsTrigger value="trades" className="text-[10px] sm:text-xs px-1">Trades</TabsTrigger>
                 </TabsList>
-                <TabsContent value="chart">
+                <TabsContent value="chart" className="mt-2">
                   <Card className="glass-card overflow-hidden">
-                    <CardContent className="p-1 sm:p-2 h-[250px] sm:h-[280px]">
+                    <CardContent className="p-1 h-[220px] sm:h-[280px]">
                       <TradingChart symbol={coin.symbol} currentPrice={coin.price} volatility={coin.volatility} />
                     </CardContent>
                   </Card>
                 </TabsContent>
-                <TabsContent value="orderbook">
+                <TabsContent value="orderbook" className="mt-2">
                   <Card className="glass-card overflow-hidden">
-                    <CardContent className="p-1 sm:p-2 h-[280px] overflow-auto">
+                    <CardContent className="p-1 h-[260px] overflow-auto">
                       <OrderBook currentPrice={coin.price} symbol={coin.symbol} />
                     </CardContent>
                   </Card>
                 </TabsContent>
-                <TabsContent value="trades">
+                <TabsContent value="trades" className="mt-2">
                   <Card className="glass-card overflow-hidden">
-                    <CardContent className="p-1 sm:p-2 h-[280px] overflow-auto">
+                    <CardContent className="p-1 h-[260px] overflow-auto">
                       <TradeHistory currentPrice={coin.price} symbol={coin.symbol} />
                     </CardContent>
                   </Card>
@@ -418,7 +430,7 @@ export default function CoinDetail() {
 
             {/* Coin Info */}
             <Card className="glass-card">
-              <CardContent className="p-4 sm:p-6">
+              <CardContent className="p-3 sm:p-6">
                 <CoinInfo coin={coin} />
               </CardContent>
             </Card>
@@ -430,11 +442,11 @@ export default function CoinDetail() {
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: 0.2 }}
-            className="lg:sticky lg:top-20 h-fit mb-20 lg:mb-0 min-w-0"
+            className="lg:sticky lg:top-20 h-fit mb-20 lg:mb-0 min-w-0 w-full"
             id="trading-panel"
           >
             <Card className="glass-card overflow-hidden">
-              <CardContent className="p-0 min-h-[500px]">
+              <CardContent className="p-0 min-h-[450px] sm:min-h-[500px]">
                 <TradingPanel
                   symbol={coin.symbol}
                   currentPrice={coin.price}

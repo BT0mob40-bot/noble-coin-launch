@@ -107,7 +107,7 @@ export default function Landing() {
     try {
       const [settingsRes, coinsRes] = await Promise.all([
         supabase.from('site_settings').select('*').single(),
-        supabase.from('coins').select('id, name, symbol, price, price_change_24h, market_cap, liquidity, holders_count, logo_url, is_trending, is_featured, circulating_supply, total_supply, rank')
+        supabase.from('coins').select('id, name, symbol, price, market_cap, liquidity, holders_count, logo_url, is_trending, is_featured, circulating_supply, total_supply')
           .eq('is_active', true).eq('is_approved', true)
           .order('market_cap', { ascending: false, nullsFirst: false })
           .limit(20),

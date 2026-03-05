@@ -122,7 +122,7 @@ export default function CoinDetail() {
     try {
       const [coinResult, settingsResult] = await Promise.all([
         supabase.from('coins').select('*').eq('id', id).maybeSingle(),
-        supabase.from('site_settings').select('min_buy_amount, max_buy_amount, fee_percentage, admin_commission, creator_commission_percentage').maybeSingle(),
+        supabase.from('site_settings').select('min_buy_amount, max_buy_amount, fee_percentage, admin_commission').maybeSingle(),
       ]);
       if (coinResult.error) throw coinResult.error;
       if (!coinResult.data) { navigate('/launchpad'); return; }

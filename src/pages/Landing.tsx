@@ -113,6 +113,10 @@ export default function Landing() {
           .limit(20),
       ]);
       if (settingsRes.data) setSettings({ ...defaultSettings, ...settingsRes.data });
+      if (coinsRes.data) setTopCoins((coinsRes.data as unknown as TopCoin[]).map((c, i) => ({ ...c, rank: i + 1, price_change_24h: c.price_change_24h || 0 })));
+          .limit(20),
+      ]);
+      if (settingsRes.data) setSettings({ ...defaultSettings, ...settingsRes.data });
       if (coinsRes.data) setTopCoins(coinsRes.data as TopCoin[]);
     } catch (error) {
       console.error('Error fetching data:', error);

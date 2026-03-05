@@ -39,6 +39,8 @@ interface CoinData {
   logo_url: string | null;
   whitepaper_url: string | null;
   contract_address?: string | null;
+  price_change_24h?: number;
+  creator_id?: string | null;
 }
 
 interface SiteSettings {
@@ -46,6 +48,7 @@ interface SiteSettings {
   max_buy_amount: number;
   fee_percentage: number;
   admin_commission: number;
+  creator_commission_percentage?: number;
 }
 
 type PaymentStatus = 'waiting' | 'success' | 'failed' | 'timeout';
@@ -64,10 +67,7 @@ export default function CoinDetail() {
   const [userHolding, setUserHolding] = useState<number>(0);
   const [userFiatBalance, setUserFiatBalance] = useState<number>(0);
   const [settings, setSettings] = useState<SiteSettings>({
-    min_buy_amount: 100,
-    max_buy_amount: 100000,
-    fee_percentage: 2.5,
-    admin_commission: 2.5,
+    min_buy_amount: 100, max_buy_amount: 100000, fee_percentage: 2.5, admin_commission: 2.5,
   });
   const [processing, setProcessing] = useState(false);
   const [mobileTab, setMobileTab] = useState<'chart' | 'orderbook' | 'trades'>('chart');
@@ -87,6 +87,7 @@ export default function CoinDetail() {
     }
   }, [searchParams, loading, coin]);
 
+  // Realtime coin updates
   useEffect(() => {
     if (!id) return;
     const channel = supabase
@@ -96,6 +97,25 @@ export default function CoinDetail() {
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [id]);
+
+  // Realtime transaction status for M-PESA polling
+  useEffect(() => {
+    if (!currentTransactionId) return;
+    const channel = supabase
+      .channel(`tx-${currentTransactionId}`)
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'transactions', filter: `id=eq.${currentTransactionId}` },
+        (payload: any) => {
+          if (payload.new.status === 'completed') {
+            setPaymentStatus('success');
+            fetchUserData();
+            fetchData();
+          } else if (payload.new.status === 'failed') {
+            setPaymentStatus('failed');
+          }
+        })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [currentTransactionId]);
 
   const fetchData = async () => {
     setLoading(true);
@@ -107,7 +127,7 @@ export default function CoinDetail() {
       if (coinResult.error) throw coinResult.error;
       if (!coinResult.data) { navigate('/launchpad'); return; }
       setCoin(coinResult.data as CoinData);
-      if (settingsResult.data) setSettings(settingsResult.data);
+      if (settingsResult.data) setSettings(settingsResult.data as SiteSettings);
     } catch (error) {
       console.error('Error fetching data:', error);
       navigate('/launchpad');
@@ -123,6 +143,7 @@ export default function CoinDetail() {
       supabase.from('wallets').select('fiat_balance').eq('user_id', user.id).maybeSingle(),
     ]);
     if (holdingRes.data) setUserHolding(holdingRes.data.amount);
+    else setUserHolding(0);
     if (walletRes.data) setUserFiatBalance(walletRes.data.fiat_balance);
   };
 
@@ -148,11 +169,13 @@ export default function CoinDetail() {
           .select().single();
         if (txError) throw txError;
 
-        await Promise.all([
-          supabase.from('wallets').update({ fiat_balance: userFiatBalance - totalWithFee }).eq('user_id', user.id),
-          supabase.from('commission_transactions').insert({ transaction_id: transaction.id, amount: fee, commission_rate: settings.fee_percentage }),
-        ]);
+        // Deduct from wallet
+        await supabase.from('wallets').update({ fiat_balance: userFiatBalance - totalWithFee }).eq('user_id', user.id);
 
+        // Commission to admin
+        await supabase.from('commission_transactions').insert({ transaction_id: transaction.id, amount: fee, commission_rate: settings.fee_percentage });
+
+        // Update holdings
         const { data: existingHolding } = await supabase
           .from('holdings').select('id, amount, average_buy_price')
           .eq('user_id', user.id).eq('coin_id', coin.id).maybeSingle();
@@ -165,15 +188,26 @@ export default function CoinDetail() {
           await supabase.from('holdings').insert({ user_id: user.id, coin_id: coin.id, amount, average_buy_price: coin.price });
         }
 
+        // Update coin supply (triggers bonding curve)
         await supabase.from('coins').update({
           circulating_supply: coin.circulating_supply + amount,
           holders_count: existingHolding ? coin.holders_count : coin.holders_count + 1,
         }).eq('id', coin.id);
 
-        toast.success('Purchase successful! Coins added to your portfolio.');
+        // Creator earning
+        if (coin.creator_id && coin.creator_id !== user.id && settings.creator_commission_percentage) {
+          const creatorEarning = totalValue * (settings.creator_commission_percentage / 100);
+          const { data: cw } = await supabase.from('wallets').select('fiat_balance').eq('user_id', coin.creator_id).single();
+          if (cw) {
+            await supabase.from('wallets').update({ fiat_balance: cw.fiat_balance + creatorEarning }).eq('user_id', coin.creator_id);
+          }
+        }
+
+        toast.success('Purchase successful!');
         fetchUserData();
         fetchData();
       } else {
+        // M-PESA payment
         let formattedPhone = phone.replace(/\s+/g, '').replace(/^\+/, '');
         if (!formattedPhone || formattedPhone.length < 9) { toast.error('Please enter a valid phone number'); setProcessing(false); return; }
 
@@ -193,16 +227,15 @@ export default function CoinDetail() {
         });
 
         if (stkError || (stkData && !stkData.success)) {
-          console.error('STK push error:', stkError || stkData?.error);
           setPaymentStatus('failed');
           return;
         }
-
         toast.success('Check your phone for M-PESA prompt!');
+
+        // Polling fallback (realtime should handle it but just in case)
         startPolling(transaction.id, amount);
       }
     } catch (error: any) {
-      console.error('Buy error:', error);
       toast.error(error.message || 'Failed to process transaction');
       setPaymentStatus('failed');
     } finally {
@@ -226,8 +259,10 @@ export default function CoinDetail() {
         .select().single();
       if (error) throw error;
 
+      // Commission
       await supabase.from('commission_transactions').insert({ transaction_id: transaction.id, amount: fee, commission_rate: settings.fee_percentage });
 
+      // Update holdings
       const newAmount = userHolding - amount;
       if (newAmount <= 0) {
         await supabase.from('holdings').delete().eq('user_id', user.id).eq('coin_id', coin.id);
@@ -235,16 +270,27 @@ export default function CoinDetail() {
         await supabase.from('holdings').update({ amount: newAmount }).eq('user_id', user.id).eq('coin_id', coin.id);
       }
 
+      // Reduce supply (triggers bonding curve - price goes down!)
       await supabase.from('coins').update({
-        circulating_supply: coin.circulating_supply - amount,
-        holders_count: newAmount <= 0 ? coin.holders_count - 1 : coin.holders_count,
+        circulating_supply: Math.max(0, coin.circulating_supply - amount),
+        holders_count: newAmount <= 0 ? Math.max(0, coin.holders_count - 1) : coin.holders_count,
       }).eq('id', coin.id);
 
+      // Credit wallet
       if (toWallet) {
         await supabase.from('wallets').update({ fiat_balance: userFiatBalance + netValue }).eq('user_id', user.id);
-        toast.success(`Sold! KES ${netValue.toLocaleString()} added to your wallet.`);
+        toast.success(`Sold! KES ${netValue.toLocaleString()} added to wallet.`);
       } else {
-        toast.success('Sell order placed! Funds will be sent to your M-PESA.');
+        toast.success('Sell order placed!');
+      }
+
+      // Creator earning on sell too
+      if (coin.creator_id && coin.creator_id !== user.id && settings.creator_commission_percentage) {
+        const creatorEarning = totalValue * (settings.creator_commission_percentage / 100);
+        const { data: cw } = await supabase.from('wallets').select('fiat_balance').eq('user_id', coin.creator_id).single();
+        if (cw) {
+          await supabase.from('wallets').update({ fiat_balance: cw.fiat_balance + creatorEarning }).eq('user_id', coin.creator_id);
+        }
       }
 
       fetchUserData();
@@ -259,33 +305,11 @@ export default function CoinDetail() {
   const startPolling = (transactionId: string, buyAmount: number) => {
     let attempts = 0;
     const maxAttempts = 40;
-
     const checkStatus = async () => {
       attempts++;
-      const { data: updatedTx } = await supabase
-        .from('transactions').select('status').eq('id', transactionId).single();
-
+      const { data: updatedTx } = await supabase.from('transactions').select('status').eq('id', transactionId).single();
       if (updatedTx?.status === 'completed') {
         setPaymentStatus('success');
-        // Allocate holdings
-        if (coin && user) {
-          const { data: existingHolding } = await supabase
-            .from('holdings').select('id, amount, average_buy_price')
-            .eq('user_id', user.id).eq('coin_id', coin.id).maybeSingle();
-
-          if (existingHolding) {
-            const newAmt = existingHolding.amount + buyAmount;
-            const newAvg = ((existingHolding.amount * existingHolding.average_buy_price) + (buyAmount * coin.price)) / newAmt;
-            await supabase.from('holdings').update({ amount: newAmt, average_buy_price: newAvg }).eq('id', existingHolding.id);
-          } else {
-            await supabase.from('holdings').insert({ user_id: user.id, coin_id: coin.id, amount: buyAmount, average_buy_price: coin.price });
-          }
-
-          await supabase.from('coins').update({
-            circulating_supply: coin.circulating_supply + buyAmount,
-            holders_count: existingHolding ? coin.holders_count : coin.holders_count + 1,
-          }).eq('id', coin.id);
-        }
         fetchUserData();
         fetchData();
       } else if (updatedTx?.status === 'failed') {
@@ -296,7 +320,6 @@ export default function CoinDetail() {
         setTimeout(checkStatus, 3000);
       }
     };
-
     setTimeout(checkStatus, 5000);
   };
 
@@ -319,38 +342,33 @@ export default function CoinDetail() {
 
       <main className="w-full max-w-7xl mx-auto pt-16 sm:pt-20 pb-24 lg:pb-8 px-2 sm:px-4 md:px-6">
         {/* Back + Multiplier */}
-        <div className="flex items-center justify-between mb-3 sm:mb-4">
-          <Link to="/launchpad" className="inline-flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-colors text-xs sm:text-sm">
-            <ArrowLeft className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+        <div className="flex items-center justify-between mb-3">
+          <Link to="/launchpad" className="inline-flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-colors text-xs">
+            <ArrowLeft className="h-3.5 w-3.5" />
             <span className="hidden sm:inline">Back to Launchpad</span>
             <span className="sm:hidden">Back</span>
           </Link>
           {priceMultiplier > 1 && (
-            <motion.div
-              initial={{ scale: 0.8, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              className="flex items-center gap-1 px-2 py-1 rounded-full bg-success/10 border border-success/30"
-            >
-              <TrendingUp className="h-3 w-3 sm:h-4 sm:w-4 text-success" />
-              <span className="font-bold text-success text-xs sm:text-sm">{priceMultiplier.toFixed(2)}x</span>
+            <motion.div initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
+              className="flex items-center gap-1 px-2 py-1 rounded-full bg-success/10 border border-success/30">
+              <TrendingUp className="h-3 w-3 text-success" />
+              <span className="font-bold text-success text-xs">{priceMultiplier.toFixed(2)}x</span>
             </motion.div>
           )}
         </div>
 
-        {/* Trading Paused */}
         {coin.trading_paused && (
           <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}
             className="mb-3 p-2.5 rounded-lg bg-warning/10 border border-warning/20 flex items-center gap-2">
             <AlertCircle className="h-4 w-4 text-warning flex-shrink-0" />
-            <span className="text-warning font-medium text-xs sm:text-sm">Trading is currently paused</span>
+            <span className="text-warning font-medium text-xs">Trading is currently paused</span>
           </motion.div>
         )}
 
         {/* Mobile Buy Button */}
         <div className="lg:hidden fixed bottom-0 left-0 right-0 z-40 p-3 bg-background/90 backdrop-blur-lg border-t border-border/50">
           <Button variant="hero" size="lg" className="w-full gap-2 shadow-xl h-11" onClick={scrollToTrading}>
-            <ArrowDown className="h-4 w-4" />
-            Buy {coin.symbol}
+            <ArrowDown className="h-4 w-4" /> Buy {coin.symbol}
           </Button>
         </div>
 
@@ -366,21 +384,20 @@ export default function CoinDetail() {
         )}
 
         {/* Market Stats */}
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="mb-3 sm:mb-4">
-          <MarketStats coin={coin} />
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="mb-3">
+          <MarketStats coin={coin} priceChange24h={coin.price_change_24h || 0} />
         </motion.div>
 
         {/* Main Trading Layout */}
         <div className="flex flex-col lg:grid lg:grid-cols-[1fr_320px] gap-3 sm:gap-4">
-          {/* Left Column */}
-          <div className="space-y-3 sm:space-y-4 min-w-0 w-full overflow-hidden">
-            {/* Mobile: Tabbed Chart/OrderBook/Trades */}
+          <div className="space-y-3 min-w-0 w-full overflow-hidden">
+            {/* Mobile: Tabbed */}
             <div className="lg:hidden w-full">
               <Tabs value={mobileTab} onValueChange={(v) => setMobileTab(v as typeof mobileTab)}>
                 <TabsList className="w-full grid grid-cols-3 h-9">
-                  <TabsTrigger value="chart" className="text-[10px] sm:text-xs px-1">Chart</TabsTrigger>
-                  <TabsTrigger value="orderbook" className="text-[10px] sm:text-xs px-1">Order Book</TabsTrigger>
-                  <TabsTrigger value="trades" className="text-[10px] sm:text-xs px-1">Trades</TabsTrigger>
+                  <TabsTrigger value="chart" className="text-[10px] sm:text-xs">Chart</TabsTrigger>
+                  <TabsTrigger value="orderbook" className="text-[10px] sm:text-xs">Order Book</TabsTrigger>
+                  <TabsTrigger value="trades" className="text-[10px] sm:text-xs">Trades</TabsTrigger>
                 </TabsList>
                 <TabsContent value="chart" className="mt-2">
                   <Card className="glass-card overflow-hidden">
@@ -406,14 +423,13 @@ export default function CoinDetail() {
               </Tabs>
             </div>
 
-            {/* Desktop: Stacked layout */}
+            {/* Desktop */}
             <div className="hidden lg:block space-y-4">
               <Card className="glass-card overflow-hidden">
                 <CardContent className="p-4 h-[450px]">
                   <TradingChart symbol={coin.symbol} currentPrice={coin.price} volatility={coin.volatility} />
                 </CardContent>
               </Card>
-
               <div className="grid gap-4 grid-cols-2">
                 <Card className="glass-card h-[400px] overflow-hidden">
                   <CardContent className="p-4 h-full overflow-auto">
@@ -428,7 +444,6 @@ export default function CoinDetail() {
               </div>
             </div>
 
-            {/* Coin Info */}
             <Card className="glass-card">
               <CardContent className="p-3 sm:p-6">
                 <CoinInfo coin={coin} />
@@ -468,23 +483,16 @@ export default function CoinDetail() {
 
       <Footer />
 
-      {/* M-PESA Payment Modal */}
       <MpesaPaymentModal
         open={showPaymentModal}
         onOpenChange={(v) => {
           setShowPaymentModal(v);
-          if (!v) {
-            setPaymentStatus('waiting');
-            setCurrentTransactionId(null);
-          }
+          if (!v) { setPaymentStatus('waiting'); setCurrentTransactionId(null); }
         }}
         status={paymentStatus}
         coinSymbol={coin.symbol}
         amount={pendingBuyAmount * coin.price}
-        onRetry={() => {
-          setPaymentStatus('waiting');
-          setShowPaymentModal(false);
-        }}
+        onRetry={() => { setPaymentStatus('waiting'); setShowPaymentModal(false); }}
       />
     </div>
   );

@@ -22,7 +22,6 @@ Deno.serve(async (req) => {
 
     const stkCallback = body?.Body?.stkCallback;
     if (!stkCallback) {
-      console.error("Invalid callback structure");
       return new Response(
         JSON.stringify({ ResultCode: 0, ResultDesc: "Accepted" }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -32,7 +31,6 @@ Deno.serve(async (req) => {
     const { CheckoutRequestID, ResultCode, ResultDesc, CallbackMetadata } = stkCallback;
     console.log(`Callback - CheckoutRequestID: ${CheckoutRequestID}, ResultCode: ${ResultCode}`);
 
-    // Extract metadata
     let mpesaReceiptNumber = "";
     let amount = 0;
     let phoneNumber = "";
@@ -45,28 +43,24 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Try to find a transaction (coin buy)
+    // Find matching transaction by CheckoutRequestID (stored as mpesa_receipt during STK push)
     const { data: transaction } = await supabase
       .from("transactions")
       .select("*")
       .eq("mpesa_receipt", CheckoutRequestID)
       .maybeSingle();
 
-    // Check if it's a deposit (TransactionDesc contains "Wallet Deposit")
-    const isDeposit = !transaction;
-
-    // Check if it's a gas fee payment (coin with creation_fee_paid = false)
-    if (!transaction) {
-      // Could be a coin creation gas fee - look for coin by CheckoutRequestID won't work
-      // Gas fees update coins table directly, so just handle wallet deposits
-    }
+    // Fetch platform settings
+    const { data: settings } = await supabase
+      .from("site_settings")
+      .select("fee_percentage, admin_commission, creator_commission_percentage, deposit_fee_percentage, referral_commission_percentage, coin_creation_fee")
+      .maybeSingle();
 
     if (ResultCode === 0) {
-      // Payment successful
       console.log(`Payment successful - Receipt: ${mpesaReceiptNumber}, Amount: ${amount}`);
 
       if (transaction) {
-        // ===== COIN BUY TRANSACTION =====
+        // ===== COIN BUY/SELL TRANSACTION =====
         await supabase.from("transactions").update({
           status: "completed",
           mpesa_receipt: mpesaReceiptNumber,
@@ -93,113 +87,127 @@ Deno.serve(async (req) => {
           });
         }
 
-        // Update coin supply
-        const { data: coin } = await supabase.from("coins").select("circulating_supply").eq("id", transaction.coin_id).single();
+        // Update coin circulating supply (triggers bonding curve price update)
+        const { data: coin } = await supabase.from("coins").select("circulating_supply, creator_id").eq("id", transaction.coin_id).single();
         if (coin) {
-          const { count: holdersCount } = await supabase.from("holdings").select("*", { count: "exact", head: true }).eq("coin_id", transaction.coin_id).gt("amount", 0);
+          const { count: holdersCount } = await supabase
+            .from("holdings")
+            .select("*", { count: "exact", head: true })
+            .eq("coin_id", transaction.coin_id)
+            .gt("amount", 0);
+
           await supabase.from("coins").update({
             circulating_supply: coin.circulating_supply + transaction.amount,
             holders_count: holdersCount || 0,
           }).eq("id", transaction.coin_id);
+
+          // ===== COMMISSION DISTRIBUTION =====
+          if (settings) {
+            const tradingFee = transaction.total_value * (settings.fee_percentage / 100);
+
+            // Admin commission
+            await supabase.from("commission_transactions").insert({
+              transaction_id: transaction.id,
+              amount: tradingFee,
+              commission_rate: settings.fee_percentage,
+            });
+
+            // Creator earnings (if coin has a creator and it's not the admin buying their own coin)
+            if (coin.creator_id && coin.creator_id !== transaction.user_id && settings.creator_commission_percentage > 0) {
+              const creatorEarning = transaction.total_value * (settings.creator_commission_percentage / 100);
+              const { data: creatorWallet } = await supabase
+                .from("wallets")
+                .select("fiat_balance")
+                .eq("user_id", coin.creator_id)
+                .single();
+
+              if (creatorWallet) {
+                await supabase.from("wallets").update({
+                  fiat_balance: creatorWallet.fiat_balance + creatorEarning,
+                }).eq("user_id", coin.creator_id);
+                console.log(`Creator earning: ${creatorEarning} KES to ${coin.creator_id}`);
+              }
+            }
+          }
         }
 
-        // Commission
-        const { data: settings } = await supabase.from("site_settings").select("fee_percentage").maybeSingle();
-        if (settings) {
-          const fee = transaction.total_value * (settings.fee_percentage / 100);
-          await supabase.from("commission_transactions").insert({
-            transaction_id: transaction.id,
-            amount: fee,
-            commission_rate: settings.fee_percentage,
-          });
-        }
-
-        console.log("Coin buy completed, holdings updated");
+        console.log("Coin buy completed, holdings & commissions updated");
 
       } else if (amount > 0) {
         // ===== WALLET DEPOSIT =====
-        // Parse userId from TransactionDesc ("Wallet Deposit - {userId}")
-        // Or find by phone number
-        // The STK push TransactionDesc format is "Wallet Deposit - {userId}"
-        // We need to find the user to credit
+        let userId: string | null = null;
 
         // Try to find user by phone
         if (phoneNumber) {
           const formattedPhone = phoneNumber.startsWith("254") ? phoneNumber : `254${phoneNumber}`;
-
-          // Search profiles for phone match
           const { data: profile } = await supabase
             .from("profiles")
             .select("user_id")
             .or(`phone.eq.${formattedPhone},phone.eq.+${formattedPhone},phone.eq.0${formattedPhone.slice(3)}`)
             .maybeSingle();
+          userId = profile?.user_id || null;
+        }
 
-          let userId = profile?.user_id;
+        if (userId) {
+          // Apply deposit fee
+          const depositFee = settings?.deposit_fee_percentage ? amount * (settings.deposit_fee_percentage / 100) : 0;
+          const netDeposit = amount - depositFee;
 
-          // If no profile match, try wallets that recently had STK push
-          if (!userId) {
-            // Fallback: check if any wallet user had a recent deposit attempt
-            // This is a best-effort approach
-            console.log("Could not find user by phone, deposit may not be credited");
-          }
+          const { data: wallet } = await supabase.from("wallets").select("fiat_balance").eq("user_id", userId).single();
+          if (wallet) {
+            await supabase.from("wallets").update({ fiat_balance: wallet.fiat_balance + netDeposit }).eq("user_id", userId);
+            console.log(`Deposit: ${netDeposit} KES (fee: ${depositFee}) to user ${userId}`);
 
-          if (userId) {
-            // Credit wallet
-            const { data: wallet } = await supabase.from("wallets").select("fiat_balance").eq("user_id", userId).single();
-            if (wallet) {
-              const newBalance = wallet.fiat_balance + amount;
-              await supabase.from("wallets").update({ fiat_balance: newBalance }).eq("user_id", userId);
-              console.log(`Wallet deposit: credited ${amount} to user ${userId}`);
+            // Record deposit fee as commission
+            if (depositFee > 0) {
+              await supabase.from("commission_transactions").insert({
+                amount: depositFee,
+                commission_rate: settings?.deposit_fee_percentage || 0,
+              });
+            }
 
-              // ===== REFERRAL BONUS (50% of deposit) =====
-              const { data: userProfile } = await supabase
+            // ===== REFERRAL BONUS =====
+            const { data: userProfile } = await supabase
+              .from("profiles")
+              .select("referred_by")
+              .eq("user_id", userId)
+              .maybeSingle();
+
+            if (userProfile?.referred_by && settings?.referral_commission_percentage) {
+              const { data: referrerProfile } = await supabase
                 .from("profiles")
-                .select("referred_by")
-                .eq("user_id", userId)
+                .select("user_id")
+                .eq("referral_code", userProfile.referred_by)
                 .maybeSingle();
 
-              if (userProfile?.referred_by) {
-                // Find referrer by referral code
-                const { data: referrerProfile } = await supabase
-                  .from("profiles")
-                  .select("user_id")
-                  .eq("referral_code", userProfile.referred_by)
+              if (referrerProfile) {
+                const referralBonus = amount * (settings.referral_commission_percentage / 100);
+                const { data: referrerWallet } = await supabase
+                  .from("wallets")
+                  .select("fiat_balance")
+                  .eq("user_id", referrerProfile.user_id)
+                  .single();
+
+                if (referrerWallet) {
+                  await supabase.from("wallets").update({
+                    fiat_balance: referrerWallet.fiat_balance + referralBonus,
+                  }).eq("user_id", referrerProfile.user_id);
+                  console.log(`Referral bonus: ${referralBonus} KES to ${referrerProfile.user_id}`);
+                }
+
+                const { data: referral } = await supabase
+                  .from("referrals")
+                  .select("id")
+                  .eq("referrer_id", referrerProfile.user_id)
+                  .eq("referred_id", userId)
                   .maybeSingle();
 
-                if (referrerProfile) {
-                  const referralBonus = amount * 0.5; // 50% of deposit
-
-                  // Credit referrer's wallet
-                  const { data: referrerWallet } = await supabase
-                    .from("wallets")
-                    .select("fiat_balance")
-                    .eq("user_id", referrerProfile.user_id)
-                    .single();
-
-                  if (referrerWallet) {
-                    await supabase.from("wallets").update({
-                      fiat_balance: referrerWallet.fiat_balance + referralBonus,
-                    }).eq("user_id", referrerProfile.user_id);
-
-                    console.log(`Referral bonus: ${referralBonus} KES credited to referrer ${referrerProfile.user_id}`);
-                  }
-
-                  // Track referral commission
-                  const { data: referral } = await supabase
-                    .from("referrals")
-                    .select("id")
-                    .eq("referrer_id", referrerProfile.user_id)
-                    .eq("referred_id", userId)
-                    .maybeSingle();
-
-                  if (referral) {
-                    // Create a dummy transaction reference for tracking
-                    await supabase.from("referral_commissions").insert({
-                      referral_id: referral.id,
-                      transaction_id: referral.id, // Use referral id as reference
-                      amount: referralBonus,
-                    });
-                  }
+                if (referral) {
+                  await supabase.from("referral_commissions").insert({
+                    referral_id: referral.id,
+                    transaction_id: referral.id,
+                    amount: referralBonus,
+                  });
                 }
               }
             }
@@ -207,43 +215,25 @@ Deno.serve(async (req) => {
         }
       }
 
-      // Check for gas fee payment (coin creation)
-      // Gas fee coins have CheckoutRequestID stored... but we stored it in transactions
-      // For gas fees without a transaction, the coin itself was passed as transactionId
-      // The STK push stores CheckoutRequestID in mpesa_receipt of the transaction
-      // But for gas fees, transactionId is the coin ID
-      // So let's also check if any coin has this CheckoutRequestID pending
-      // Actually the gas fee flow uses transactionId=coinId, and the STK push
-      // updates that transaction's mpesa_receipt. But for gas fees there's no transaction.
-      // The coin creation flow creates a coin and passes coinId as transactionId,
-      // but the STK push function only updates transactions table, not coins.
-      // We need to also mark the coin as paid.
-
-      // Check if a coin was recently created and unpaid
-      // We can look for coins where creation_fee_paid = false
-      // and the STK push was for this amount
-      const { data: settings } = await supabase.from("site_settings").select("coin_creation_fee").maybeSingle();
+      // ===== GAS FEE PAYMENT CHECK =====
       if (settings && amount === settings.coin_creation_fee) {
-        // Find unpaid coins - match by checking if the transactionId was a coin ID
-        // The mpesa-stk-push stores CheckoutRequestID in transactions.mpesa_receipt
-        // For gas fees, the "transactionId" passed was the coinId
-        // So check if a transaction exists with mpesa_receipt = CheckoutRequestID 
-        // and the transaction ID matches a coin ID
-        const { data: gasTx } = await supabase
-          .from("transactions")
+        // Find unpaid coins matching this amount - mark as paid
+        const { data: unpaidCoins } = await supabase
+          .from("coins")
           .select("id")
-          .eq("mpesa_receipt", CheckoutRequestID)
-          .maybeSingle();
+          .eq("creation_fee_paid", false)
+          .order("created_at", { ascending: false })
+          .limit(5);
 
-        // If no transaction found, the coinId was used directly
-        // The STK function updates transactions, but for gas fees it might have used coinId
-        // Check coins table directly
-        // This is a simplified approach - mark any matching unpaid coin
+        if (unpaidCoins && unpaidCoins.length > 0) {
+          // Mark most recent unpaid coin as paid
+          await supabase.from("coins").update({ creation_fee_paid: true }).eq("id", unpaidCoins[0].id);
+          console.log(`Gas fee paid for coin ${unpaidCoins[0].id}`);
+        }
       }
     } else {
       // Payment failed
       console.log(`Payment failed - ResultCode: ${ResultCode}, ResultDesc: ${ResultDesc}`);
-
       if (transaction) {
         await supabase.from("transactions").update({ status: "failed" }).eq("id", transaction.id);
       }

@@ -42,15 +42,11 @@ interface Transaction {
   };
 }
 
-interface WalletData {
-  fiat_balance: number;
-}
-
 export default function Dashboard() {
   const { user } = useAuth();
   const [holdings, setHoldings] = useState<Holding[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [wallet, setWallet] = useState<WalletData | null>(null);
+  const [fiatBalance, setFiatBalance] = useState(0);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -63,11 +59,18 @@ export default function Dashboard() {
       const [holdingsRes, txRes, walletRes] = await Promise.all([
         supabase.from('holdings').select('id, amount, average_buy_price, coin:coins(id, name, symbol, price, logo_url)').eq('user_id', user?.id),
         supabase.from('transactions').select('id, type, amount, price_per_coin, total_value, status, created_at, coin:coins(name, symbol)').eq('user_id', user?.id).order('created_at', { ascending: false }).limit(20),
-        supabase.from('wallets').select('fiat_balance').eq('user_id', user?.id).single(),
+        supabase.from('wallets').select('fiat_balance').eq('user_id', user?.id!).maybeSingle(),
       ]);
       if (holdingsRes.data) setHoldings(holdingsRes.data as unknown as Holding[]);
       if (txRes.data) setTransactions(txRes.data as unknown as Transaction[]);
-      if (walletRes.data) setWallet(walletRes.data);
+      
+      if (walletRes.data) {
+        setFiatBalance(walletRes.data.fiat_balance);
+      } else if (!walletRes.error || walletRes.error.code === 'PGRST116') {
+        // No wallet found - create one
+        const { data: newWallet } = await supabase.from('wallets').insert({ user_id: user?.id!, fiat_balance: 0 }).select('fiat_balance').single();
+        if (newWallet) setFiatBalance(newWallet.fiat_balance);
+      }
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
     } finally {
@@ -79,7 +82,7 @@ export default function Dashboard() {
   const totalInvested = holdings.reduce((acc, h) => acc + (h.amount * h.average_buy_price), 0);
   const totalPnL = totalPortfolioValue - totalInvested;
   const pnlPercentage = totalInvested > 0 ? ((totalPnL / totalInvested) * 100) : 0;
-  const totalNetWorth = (wallet?.fiat_balance || 0) + totalPortfolioValue;
+  const totalNetWorth = fiatBalance + totalPortfolioValue;
 
   return (
     <div className="min-h-screen bg-background overflow-x-hidden">
@@ -104,10 +107,9 @@ export default function Dashboard() {
 
         {/* Portfolio Stats */}
         <div className="grid gap-2 sm:gap-3 grid-cols-2 lg:grid-cols-4 mb-4 sm:mb-6">
-          {/* Fiat Wallet */}
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }} className="col-span-2 lg:col-span-1">
-            {user && wallet && (
-              <WalletCard fiatBalance={wallet.fiat_balance} userId={user.id} onBalanceChange={fetchData} />
+            {user && (
+              <WalletCard fiatBalance={fiatBalance} userId={user.id} onBalanceChange={fetchData} />
             )}
           </motion.div>
 
@@ -176,18 +178,14 @@ export default function Dashboard() {
 
           <TabsContent value="holdings">
             {loading ? (
-              <div className="flex justify-center py-12">
-                <Loader2 className="h-8 w-8 animate-spin text-primary" />
-              </div>
+              <div className="flex justify-center py-12"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
             ) : holdings.length === 0 ? (
               <Card className="glass-card">
                 <CardContent className="py-8 sm:py-12 text-center">
                   <Package className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
                   <h3 className="text-sm sm:text-base font-semibold mb-1">No holdings yet</h3>
                   <p className="text-muted-foreground mb-3 text-xs sm:text-sm">Start building your portfolio</p>
-                  <Link to="/launchpad">
-                    <Button variant="hero" size="sm">Explore Launchpad</Button>
-                  </Link>
+                  <Link to="/launchpad"><Button size="sm" className="bg-success hover:bg-success/90 text-success-foreground">Explore Launchpad</Button></Link>
                 </CardContent>
               </Card>
             ) : (
@@ -197,7 +195,6 @@ export default function Dashboard() {
                   const costBasis = holding.amount * holding.average_buy_price;
                   const pnl = currentValue - costBasis;
                   const pnlPercent = costBasis > 0 ? ((pnl / costBasis) * 100) : 0;
-
                   return (
                     <motion.div key={holding.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
                       <Link to={`/coin/${holding.coin?.id}`}>
@@ -205,31 +202,21 @@ export default function Dashboard() {
                           <CardContent className="p-2.5 sm:p-4">
                             <div className="flex items-center gap-2 sm:gap-3 mb-2 sm:mb-3">
                               <div className="h-8 w-8 sm:h-10 sm:w-10 rounded-lg bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center overflow-hidden flex-shrink-0">
-                                {holding.coin?.logo_url ? (
-                                  <img src={holding.coin.logo_url} alt={holding.coin.name} className="h-full w-full object-cover" />
-                                ) : (
-                                  <Coins className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
-                                )}
+                                {holding.coin?.logo_url ? <img src={holding.coin.logo_url} alt={holding.coin.name} className="h-full w-full object-cover" /> : <Coins className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />}
                               </div>
                               <div className="flex-1 min-w-0">
                                 <h4 className="font-semibold text-xs sm:text-sm truncate">{holding.coin?.name}</h4>
-                                <p className="text-[10px] sm:text-xs text-muted-foreground">
-                                  {holding.amount.toLocaleString()} {holding.coin?.symbol}
-                                </p>
+                                <p className="text-[10px] sm:text-xs text-muted-foreground">{holding.amount.toLocaleString()} {holding.coin?.symbol}</p>
                               </div>
                             </div>
                             <div className="grid grid-cols-2 gap-2">
                               <div>
                                 <p className="text-[10px] sm:text-xs text-muted-foreground">Value</p>
-                                <p className="font-semibold text-xs sm:text-sm font-mono">
-                                  KES {currentValue.toLocaleString(undefined, { maximumFractionDigits: 0 })}
-                                </p>
+                                <p className="font-semibold text-xs sm:text-sm font-mono">KES {currentValue.toLocaleString(undefined, { maximumFractionDigits: 0 })}</p>
                               </div>
                               <div className="text-right">
                                 <p className="text-[10px] sm:text-xs text-muted-foreground">P&L</p>
-                                <p className={`font-semibold text-xs sm:text-sm ${pnl >= 0 ? 'text-success' : 'text-destructive'}`}>
-                                  {pnl >= 0 ? '+' : ''}{pnlPercent.toFixed(1)}%
-                                </p>
+                                <p className={`font-semibold text-xs sm:text-sm ${pnl >= 0 ? 'text-success' : 'text-destructive'}`}>{pnl >= 0 ? '+' : ''}{pnlPercent.toFixed(1)}%</p>
                               </div>
                             </div>
                           </CardContent>
@@ -244,9 +231,7 @@ export default function Dashboard() {
 
           <TabsContent value="transactions">
             {loading ? (
-              <div className="flex justify-center py-12">
-                <Loader2 className="h-8 w-8 animate-spin text-primary" />
-              </div>
+              <div className="flex justify-center py-12"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
             ) : transactions.length === 0 ? (
               <Card className="glass-card">
                 <CardContent className="py-8 text-center">
@@ -263,9 +248,7 @@ export default function Dashboard() {
                       <CardContent className="p-2.5 sm:p-3">
                         <div className="flex items-center justify-between gap-2">
                           <div className="flex items-center gap-2 flex-1 min-w-0">
-                            <div className={`h-7 w-7 sm:h-8 sm:w-8 rounded-lg flex items-center justify-center flex-shrink-0 ${
-                              tx.type === 'buy' ? 'bg-success/10 text-success' : 'bg-destructive/10 text-destructive'
-                            }`}>
+                            <div className={`h-7 w-7 sm:h-8 sm:w-8 rounded-lg flex items-center justify-center flex-shrink-0 ${tx.type === 'buy' ? 'bg-success/10 text-success' : 'bg-destructive/10 text-destructive'}`}>
                               {tx.type === 'buy' ? <ArrowDownRight className="h-3.5 w-3.5" /> : <ArrowUpRight className="h-3.5 w-3.5" />}
                             </div>
                             <div className="min-w-0 flex-1">

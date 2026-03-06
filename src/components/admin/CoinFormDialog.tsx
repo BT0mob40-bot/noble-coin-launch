@@ -18,6 +18,7 @@ interface CoinFormData {
   symbol: string;
   description: string;
   total_supply: number;
+  initial_price: number;
   logo_url: string;
   whitepaper_url: string;
   is_featured: boolean;
@@ -46,6 +47,7 @@ export function CoinFormDialog({ open, onOpenChange, onSuccess, userId, isSuperA
 
   const [formData, setFormData] = useState<CoinFormData>({
     name: '', symbol: '', description: '', total_supply: 1000000000,
+    initial_price: 0.001,
     logo_url: '', whitepaper_url: '', is_featured: false, is_trending: false,
   });
 
@@ -96,7 +98,6 @@ export function CoinFormDialog({ open, onOpenChange, onSuccess, userId, isSuperA
 
   const handleCreateCoin = () => {
     if (!formData.name || !formData.symbol) { toast.error('Name and symbol are required'); return; }
-    // Super admin skips payment
     if (isSuperAdmin) {
       handleSuperAdminCreate();
     } else {
@@ -104,7 +105,6 @@ export function CoinFormDialog({ open, onOpenChange, onSuccess, userId, isSuperA
     }
   };
 
-  // Super admin creates coin directly without gas fee
   const handleSuperAdminCreate = async () => {
     setCreating(true);
     try {
@@ -121,8 +121,8 @@ export function CoinFormDialog({ open, onOpenChange, onSuccess, userId, isSuperA
         is_approved: true,
         approval_status: 'approved',
         creation_fee_paid: true,
-        price: 0.001,
-        initial_price: 0.001,
+        price: formData.initial_price,
+        initial_price: formData.initial_price,
         is_active: true,
       });
 
@@ -235,7 +235,7 @@ export function CoinFormDialog({ open, onOpenChange, onSuccess, userId, isSuperA
   };
 
   const resetForm = () => {
-    setFormData({ name: '', symbol: '', description: '', total_supply: 1000000000, logo_url: '', whitepaper_url: '', is_featured: false, is_trending: false });
+    setFormData({ name: '', symbol: '', description: '', total_supply: 1000000000, initial_price: 0.001, logo_url: '', whitepaper_url: '', is_featured: false, is_trending: false });
     setPreviewUrl(null);
     setPhone('');
     setStep('form');
@@ -324,11 +324,21 @@ export function CoinFormDialog({ open, onOpenChange, onSuccess, userId, isSuperA
                   <Textarea placeholder="Describe your coin..." value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} rows={2} />
                 </div>
 
-                <div className="space-y-2">
-                  <Label className="text-sm">Total Supply</Label>
-                  <Input type="number" value={formData.total_supply} onChange={(e) => setFormData({ ...formData, total_supply: parseInt(e.target.value) || 0 })} />
-                  <p className="text-xs text-muted-foreground">{isSuperAdmin ? 'You can set the price directly' : 'Price is set by admin during approval'}</p>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-2">
+                    <Label className="text-sm">Total Supply</Label>
+                    <Input type="number" value={formData.total_supply} onChange={(e) => setFormData({ ...formData, total_supply: parseInt(e.target.value) || 0 })} />
+                  </div>
+                  {isSuperAdmin && (
+                    <div className="space-y-2">
+                      <Label className="text-sm">Initial Price (KES)</Label>
+                      <Input type="number" step="0.000001" value={formData.initial_price} onChange={(e) => setFormData({ ...formData, initial_price: parseFloat(e.target.value) || 0.001 })} />
+                    </div>
+                  )}
                 </div>
+                <p className="text-xs text-muted-foreground">
+                  {isSuperAdmin ? 'Set the initial price directly. Gas fee determined by admin settings.' : 'Initial price is set by admin during approval. Gas fee: KES ' + gasFee.toLocaleString()}
+                </p>
 
                 {isSuperAdmin && (
                   <div className="flex flex-wrap gap-6 pt-1">
@@ -345,9 +355,9 @@ export function CoinFormDialog({ open, onOpenChange, onSuccess, userId, isSuperA
               </div>
               <DialogFooter className="flex-col sm:flex-row gap-2">
                 <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-                <Button variant="hero" onClick={handleCreateCoin} disabled={!formData.name || !formData.symbol || creating}>
+                <Button onClick={handleCreateCoin} disabled={!formData.name || !formData.symbol || creating} className="bg-success hover:bg-success/90 text-success-foreground">
                   {creating ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-                  {isSuperAdmin ? 'Create Coin' : 'Continue to Payment'}
+                  {isSuperAdmin ? 'Create & Activate Coin' : 'Continue to Payment'}
                 </Button>
               </DialogFooter>
             </motion.div>
@@ -367,7 +377,7 @@ export function CoinFormDialog({ open, onOpenChange, onSuccess, userId, isSuperA
                 </div>
                 <DialogFooter className="flex-col sm:flex-row gap-2">
                   <Button variant="outline" onClick={() => setStep('form')}>Back</Button>
-                  <Button variant="hero" onClick={handlePayGasFee} disabled={!phone || phone.length < 9}>Pay Gas Fee</Button>
+                  <Button className="bg-success hover:bg-success/90 text-success-foreground" onClick={handlePayGasFee} disabled={!phone || phone.length < 9}>Pay Gas Fee</Button>
                 </DialogFooter>
               </div>
             </motion.div>
@@ -399,45 +409,28 @@ export function CoinFormDialog({ open, onOpenChange, onSuccess, userId, isSuperA
 
           {step === 'success' && (
             <motion.div key="success" initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="py-8 flex flex-col items-center gap-4">
-              <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: 'spring', damping: 10 }} className="h-16 w-16 rounded-full bg-success/20 flex items-center justify-center">
+              <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: 'spring', damping: 10 }}
+                className="h-16 w-16 rounded-full bg-success/20 flex items-center justify-center">
                 <CheckCircle className="h-8 w-8 text-success" />
               </motion.div>
-              <div className="text-center">
-                <p className="text-lg font-bold text-success">Coin Created!</p>
-                <p className="text-sm text-muted-foreground">{isSuperAdmin ? 'Coin is now live on the platform' : 'Awaiting Super Admin approval'}</p>
-              </div>
-              <Button variant="hero" onClick={handleClose}>Done</Button>
+              <p className="text-lg font-bold text-success">Coin Created!</p>
+              <p className="text-xs text-muted-foreground text-center">
+                {isSuperAdmin ? 'Your coin is now live and tradeable.' : 'Your coin is pending admin approval.'}
+              </p>
+              <Button className="bg-success hover:bg-success/90 text-success-foreground" onClick={handleClose}>Done</Button>
             </motion.div>
           )}
 
-          {step === 'failed' && (
-            <motion.div key="failed" initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="py-8 flex flex-col items-center gap-4">
+          {(step === 'failed' || step === 'timeout') && (
+            <motion.div key="error" initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="py-8 flex flex-col items-center gap-4">
               <div className="h-16 w-16 rounded-full bg-destructive/20 flex items-center justify-center">
-                <XCircle className="h-8 w-8 text-destructive" />
+                {step === 'failed' ? <XCircle className="h-8 w-8 text-destructive" /> : <AlertTriangle className="h-8 w-8 text-warning" />}
               </div>
-              <div className="text-center">
-                <p className="text-lg font-bold text-destructive">Payment Failed</p>
-                <p className="text-sm text-muted-foreground">The transaction was cancelled or failed</p>
-              </div>
+              <p className="text-lg font-bold">{step === 'failed' ? 'Payment Failed' : 'Timed Out'}</p>
+              <p className="text-xs text-muted-foreground">{step === 'failed' ? 'Transaction was cancelled or failed.' : 'Payment was not completed in time.'}</p>
               <div className="flex gap-2">
                 <Button variant="outline" onClick={handleClose}>Close</Button>
-                <Button variant="hero" onClick={() => setStep('payment')}>Try Again</Button>
-              </div>
-            </motion.div>
-          )}
-
-          {step === 'timeout' && (
-            <motion.div key="timeout" initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="py-8 flex flex-col items-center gap-4">
-              <div className="h-16 w-16 rounded-full bg-warning/20 flex items-center justify-center">
-                <AlertTriangle className="h-8 w-8 text-warning" />
-              </div>
-              <div className="text-center">
-                <p className="text-lg font-bold text-warning">Request Timed Out</p>
-                <p className="text-sm text-muted-foreground">Payment wasn't completed in time</p>
-              </div>
-              <div className="flex gap-2">
-                <Button variant="outline" onClick={handleClose}>Close</Button>
-                <Button variant="hero" onClick={() => setStep('payment')}>Try Again</Button>
+                <Button onClick={() => setStep('payment')}>Try Again</Button>
               </div>
             </motion.div>
           )}

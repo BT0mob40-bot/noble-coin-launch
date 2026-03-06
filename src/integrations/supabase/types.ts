@@ -299,8 +299,12 @@ export type Database = {
           admin_commission: number
           coin_creation_fee: number
           created_at: string
+          creator_commission_percentage: number
           cta_subtitle: string | null
           cta_title: string | null
+          deposit_fee_percentage: number
+          discord_url: string | null
+          facebook_url: string | null
           feature_1_description: string | null
           feature_1_title: string | null
           feature_2_description: string | null
@@ -310,29 +314,39 @@ export type Database = {
           feature_4_description: string | null
           feature_4_title: string | null
           fee_percentage: number
+          google_verification_code: string | null
           hero_badge: string | null
           hero_subtitle: string | null
           hero_title: string | null
           id: string
+          instagram_url: string | null
           logo_url: string | null
           max_buy_amount: number
           min_buy_amount: number
           primary_color: string | null
           referral_commission_percentage: number
+          seo_keywords: string | null
           site_description: string | null
           site_name: string
           stats_tokens: string | null
           stats_traders: string | null
           stats_uptime: string | null
           stats_volume: string | null
+          telegram_url: string | null
+          twitter_url: string | null
           updated_at: string
+          withdrawal_fee_percentage: number
         }
         Insert: {
           admin_commission?: number
           coin_creation_fee?: number
           created_at?: string
+          creator_commission_percentage?: number
           cta_subtitle?: string | null
           cta_title?: string | null
+          deposit_fee_percentage?: number
+          discord_url?: string | null
+          facebook_url?: string | null
           feature_1_description?: string | null
           feature_1_title?: string | null
           feature_2_description?: string | null
@@ -342,29 +356,39 @@ export type Database = {
           feature_4_description?: string | null
           feature_4_title?: string | null
           fee_percentage?: number
+          google_verification_code?: string | null
           hero_badge?: string | null
           hero_subtitle?: string | null
           hero_title?: string | null
           id?: string
+          instagram_url?: string | null
           logo_url?: string | null
           max_buy_amount?: number
           min_buy_amount?: number
           primary_color?: string | null
           referral_commission_percentage?: number
+          seo_keywords?: string | null
           site_description?: string | null
           site_name?: string
           stats_tokens?: string | null
           stats_traders?: string | null
           stats_uptime?: string | null
           stats_volume?: string | null
+          telegram_url?: string | null
+          twitter_url?: string | null
           updated_at?: string
+          withdrawal_fee_percentage?: number
         }
         Update: {
           admin_commission?: number
           coin_creation_fee?: number
           created_at?: string
+          creator_commission_percentage?: number
           cta_subtitle?: string | null
           cta_title?: string | null
+          deposit_fee_percentage?: number
+          discord_url?: string | null
+          facebook_url?: string | null
           feature_1_description?: string | null
           feature_1_title?: string | null
           feature_2_description?: string | null
@@ -374,22 +398,28 @@ export type Database = {
           feature_4_description?: string | null
           feature_4_title?: string | null
           fee_percentage?: number
+          google_verification_code?: string | null
           hero_badge?: string | null
           hero_subtitle?: string | null
           hero_title?: string | null
           id?: string
+          instagram_url?: string | null
           logo_url?: string | null
           max_buy_amount?: number
           min_buy_amount?: number
           primary_color?: string | null
           referral_commission_percentage?: number
+          seo_keywords?: string | null
           site_description?: string | null
           site_name?: string
           stats_tokens?: string | null
           stats_traders?: string | null
           stats_uptime?: string | null
           stats_volume?: string | null
+          telegram_url?: string | null
+          twitter_url?: string | null
           updated_at?: string
+          withdrawal_fee_percentage?: number
         }
         Relationships: []
       }

@@ -94,8 +94,32 @@ export function SiteSettingsProvider({ children }: { children: ReactNode }) {
       if (data && !error) {
         setSettings({
           ...defaultSettings,
-          ...data,
+          ...(data as any),
         });
+        
+        // Add Google verification meta tag if set
+        const gvCode = (data as any).google_verification_code;
+        if (gvCode) {
+          let metaGV = document.querySelector('meta[name="google-site-verification"]');
+          if (!metaGV) {
+            metaGV = document.createElement('meta');
+            metaGV.setAttribute('name', 'google-site-verification');
+            document.head.appendChild(metaGV);
+          }
+          metaGV.setAttribute('content', gvCode);
+        }
+        
+        // Add SEO keywords
+        const seoKw = (data as any).seo_keywords;
+        if (seoKw) {
+          let metaKw = document.querySelector('meta[name="keywords"]');
+          if (!metaKw) {
+            metaKw = document.createElement('meta');
+            metaKw.setAttribute('name', 'keywords');
+            document.head.appendChild(metaKw);
+          }
+          metaKw.setAttribute('content', seoKw);
+        }
         
         // Update document title
         document.title = data.site_name || defaultSettings.site_name;

@@ -157,6 +157,10 @@ export function CoinFormDialog({ open, onOpenChange, onSuccess, userId, isSuperA
         total_supply: formData.total_supply,
         logo_url: formData.logo_url || null,
         whitepaper_url: formData.whitepaper_url || null,
+        website_url: formData.website_url || null,
+        twitter_url: formData.twitter_url || null,
+        telegram_url: formData.telegram_url || null,
+        discord_url: formData.discord_url || null,
         is_featured: false,
         is_trending: false,
         creator_id: userId,
@@ -166,7 +170,7 @@ export function CoinFormDialog({ open, onOpenChange, onSuccess, userId, isSuperA
         price: 0.001,
         initial_price: 0.001,
         is_active: false,
-      }).select().single();
+      } as any).select().single();
 
       if (coinError) throw coinError;
 

@@ -183,6 +183,7 @@ export function CoinFormDialog({ open, onOpenChange, onSuccess, userId, isSuperA
           phone: formattedPhone,
           amount: Math.round(gasFee),
           transactionId: coinData.id,
+          userId,
           accountReference: `GAS-${formData.symbol.toUpperCase()}`,
           type: 'coin_creation',
         },

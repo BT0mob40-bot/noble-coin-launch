@@ -15,6 +15,11 @@ interface MpesaConfig {
   consumer_secret: string | null;
   passkey: string | null;
   callback_url: string | null;
+  initiator_name: string | null;
+  security_credential: string | null;
+  b2c_command_id: string | null;
+  b2c_result_url: string | null;
+  b2c_timeout_url: string | null;
   is_sandbox: boolean;
 }
 
@@ -30,6 +35,11 @@ export function MpesaSettings() {
     consumer_secret: '',
     passkey: '',
     callback_url: '',
+    initiator_name: '',
+    security_credential: '',
+    b2c_command_id: 'BusinessPayment',
+    b2c_result_url: '',
+    b2c_timeout_url: '',
     is_sandbox: true,
   });
 
@@ -55,6 +65,11 @@ export function MpesaSettings() {
           consumer_secret: data.consumer_secret || '',
           passkey: data.passkey || '',
           callback_url: data.callback_url || '',
+          initiator_name: data.initiator_name || '',
+          security_credential: data.security_credential || '',
+          b2c_command_id: data.b2c_command_id || 'BusinessPayment',
+          b2c_result_url: data.b2c_result_url || '',
+          b2c_timeout_url: data.b2c_timeout_url || '',
           is_sandbox: data.is_sandbox,
         });
       }
@@ -79,6 +94,11 @@ export function MpesaSettings() {
         consumer_secret: formData.consumer_secret || null,
         passkey: formData.passkey || null,
         callback_url: formData.callback_url || null,
+        initiator_name: formData.initiator_name || null,
+        security_credential: formData.security_credential || null,
+        b2c_command_id: formData.b2c_command_id || 'BusinessPayment',
+        b2c_result_url: formData.b2c_result_url || null,
+        b2c_timeout_url: formData.b2c_timeout_url || null,
         is_sandbox: formData.is_sandbox,
       };
 
@@ -215,7 +235,52 @@ export function MpesaSettings() {
           </div>
         </div>
 
-        <Button 
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="space-y-2">
+              <Label>Initiator Name (B2C)</Label>
+              <Input
+                type={showSecrets ? 'text' : 'password'}
+                placeholder="B2C initiator"
+                value={formData.initiator_name}
+                onChange={(e) => setFormData({ ...formData, initiator_name: e.target.value })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Security Credential (B2C)</Label>
+              <Input
+                type={showSecrets ? 'text' : 'password'}
+                placeholder="Encrypted security credential"
+                value={formData.security_credential}
+                onChange={(e) => setFormData({ ...formData, security_credential: e.target.value })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>B2C Command ID</Label>
+              <Input
+                placeholder="BusinessPayment"
+                value={formData.b2c_command_id}
+                onChange={(e) => setFormData({ ...formData, b2c_command_id: e.target.value })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>B2C Result URL (optional)</Label>
+              <Input
+                placeholder="https://.../result"
+                value={formData.b2c_result_url}
+                onChange={(e) => setFormData({ ...formData, b2c_result_url: e.target.value })}
+              />
+            </div>
+            <div className="space-y-2 md:col-span-2">
+              <Label>B2C Timeout URL (optional)</Label>
+              <Input
+                placeholder="https://.../timeout"
+                value={formData.b2c_timeout_url}
+                onChange={(e) => setFormData({ ...formData, b2c_timeout_url: e.target.value })}
+              />
+            </div>
+          </div>
+
+          <Button 
           variant="hero" 
           onClick={handleSave} 
           disabled={saving}

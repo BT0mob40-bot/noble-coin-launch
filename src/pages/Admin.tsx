@@ -5,7 +5,7 @@ import { Footer } from '@/components/layout/Footer';
 import { useAuth } from '@/lib/auth-context';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
-  Shield, Coins, Users, Settings, CreditCard, DollarSign, Layout
+  Shield, Coins, Users, Settings, CreditCard, DollarSign, Layout, ArrowDownToLine
 } from 'lucide-react';
 import { MpesaSettings } from '@/components/admin/MpesaSettings';
 import { PlatformSettings } from '@/components/admin/PlatformSettings';
@@ -13,6 +13,7 @@ import { CoinManagement } from '@/components/admin/CoinManagement';
 import { UserManagement } from '@/components/admin/UserManagement';
 import { CommissionDashboard } from '@/components/admin/CommissionDashboard';
 import { LandingPageSettings } from '@/components/admin/LandingPageSettings';
+import { WithdrawalManagement } from '@/components/admin/WithdrawalManagement';
 import { Navigate } from 'react-router-dom';
 
 export default function Admin() {
@@ -64,6 +65,10 @@ export default function Admin() {
               <Layout className="h-3.5 w-3.5" />
               Landing
             </TabsTrigger>
+            <TabsTrigger value="withdrawals" className="gap-1.5 text-xs sm:text-sm">
+              <ArrowDownToLine className="h-3.5 w-3.5" />
+              Withdrawals
+            </TabsTrigger>
             <TabsTrigger value="settings" className="gap-1.5 text-xs sm:text-sm">
               <Settings className="h-3.5 w-3.5" />
               Settings
@@ -84,6 +89,9 @@ export default function Admin() {
           </TabsContent>
           <TabsContent value="landing">
             <LandingPageSettings />
+          </TabsContent>
+          <TabsContent value="withdrawals">
+            <WithdrawalManagement />
           </TabsContent>
           <TabsContent value="settings">
             <PlatformSettings />

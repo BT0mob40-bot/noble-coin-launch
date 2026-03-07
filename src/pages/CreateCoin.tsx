@@ -102,6 +102,7 @@ export default function CreateCoin() {
           phone: formattedPhone,
           amount: Math.round(gasFee),
           transactionId: payingCoinId,
+          userId: user.id,
           accountReference: `GAS-PAY`,
           type: 'coin_creation',
         },

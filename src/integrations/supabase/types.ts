@@ -25,6 +25,7 @@ export type Database = {
           creation_fee_paid: boolean
           creator_id: string | null
           description: string | null
+          discord_url: string | null
           holders_count: number
           id: string
           initial_price: number
@@ -38,10 +39,13 @@ export type Database = {
           name: string
           price: number
           symbol: string
+          telegram_url: string | null
           total_supply: number
           trading_paused: boolean
+          twitter_url: string | null
           updated_at: string
           volatility: number
+          website_url: string | null
           whitepaper_url: string | null
         }
         Insert: {
@@ -54,6 +58,7 @@ export type Database = {
           creation_fee_paid?: boolean
           creator_id?: string | null
           description?: string | null
+          discord_url?: string | null
           holders_count?: number
           id?: string
           initial_price?: number
@@ -67,10 +72,13 @@ export type Database = {
           name: string
           price?: number
           symbol: string
+          telegram_url?: string | null
           total_supply?: number
           trading_paused?: boolean
+          twitter_url?: string | null
           updated_at?: string
           volatility?: number
+          website_url?: string | null
           whitepaper_url?: string | null
         }
         Update: {
@@ -83,6 +91,7 @@ export type Database = {
           creation_fee_paid?: boolean
           creator_id?: string | null
           description?: string | null
+          discord_url?: string | null
           holders_count?: number
           id?: string
           initial_price?: number
@@ -96,10 +105,13 @@ export type Database = {
           name?: string
           price?: number
           symbol?: string
+          telegram_url?: string | null
           total_supply?: number
           trading_paused?: boolean
+          twitter_url?: string | null
           updated_at?: string
           volatility?: number
+          website_url?: string | null
           whitepaper_url?: string | null
         }
         Relationships: []
@@ -176,37 +188,100 @@ export type Database = {
       }
       mpesa_config: {
         Row: {
+          b2c_command_id: string | null
+          b2c_result_url: string | null
+          b2c_timeout_url: string | null
           callback_url: string | null
           consumer_key: string | null
           consumer_secret: string | null
           created_at: string
           id: string
+          initiator_name: string | null
           is_sandbox: boolean
           passkey: string | null
           paybill_number: string
+          security_credential: string | null
           updated_at: string
         }
         Insert: {
+          b2c_command_id?: string | null
+          b2c_result_url?: string | null
+          b2c_timeout_url?: string | null
           callback_url?: string | null
           consumer_key?: string | null
           consumer_secret?: string | null
           created_at?: string
           id?: string
+          initiator_name?: string | null
           is_sandbox?: boolean
           passkey?: string | null
           paybill_number: string
+          security_credential?: string | null
           updated_at?: string
         }
         Update: {
+          b2c_command_id?: string | null
+          b2c_result_url?: string | null
+          b2c_timeout_url?: string | null
           callback_url?: string | null
           consumer_key?: string | null
           consumer_secret?: string | null
           created_at?: string
           id?: string
+          initiator_name?: string | null
           is_sandbox?: boolean
           passkey?: string | null
           paybill_number?: string
+          security_credential?: string | null
           updated_at?: string
+        }
+        Relationships: []
+      }
+      payment_requests: {
+        Row: {
+          amount: number
+          checkout_request_id: string | null
+          coin_id: string | null
+          created_at: string
+          id: string
+          merchant_request_id: string | null
+          mpesa_receipt: string | null
+          phone: string
+          result_desc: string | null
+          status: string
+          type: Database["public"]["Enums"]["payment_request_type"]
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          checkout_request_id?: string | null
+          coin_id?: string | null
+          created_at?: string
+          id?: string
+          merchant_request_id?: string | null
+          mpesa_receipt?: string | null
+          phone: string
+          result_desc?: string | null
+          status?: string
+          type: Database["public"]["Enums"]["payment_request_type"]
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          checkout_request_id?: string | null
+          coin_id?: string | null
+          created_at?: string
+          id?: string
+          merchant_request_id?: string | null
+          mpesa_receipt?: string | null
+          phone?: string
+          result_desc?: string | null
+          status?: string
+          type?: Database["public"]["Enums"]["payment_request_type"]
+          updated_at?: string
+          user_id?: string
         }
         Relationships: []
       }
@@ -497,6 +572,57 @@ export type Database = {
         }
         Relationships: []
       }
+      wallet_withdrawals: {
+        Row: {
+          admin_note: string | null
+          amount: number
+          approved_at: string | null
+          approved_by: string | null
+          checkout_request_id: string | null
+          created_at: string
+          fee_amount: number
+          id: string
+          mpesa_receipt: string | null
+          net_amount: number
+          phone: string
+          status: Database["public"]["Enums"]["withdrawal_status"]
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          admin_note?: string | null
+          amount: number
+          approved_at?: string | null
+          approved_by?: string | null
+          checkout_request_id?: string | null
+          created_at?: string
+          fee_amount?: number
+          id?: string
+          mpesa_receipt?: string | null
+          net_amount: number
+          phone: string
+          status?: Database["public"]["Enums"]["withdrawal_status"]
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          admin_note?: string | null
+          amount?: number
+          approved_at?: string | null
+          approved_by?: string | null
+          checkout_request_id?: string | null
+          created_at?: string
+          fee_amount?: number
+          id?: string
+          mpesa_receipt?: string | null
+          net_amount?: number
+          phone?: string
+          status?: Database["public"]["Enums"]["withdrawal_status"]
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       wallets: {
         Row: {
           created_at: string
@@ -547,6 +673,14 @@ export type Database = {
     }
     Enums: {
       app_role: "super_admin" | "admin" | "coin_creator" | "user" | "banned"
+      payment_request_type: "deposit" | "coin_creation"
+      withdrawal_status:
+        | "pending"
+        | "approved"
+        | "processing"
+        | "completed"
+        | "rejected"
+        | "failed"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -675,6 +809,15 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["super_admin", "admin", "coin_creator", "user", "banned"],
+      payment_request_type: ["deposit", "coin_creation"],
+      withdrawal_status: [
+        "pending",
+        "approved",
+        "processing",
+        "completed",
+        "rejected",
+        "failed",
+      ],
     },
   },
 } as const

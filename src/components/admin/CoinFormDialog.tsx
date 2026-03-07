@@ -21,6 +21,10 @@ interface CoinFormData {
   initial_price: number;
   logo_url: string;
   whitepaper_url: string;
+  website_url: string;
+  twitter_url: string;
+  telegram_url: string;
+  discord_url: string;
   is_featured: boolean;
   is_trending: boolean;
 }
@@ -48,7 +52,7 @@ export function CoinFormDialog({ open, onOpenChange, onSuccess, userId, isSuperA
   const [formData, setFormData] = useState<CoinFormData>({
     name: '', symbol: '', description: '', total_supply: 1000000000,
     initial_price: 0.001,
-    logo_url: '', whitepaper_url: '', is_featured: false, is_trending: false,
+    logo_url: '', whitepaper_url: '', website_url: '', twitter_url: '', telegram_url: '', discord_url: '', is_featured: false, is_trending: false,
   });
 
   useEffect(() => {
@@ -115,6 +119,10 @@ export function CoinFormDialog({ open, onOpenChange, onSuccess, userId, isSuperA
         total_supply: formData.total_supply,
         logo_url: formData.logo_url || null,
         whitepaper_url: formData.whitepaper_url || null,
+        website_url: formData.website_url || null,
+        twitter_url: formData.twitter_url || null,
+        telegram_url: formData.telegram_url || null,
+        discord_url: formData.discord_url || null,
         is_featured: formData.is_featured,
         is_trending: formData.is_trending,
         creator_id: userId,
@@ -124,7 +132,7 @@ export function CoinFormDialog({ open, onOpenChange, onSuccess, userId, isSuperA
         price: formData.initial_price,
         initial_price: formData.initial_price,
         is_active: true,
-      });
+      } as any);
 
       if (coinError) throw coinError;
       setStep('success');
@@ -149,6 +157,10 @@ export function CoinFormDialog({ open, onOpenChange, onSuccess, userId, isSuperA
         total_supply: formData.total_supply,
         logo_url: formData.logo_url || null,
         whitepaper_url: formData.whitepaper_url || null,
+        website_url: formData.website_url || null,
+        twitter_url: formData.twitter_url || null,
+        telegram_url: formData.telegram_url || null,
+        discord_url: formData.discord_url || null,
         is_featured: false,
         is_trending: false,
         creator_id: userId,
@@ -158,7 +170,7 @@ export function CoinFormDialog({ open, onOpenChange, onSuccess, userId, isSuperA
         price: 0.001,
         initial_price: 0.001,
         is_active: false,
-      }).select().single();
+      } as any).select().single();
 
       if (coinError) throw coinError;
 
@@ -171,6 +183,7 @@ export function CoinFormDialog({ open, onOpenChange, onSuccess, userId, isSuperA
           phone: formattedPhone,
           amount: Math.round(gasFee),
           transactionId: coinData.id,
+          userId,
           accountReference: `GAS-${formData.symbol.toUpperCase()}`,
           type: 'coin_creation',
         },
@@ -235,7 +248,10 @@ export function CoinFormDialog({ open, onOpenChange, onSuccess, userId, isSuperA
   };
 
   const resetForm = () => {
-    setFormData({ name: '', symbol: '', description: '', total_supply: 1000000000, initial_price: 0.001, logo_url: '', whitepaper_url: '', is_featured: false, is_trending: false });
+    setFormData({
+      name: '', symbol: '', description: '', total_supply: 1000000000, initial_price: 0.001,
+      logo_url: '', whitepaper_url: '', website_url: '', twitter_url: '', telegram_url: '', discord_url: '', is_featured: false, is_trending: false,
+    });
     setPreviewUrl(null);
     setPhone('');
     setStep('form');
@@ -336,6 +352,33 @@ export function CoinFormDialog({ open, onOpenChange, onSuccess, userId, isSuperA
                     </div>
                   )}
                 </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-2">
+                    <Label className="text-sm">Website (optional)</Label>
+                    <Input placeholder="https://..." value={formData.website_url} onChange={(e) => setFormData({ ...formData, website_url: e.target.value })} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-sm">Whitepaper (optional)</Label>
+                    <Input placeholder="https://..." value={formData.whitepaper_url} onChange={(e) => setFormData({ ...formData, whitepaper_url: e.target.value })} />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="space-y-2">
+                    <Label className="text-sm">Twitter</Label>
+                    <Input placeholder="x.com/..." value={formData.twitter_url} onChange={(e) => setFormData({ ...formData, twitter_url: e.target.value })} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-sm">Telegram</Label>
+                    <Input placeholder="t.me/..." value={formData.telegram_url} onChange={(e) => setFormData({ ...formData, telegram_url: e.target.value })} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-sm">Discord</Label>
+                    <Input placeholder="discord.gg/..." value={formData.discord_url} onChange={(e) => setFormData({ ...formData, discord_url: e.target.value })} />
+                  </div>
+                </div>
+
                 <p className="text-xs text-muted-foreground">
                   {isSuperAdmin ? 'Set the initial price directly. Gas fee determined by admin settings.' : 'Initial price is set by admin during approval. Gas fee: KES ' + gasFee.toLocaleString()}
                 </p>

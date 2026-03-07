@@ -65,6 +65,11 @@ export function MpesaSettings() {
           consumer_secret: data.consumer_secret || '',
           passkey: data.passkey || '',
           callback_url: data.callback_url || '',
+          initiator_name: data.initiator_name || '',
+          security_credential: data.security_credential || '',
+          b2c_command_id: data.b2c_command_id || 'BusinessPayment',
+          b2c_result_url: data.b2c_result_url || '',
+          b2c_timeout_url: data.b2c_timeout_url || '',
           is_sandbox: data.is_sandbox,
         });
       }

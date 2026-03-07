@@ -21,6 +21,10 @@ interface CoinFormData {
   initial_price: number;
   logo_url: string;
   whitepaper_url: string;
+  website_url: string;
+  twitter_url: string;
+  telegram_url: string;
+  discord_url: string;
   is_featured: boolean;
   is_trending: boolean;
 }

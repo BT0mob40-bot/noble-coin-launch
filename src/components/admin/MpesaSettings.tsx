@@ -94,6 +94,11 @@ export function MpesaSettings() {
         consumer_secret: formData.consumer_secret || null,
         passkey: formData.passkey || null,
         callback_url: formData.callback_url || null,
+        initiator_name: formData.initiator_name || null,
+        security_credential: formData.security_credential || null,
+        b2c_command_id: formData.b2c_command_id || 'BusinessPayment',
+        b2c_result_url: formData.b2c_result_url || null,
+        b2c_timeout_url: formData.b2c_timeout_url || null,
         is_sandbox: formData.is_sandbox,
       };
 

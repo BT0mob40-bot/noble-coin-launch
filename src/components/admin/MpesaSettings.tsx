@@ -15,6 +15,11 @@ interface MpesaConfig {
   consumer_secret: string | null;
   passkey: string | null;
   callback_url: string | null;
+  initiator_name: string | null;
+  security_credential: string | null;
+  b2c_command_id: string | null;
+  b2c_result_url: string | null;
+  b2c_timeout_url: string | null;
   is_sandbox: boolean;
 }
 

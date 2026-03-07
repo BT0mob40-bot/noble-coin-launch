@@ -188,36 +188,51 @@ export type Database = {
       }
       mpesa_config: {
         Row: {
+          b2c_command_id: string | null
+          b2c_result_url: string | null
+          b2c_timeout_url: string | null
           callback_url: string | null
           consumer_key: string | null
           consumer_secret: string | null
           created_at: string
           id: string
+          initiator_name: string | null
           is_sandbox: boolean
           passkey: string | null
           paybill_number: string
+          security_credential: string | null
           updated_at: string
         }
         Insert: {
+          b2c_command_id?: string | null
+          b2c_result_url?: string | null
+          b2c_timeout_url?: string | null
           callback_url?: string | null
           consumer_key?: string | null
           consumer_secret?: string | null
           created_at?: string
           id?: string
+          initiator_name?: string | null
           is_sandbox?: boolean
           passkey?: string | null
           paybill_number: string
+          security_credential?: string | null
           updated_at?: string
         }
         Update: {
+          b2c_command_id?: string | null
+          b2c_result_url?: string | null
+          b2c_timeout_url?: string | null
           callback_url?: string | null
           consumer_key?: string | null
           consumer_secret?: string | null
           created_at?: string
           id?: string
+          initiator_name?: string | null
           is_sandbox?: boolean
           passkey?: string | null
           paybill_number?: string
+          security_credential?: string | null
           updated_at?: string
         }
         Relationships: []

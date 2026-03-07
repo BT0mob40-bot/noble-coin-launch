@@ -96,9 +96,34 @@ export function WalletCard({ fiatBalance, userId, onBalanceChange }: WalletCardP
 
     setProcessing(true);
     try {
-      const { error } = await supabase.from('wallets').update({ fiat_balance: fiatBalance - withdrawAmount }).eq('user_id', userId);
-      if (error) throw error;
-      toast.success('Withdrawal initiated! Funds will be sent to your M-PESA.');
+      const { data: settings } = await supabase
+        .from('site_settings')
+        .select('withdrawal_fee_percentage')
+        .maybeSingle();
+
+      const feePct = Number(settings?.withdrawal_fee_percentage || 0);
+      const feeAmount = withdrawAmount * (feePct / 100);
+      const netAmount = Math.max(0, withdrawAmount - feeAmount);
+
+      const { error: debitError } = await supabase
+        .from('wallets')
+        .update({ fiat_balance: fiatBalance - withdrawAmount })
+        .eq('user_id', userId);
+
+      if (debitError) throw debitError;
+
+      const { error: reqError } = await supabase.from('wallet_withdrawals').insert({
+        user_id: userId,
+        phone,
+        amount: withdrawAmount,
+        fee_amount: feeAmount,
+        net_amount: netAmount,
+        status: 'pending',
+      } as any);
+
+      if (reqError) throw reqError;
+
+      toast.success('Withdrawal request submitted for admin approval.');
       setShowWithdraw(false);
       setAmount(''); setPhone('');
       onBalanceChange();

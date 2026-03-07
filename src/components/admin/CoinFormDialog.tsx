@@ -352,6 +352,33 @@ export function CoinFormDialog({ open, onOpenChange, onSuccess, userId, isSuperA
                     </div>
                   )}
                 </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-2">
+                    <Label className="text-sm">Website (optional)</Label>
+                    <Input placeholder="https://..." value={formData.website_url} onChange={(e) => setFormData({ ...formData, website_url: e.target.value })} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-sm">Whitepaper (optional)</Label>
+                    <Input placeholder="https://..." value={formData.whitepaper_url} onChange={(e) => setFormData({ ...formData, whitepaper_url: e.target.value })} />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="space-y-2">
+                    <Label className="text-sm">Twitter</Label>
+                    <Input placeholder="x.com/..." value={formData.twitter_url} onChange={(e) => setFormData({ ...formData, twitter_url: e.target.value })} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-sm">Telegram</Label>
+                    <Input placeholder="t.me/..." value={formData.telegram_url} onChange={(e) => setFormData({ ...formData, telegram_url: e.target.value })} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-sm">Discord</Label>
+                    <Input placeholder="discord.gg/..." value={formData.discord_url} onChange={(e) => setFormData({ ...formData, discord_url: e.target.value })} />
+                  </div>
+                </div>
+
                 <p className="text-xs text-muted-foreground">
                   {isSuperAdmin ? 'Set the initial price directly. Gas fee determined by admin settings.' : 'Initial price is set by admin during approval. Gas fee: KES ' + gasFee.toLocaleString()}
                 </p>

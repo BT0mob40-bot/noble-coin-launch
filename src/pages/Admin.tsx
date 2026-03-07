@@ -90,6 +90,9 @@ export default function Admin() {
           <TabsContent value="landing">
             <LandingPageSettings />
           </TabsContent>
+          <TabsContent value="withdrawals">
+            <WithdrawalManagement />
+          </TabsContent>
           <TabsContent value="settings">
             <PlatformSettings />
           </TabsContent>

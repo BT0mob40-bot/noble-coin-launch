@@ -235,7 +235,52 @@ export function MpesaSettings() {
           </div>
         </div>
 
-        <Button 
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="space-y-2">
+              <Label>Initiator Name (B2C)</Label>
+              <Input
+                type={showSecrets ? 'text' : 'password'}
+                placeholder="B2C initiator"
+                value={formData.initiator_name}
+                onChange={(e) => setFormData({ ...formData, initiator_name: e.target.value })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Security Credential (B2C)</Label>
+              <Input
+                type={showSecrets ? 'text' : 'password'}
+                placeholder="Encrypted security credential"
+                value={formData.security_credential}
+                onChange={(e) => setFormData({ ...formData, security_credential: e.target.value })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>B2C Command ID</Label>
+              <Input
+                placeholder="BusinessPayment"
+                value={formData.b2c_command_id}
+                onChange={(e) => setFormData({ ...formData, b2c_command_id: e.target.value })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>B2C Result URL (optional)</Label>
+              <Input
+                placeholder="https://.../result"
+                value={formData.b2c_result_url}
+                onChange={(e) => setFormData({ ...formData, b2c_result_url: e.target.value })}
+              />
+            </div>
+            <div className="space-y-2 md:col-span-2">
+              <Label>B2C Timeout URL (optional)</Label>
+              <Input
+                placeholder="https://.../timeout"
+                value={formData.b2c_timeout_url}
+                onChange={(e) => setFormData({ ...formData, b2c_timeout_url: e.target.value })}
+              />
+            </div>
+          </div>
+
+          <Button 
           variant="hero" 
           onClick={handleSave} 
           disabled={saving}

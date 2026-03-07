@@ -248,7 +248,10 @@ export function CoinFormDialog({ open, onOpenChange, onSuccess, userId, isSuperA
   };
 
   const resetForm = () => {
-    setFormData({ name: '', symbol: '', description: '', total_supply: 1000000000, initial_price: 0.001, logo_url: '', whitepaper_url: '', is_featured: false, is_trending: false });
+    setFormData({
+      name: '', symbol: '', description: '', total_supply: 1000000000, initial_price: 0.001,
+      logo_url: '', whitepaper_url: '', website_url: '', twitter_url: '', telegram_url: '', discord_url: '', is_featured: false, is_trending: false,
+    });
     setPreviewUrl(null);
     setPhone('');
     setStep('form');

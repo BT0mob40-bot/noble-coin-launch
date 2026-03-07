@@ -35,6 +35,11 @@ export function MpesaSettings() {
     consumer_secret: '',
     passkey: '',
     callback_url: '',
+    initiator_name: '',
+    security_credential: '',
+    b2c_command_id: 'BusinessPayment',
+    b2c_result_url: '',
+    b2c_timeout_url: '',
     is_sandbox: true,
   });
 

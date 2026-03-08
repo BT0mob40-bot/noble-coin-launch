@@ -67,7 +67,7 @@ Deno.serve(async (req) => {
 
     const { data: pr } = await adminClient
       .from("payment_requests")
-      .select("status")
+      .select("*")
       .eq("checkout_request_id", checkoutRequestId)
       .maybeSingle();
 
@@ -141,6 +141,48 @@ Deno.serve(async (req) => {
     // Map Daraja result codes
     // 0 = success, 1032 = cancelled by user, 1037 = DS timeout, 1 = insufficient balance
     if (resultCode === 0) {
+      // Update DB so callback doesn't need to race
+      if (tx && tx.status !== "completed") {
+        await adminClient.from("transactions").update({ status: "completed" }).eq("mpesa_receipt", checkoutRequestId);
+      }
+      if (pr && pr.status !== "completed") {
+        await adminClient.from("payment_requests").update({ status: "completed", result_desc: queryResult.ResultDesc || "success" }).eq("checkout_request_id", checkoutRequestId);
+
+        if (pr.type === "coin_creation" && pr.coin_id) {
+          await adminClient
+            .from("coins")
+            .update({ creation_fee_paid: true })
+            .eq("id", pr.coin_id)
+            .eq("creator_id", pr.user_id);
+        }
+
+        if (pr.type === "deposit") {
+          const { data: settings } = await adminClient
+            .from("site_settings")
+            .select("deposit_fee_percentage")
+            .maybeSingle();
+
+          const grossAmount = Number(pr.amount || 0);
+          const depositFee = settings?.deposit_fee_percentage
+            ? grossAmount * (settings.deposit_fee_percentage / 100)
+            : 0;
+          const netDeposit = Math.max(0, grossAmount - depositFee);
+
+          const { data: wallet } = await adminClient
+            .from("wallets")
+            .select("fiat_balance")
+            .eq("user_id", pr.user_id)
+            .single();
+
+          if (wallet) {
+            await adminClient
+              .from("wallets")
+              .update({ fiat_balance: wallet.fiat_balance + netDeposit })
+              .eq("user_id", pr.user_id);
+          }
+        }
+      }
+
       return new Response(JSON.stringify({ status: "completed", resultCode: 0, resultDesc: queryResult.ResultDesc }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });

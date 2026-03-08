@@ -56,8 +56,25 @@ export function SmtpSettings() {
 
   const handleTest = async () => {
     if (!testEmail) { toast.error('Enter a test email'); return; }
+    if (!config.is_active || !config.host) { toast.error('Save and enable SMTP first'); return; }
     setTesting(true);
-    toast.info('Test email feature will be available once SMTP edge function is deployed');
+    try {
+      const { error } = await supabase.functions.invoke('send-custom-notification', {
+        body: {
+          recipients: [{ user_id: 'test', email: testEmail, phone: null, name: 'Test User' }],
+          channels: ['email'],
+          subject: 'SMTP Test Email',
+          email_body: `<h2>SMTP Test</h2><p>This is a test email from your platform. If you received this, your SMTP configuration is working correctly!</p><p>Sent at: ${new Date().toISOString()}</p>`,
+          sms_body: '',
+          whatsapp_body: '',
+          template_slug: null,
+        },
+      });
+      if (error) throw error;
+      toast.success('Test email sent! Check your inbox.');
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to send test email');
+    }
     setTesting(false);
   };
 

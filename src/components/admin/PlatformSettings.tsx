@@ -28,6 +28,7 @@ interface SiteSettings {
   creator_commission_percentage: number;
   deposit_fee_percentage: number;
   withdrawal_fee_percentage: number;
+  live_fee: number;
   twitter_url: string;
   discord_url: string;
   telegram_url: string;

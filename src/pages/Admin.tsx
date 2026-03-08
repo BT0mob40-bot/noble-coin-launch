@@ -121,6 +121,7 @@ export default function Admin() {
       case 'landing': return <LandingPageSettings />;
       case 'blocked': return <BlockedWordsManager />;
       case 'settings': return <PlatformSettings />;
+      case 'verification': return <VerificationSettings />;
       default: return <AdminAnalytics />;
     }
   };

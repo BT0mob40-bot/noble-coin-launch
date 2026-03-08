@@ -107,9 +107,17 @@ import { motion } from 'framer-motion';
 
 function CoinListRow({ coin, index }: { coin: any; index: number }) {
   const navigate = useNavigate();
-  const change = coin.price_change_24h || 0;
+  const change = coin.use_price_change_24h_override && coin.price_change_24h_override != null
+    ? coin.price_change_24h_override
+    : (coin.price_change_24h || 0);
   const isUp = change >= 0;
-  const mcap = coin.market_cap || coin.price * (coin.circulating_supply || 0);
+  const rawMcap = coin.market_cap || coin.price * (coin.circulating_supply || 0);
+  const mcap = coin.use_market_cap_override && coin.market_cap_override != null
+    ? coin.market_cap_override : rawMcap;
+  const liquidity = coin.use_liquidity_override && coin.liquidity_override != null
+    ? coin.liquidity_override : coin.liquidity;
+  const holders = coin.use_holders_override && coin.holders_override != null
+    ? coin.holders_override : coin.holders_count;
 
   const formatPrice = (p: number) => {
     if (p < 0.0001) return p.toFixed(8);

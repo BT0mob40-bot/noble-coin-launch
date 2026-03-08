@@ -223,16 +223,24 @@ export function PlatformSettings() {
               <Label className="text-sm">Creator Commission %</Label>
               <span className="text-lg font-bold text-accent">{settings.creator_commission_percentage}%</span>
             </div>
-            <Slider value={[settings.creator_commission_percentage]} onValueChange={(v) => setSettings({ ...settings, creator_commission_percentage: v[0] })} min={0} max={10} step={0.5} />
+            <Slider value={[settings.creator_commission_percentage]} onValueChange={(v) => setSettings({ ...settings, creator_commission_percentage: v[0] })} min={0} max={10} step={0.1} />
             <p className="text-xs text-muted-foreground">Coin creators earn this % on every trade of their coin</p>
           </div>
           <div className="space-y-4">
             <div className="flex items-center justify-between">
-              <Label className="flex items-center gap-2 text-sm"><Gift className="h-4 w-4 text-success" />Referral Commission</Label>
+              <Label className="text-sm">Admin Commission %</Label>
+              <span className="text-lg font-bold text-primary">{settings.admin_commission}%</span>
+            </div>
+            <Slider value={[settings.admin_commission]} onValueChange={(v) => setSettings({ ...settings, admin_commission: v[0] })} min={0} max={10} step={0.1} />
+            <p className="text-xs text-muted-foreground">Platform earns this % on every trade</p>
+          </div>
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <Label className="flex items-center gap-2 text-sm"><Gift className="h-4 w-4 text-success" />Affiliate (Referral) Commission %</Label>
               <span className="text-lg font-bold text-success">{settings.referral_commission_percentage}%</span>
             </div>
             <Slider value={[settings.referral_commission_percentage]} onValueChange={(v) => setSettings({ ...settings, referral_commission_percentage: v[0] })} min={0} max={50} step={0.5} />
-            <p className="text-xs text-muted-foreground">Referrers earn this % of referred user deposits</p>
+            <p className="text-xs text-muted-foreground">Affiliates earn this % of referred user deposits</p>
           </div>
         </CardContent>
       </Card>

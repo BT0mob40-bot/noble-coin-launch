@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Navbar } from '@/components/layout/Navbar';
@@ -15,6 +15,7 @@ import { MarketStats } from '@/components/trading/MarketStats';
 import { CoinInfo } from '@/components/trading/CoinInfo';
 import { MpesaPaymentModal } from '@/components/trading/MpesaPaymentModal';
 import { CoinContractInfo } from '@/components/coins/CoinContractInfo';
+import { useStkPolling } from '@/hooks/use-stk-polling';
 import { ArrowLeft, Loader2, AlertCircle, ArrowDown, TrendingUp } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { toast } from 'sonner';
@@ -41,6 +42,13 @@ interface CoinData {
   contract_address?: string | null;
   price_change_24h?: number;
   creator_id?: string | null;
+  // Override fields
+  use_market_cap_override?: boolean;
+  market_cap_override?: number | null;
+  use_liquidity_override?: boolean;
+  liquidity_override?: number | null;
+  use_holders_override?: boolean;
+  holders_override?: number | null;
 }
 
 interface SiteSettings {
@@ -63,7 +71,7 @@ export default function CoinDetail() {
   const [loading, setLoading] = useState(true);
   const [paymentStatus, setPaymentStatus] = useState<PaymentStatus>('waiting');
   const [showPaymentModal, setShowPaymentModal] = useState(false);
-  const [currentTransactionId, setCurrentTransactionId] = useState<string | null>(null);
+  const [checkoutRequestId, setCheckoutRequestId] = useState<string | null>(null);
   const [userHolding, setUserHolding] = useState<number>(0);
   const [userFiatBalance, setUserFiatBalance] = useState<number>(0);
   const [settings, setSettings] = useState<SiteSettings>({
@@ -73,7 +81,33 @@ export default function CoinDetail() {
   const [mobileTab, setMobileTab] = useState<'chart' | 'orderbook' | 'trades'>('chart');
   const [pendingBuyAmount, setPendingBuyAmount] = useState(0);
 
+  // STK Polling hook - replaces manual polling
+  useStkPolling({
+    checkoutRequestId,
+    enabled: showPaymentModal && paymentStatus === 'waiting' && !!checkoutRequestId,
+    onComplete: useCallback(() => {
+      setPaymentStatus('success');
+      fetchUserData();
+      fetchData();
+    }, []),
+    onFailed: useCallback((desc?: string) => {
+      setPaymentStatus('failed');
+      if (desc) console.log('Payment failed:', desc);
+    }, []),
+    onTimeout: useCallback(() => {
+      setPaymentStatus('timeout');
+    }, []),
+  });
+
   const priceMultiplier = coin && coin.initial_price > 0 ? coin.price / coin.initial_price : 1;
+
+  // Display values with overrides
+  const displayMarketCap = coin?.use_market_cap_override && coin.market_cap_override != null
+    ? coin.market_cap_override : coin?.market_cap;
+  const displayLiquidity = coin?.use_liquidity_override && coin.liquidity_override != null
+    ? coin.liquidity_override : coin?.liquidity;
+  const displayHolders = coin?.use_holders_override && coin.holders_override != null
+    ? coin.holders_override : coin?.holders_count;
 
   useEffect(() => { if (id) fetchData(); }, [id]);
   useEffect(() => { if (user && coin) fetchUserData(); }, [user, coin]);
@@ -81,9 +115,7 @@ export default function CoinDetail() {
   useEffect(() => {
     const action = searchParams.get('action');
     if (action === 'buy' && tradingPanelRef.current && !loading) {
-      setTimeout(() => {
-        tradingPanelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      }, 500);
+      setTimeout(() => tradingPanelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 500);
     }
   }, [searchParams, loading, coin]);
 
@@ -98,25 +130,6 @@ export default function CoinDetail() {
     return () => { supabase.removeChannel(channel); };
   }, [id]);
 
-  // Realtime transaction status for M-PESA polling
-  useEffect(() => {
-    if (!currentTransactionId) return;
-    const channel = supabase
-      .channel(`tx-${currentTransactionId}`)
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'transactions', filter: `id=eq.${currentTransactionId}` },
-        (payload: any) => {
-          if (payload.new.status === 'completed') {
-            setPaymentStatus('success');
-            fetchUserData();
-            fetchData();
-          } else if (payload.new.status === 'failed') {
-            setPaymentStatus('failed');
-          }
-        })
-      .subscribe();
-    return () => { supabase.removeChannel(channel); };
-  }, [currentTransactionId]);
-
   const fetchData = async () => {
     setLoading(true);
     try {
@@ -130,6 +143,7 @@ export default function CoinDetail() {
       if (settingsResult.data) setSettings(settingsResult.data as SiteSettings);
     } catch (error) {
       console.error('Error fetching data:', error);
+      toast.error('Failed to load coin data');
       navigate('/launchpad');
     } finally {
       setLoading(false);
@@ -142,8 +156,7 @@ export default function CoinDetail() {
       supabase.from('holdings').select('amount').eq('user_id', user.id).eq('coin_id', coin.id).maybeSingle(),
       supabase.from('wallets').select('fiat_balance').eq('user_id', user.id).maybeSingle(),
     ]);
-    if (holdingRes.data) setUserHolding(holdingRes.data.amount);
-    else setUserHolding(0);
+    setUserHolding(holdingRes.data?.amount || 0);
     if (walletRes.data) setUserFiatBalance(walletRes.data.fiat_balance);
   };
 
@@ -169,13 +182,9 @@ export default function CoinDetail() {
           .select().single();
         if (txError) throw txError;
 
-        // Deduct from wallet
         await supabase.from('wallets').update({ fiat_balance: userFiatBalance - totalWithFee }).eq('user_id', user.id);
-
-        // Commission to admin
         await supabase.from('commission_transactions').insert({ transaction_id: transaction.id, amount: fee, commission_rate: settings.fee_percentage });
 
-        // Update holdings
         const { data: existingHolding } = await supabase
           .from('holdings').select('id, amount, average_buy_price')
           .eq('user_id', user.id).eq('coin_id', coin.id).maybeSingle();
@@ -188,19 +197,15 @@ export default function CoinDetail() {
           await supabase.from('holdings').insert({ user_id: user.id, coin_id: coin.id, amount, average_buy_price: coin.price });
         }
 
-        // Update coin supply (triggers bonding curve)
         await supabase.from('coins').update({
           circulating_supply: coin.circulating_supply + amount,
           holders_count: existingHolding ? coin.holders_count : coin.holders_count + 1,
         }).eq('id', coin.id);
 
-        // Creator earning
         if (coin.creator_id && coin.creator_id !== user.id && settings.creator_commission_percentage) {
           const creatorEarning = totalValue * (settings.creator_commission_percentage / 100);
           const { data: cw } = await supabase.from('wallets').select('fiat_balance').eq('user_id', coin.creator_id).single();
-          if (cw) {
-            await supabase.from('wallets').update({ fiat_balance: cw.fiat_balance + creatorEarning }).eq('user_id', coin.creator_id);
-          }
+          if (cw) await supabase.from('wallets').update({ fiat_balance: cw.fiat_balance + creatorEarning }).eq('user_id', coin.creator_id);
         }
 
         toast.success('Purchase successful!');
@@ -217,7 +222,6 @@ export default function CoinDetail() {
           .select().single();
         if (txError) throw txError;
 
-        setCurrentTransactionId(transaction.id);
         setPendingBuyAmount(amount);
         setPaymentStatus('waiting');
         setShowPaymentModal(true);
@@ -230,10 +234,15 @@ export default function CoinDetail() {
           setPaymentStatus('failed');
           return;
         }
-        toast.success('Check your phone for M-PESA prompt!');
 
-        // Polling fallback (realtime should handle it but just in case)
-        startPolling(transaction.id, amount);
+        // Store the checkoutRequestId for polling
+        if (stkData?.checkoutRequestId) {
+          setCheckoutRequestId(stkData.checkoutRequestId);
+          // Also save to transaction for callback matching
+          await supabase.from('transactions').update({ mpesa_receipt: stkData.checkoutRequestId }).eq('id', transaction.id);
+        }
+
+        toast.success('Check your phone for M-PESA prompt!');
       }
     } catch (error: any) {
       toast.error(error.message || 'Failed to process transaction');
@@ -259,10 +268,8 @@ export default function CoinDetail() {
         .select().single();
       if (error) throw error;
 
-      // Commission
       await supabase.from('commission_transactions').insert({ transaction_id: transaction.id, amount: fee, commission_rate: settings.fee_percentage });
 
-      // Update holdings
       const newAmount = userHolding - amount;
       if (newAmount <= 0) {
         await supabase.from('holdings').delete().eq('user_id', user.id).eq('coin_id', coin.id);
@@ -270,13 +277,11 @@ export default function CoinDetail() {
         await supabase.from('holdings').update({ amount: newAmount }).eq('user_id', user.id).eq('coin_id', coin.id);
       }
 
-      // Reduce supply (triggers bonding curve - price goes down!)
       await supabase.from('coins').update({
         circulating_supply: Math.max(0, coin.circulating_supply - amount),
         holders_count: newAmount <= 0 ? Math.max(0, coin.holders_count - 1) : coin.holders_count,
       }).eq('id', coin.id);
 
-      // Credit wallet
       if (toWallet) {
         await supabase.from('wallets').update({ fiat_balance: userFiatBalance + netValue }).eq('user_id', user.id);
         toast.success(`Sold! KES ${netValue.toLocaleString()} added to wallet.`);
@@ -284,13 +289,10 @@ export default function CoinDetail() {
         toast.success('Sell order placed!');
       }
 
-      // Creator earning on sell too
       if (coin.creator_id && coin.creator_id !== user.id && settings.creator_commission_percentage) {
         const creatorEarning = totalValue * (settings.creator_commission_percentage / 100);
         const { data: cw } = await supabase.from('wallets').select('fiat_balance').eq('user_id', coin.creator_id).single();
-        if (cw) {
-          await supabase.from('wallets').update({ fiat_balance: cw.fiat_balance + creatorEarning }).eq('user_id', coin.creator_id);
-        }
+        if (cw) await supabase.from('wallets').update({ fiat_balance: cw.fiat_balance + creatorEarning }).eq('user_id', coin.creator_id);
       }
 
       fetchUserData();
@@ -300,27 +302,6 @@ export default function CoinDetail() {
     } finally {
       setProcessing(false);
     }
-  };
-
-  const startPolling = (transactionId: string, buyAmount: number) => {
-    let attempts = 0;
-    const maxAttempts = 40;
-    const checkStatus = async () => {
-      attempts++;
-      const { data: updatedTx } = await supabase.from('transactions').select('status').eq('id', transactionId).single();
-      if (updatedTx?.status === 'completed') {
-        setPaymentStatus('success');
-        fetchUserData();
-        fetchData();
-      } else if (updatedTx?.status === 'failed') {
-        setPaymentStatus('failed');
-      } else if (attempts >= maxAttempts) {
-        setPaymentStatus('timeout');
-      } else {
-        setTimeout(checkStatus, 3000);
-      }
-    };
-    setTimeout(checkStatus, 5000);
   };
 
   if (loading) {
@@ -336,12 +317,19 @@ export default function CoinDetail() {
 
   if (!coin) return null;
 
+  // Build display coin with overrides applied
+  const displayCoin = {
+    ...coin,
+    market_cap: displayMarketCap ?? coin.market_cap,
+    liquidity: displayLiquidity ?? coin.liquidity,
+    holders_count: displayHolders ?? coin.holders_count,
+  };
+
   return (
     <div className="min-h-screen bg-background overflow-x-hidden">
       <Navbar />
 
       <main className="w-full max-w-7xl mx-auto pt-16 sm:pt-20 pb-24 lg:pb-8 px-2 sm:px-4 md:px-6">
-        {/* Back + Multiplier */}
         <div className="flex items-center justify-between mb-3">
           <Link to="/launchpad" className="inline-flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-colors text-xs">
             <ArrowLeft className="h-3.5 w-3.5" />
@@ -372,7 +360,6 @@ export default function CoinDetail() {
           </Button>
         </div>
 
-        {/* Contract Info */}
         {coin.contract_address && (
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="mb-3">
             <Card className="glass-card">
@@ -383,12 +370,10 @@ export default function CoinDetail() {
           </motion.div>
         )}
 
-        {/* Market Stats */}
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="mb-3">
-          <MarketStats coin={coin} priceChange24h={coin.price_change_24h || 0} />
+          <MarketStats coin={displayCoin} priceChange24h={coin.price_change_24h || 0} />
         </motion.div>
 
-        {/* Main Trading Layout */}
         <div className="flex flex-col lg:grid lg:grid-cols-[1fr_320px] gap-3 sm:gap-4">
           <div className="space-y-3 min-w-0 w-full overflow-hidden">
             {/* Mobile: Tabbed */}
@@ -400,66 +385,31 @@ export default function CoinDetail() {
                   <TabsTrigger value="trades" className="text-[10px] sm:text-xs">Trades</TabsTrigger>
                 </TabsList>
                 <TabsContent value="chart" className="mt-2">
-                  <Card className="glass-card overflow-hidden">
-                    <CardContent className="p-1 h-[220px] sm:h-[280px]">
-                      <TradingChart symbol={coin.symbol} currentPrice={coin.price} volatility={coin.volatility} />
-                    </CardContent>
-                  </Card>
+                  <Card className="glass-card overflow-hidden"><CardContent className="p-1 h-[220px] sm:h-[280px]"><TradingChart symbol={coin.symbol} currentPrice={coin.price} volatility={coin.volatility} /></CardContent></Card>
                 </TabsContent>
                 <TabsContent value="orderbook" className="mt-2">
-                  <Card className="glass-card overflow-hidden">
-                    <CardContent className="p-1 h-[260px] overflow-auto">
-                      <OrderBook currentPrice={coin.price} symbol={coin.symbol} />
-                    </CardContent>
-                  </Card>
+                  <Card className="glass-card overflow-hidden"><CardContent className="p-1 h-[260px] overflow-auto"><OrderBook currentPrice={coin.price} symbol={coin.symbol} /></CardContent></Card>
                 </TabsContent>
                 <TabsContent value="trades" className="mt-2">
-                  <Card className="glass-card overflow-hidden">
-                    <CardContent className="p-1 h-[260px] overflow-auto">
-                      <TradeHistory currentPrice={coin.price} symbol={coin.symbol} />
-                    </CardContent>
-                  </Card>
+                  <Card className="glass-card overflow-hidden"><CardContent className="p-1 h-[260px] overflow-auto"><TradeHistory currentPrice={coin.price} symbol={coin.symbol} /></CardContent></Card>
                 </TabsContent>
               </Tabs>
             </div>
 
             {/* Desktop */}
             <div className="hidden lg:block space-y-4">
-              <Card className="glass-card overflow-hidden">
-                <CardContent className="p-4 h-[450px]">
-                  <TradingChart symbol={coin.symbol} currentPrice={coin.price} volatility={coin.volatility} />
-                </CardContent>
-              </Card>
+              <Card className="glass-card overflow-hidden"><CardContent className="p-4 h-[450px]"><TradingChart symbol={coin.symbol} currentPrice={coin.price} volatility={coin.volatility} /></CardContent></Card>
               <div className="grid gap-4 grid-cols-2">
-                <Card className="glass-card h-[400px] overflow-hidden">
-                  <CardContent className="p-4 h-full overflow-auto">
-                    <OrderBook currentPrice={coin.price} symbol={coin.symbol} />
-                  </CardContent>
-                </Card>
-                <Card className="glass-card h-[400px] overflow-hidden">
-                  <CardContent className="p-4 h-full overflow-auto">
-                    <TradeHistory currentPrice={coin.price} symbol={coin.symbol} />
-                  </CardContent>
-                </Card>
+                <Card className="glass-card h-[400px] overflow-hidden"><CardContent className="p-4 h-full overflow-auto"><OrderBook currentPrice={coin.price} symbol={coin.symbol} /></CardContent></Card>
+                <Card className="glass-card h-[400px] overflow-hidden"><CardContent className="p-4 h-full overflow-auto"><TradeHistory currentPrice={coin.price} symbol={coin.symbol} /></CardContent></Card>
               </div>
             </div>
 
-            <Card className="glass-card">
-              <CardContent className="p-3 sm:p-6">
-                <CoinInfo coin={coin} />
-              </CardContent>
-            </Card>
+            <Card className="glass-card"><CardContent className="p-3 sm:p-6"><CoinInfo coin={displayCoin} /></CardContent></Card>
           </div>
 
-          {/* Right Column - Trading Panel */}
-          <motion.div
-            ref={tradingPanelRef}
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.2 }}
-            className="lg:sticky lg:top-20 h-fit mb-20 lg:mb-0 min-w-0 w-full"
-            id="trading-panel"
-          >
+          <motion.div ref={tradingPanelRef} initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.2 }}
+            className="lg:sticky lg:top-20 h-fit mb-20 lg:mb-0 min-w-0 w-full" id="trading-panel">
             <Card className="glass-card overflow-hidden">
               <CardContent className="p-0 min-h-[450px] sm:min-h-[500px]">
                 <TradingPanel
@@ -487,12 +437,12 @@ export default function CoinDetail() {
         open={showPaymentModal}
         onOpenChange={(v) => {
           setShowPaymentModal(v);
-          if (!v) { setPaymentStatus('waiting'); setCurrentTransactionId(null); }
+          if (!v) { setPaymentStatus('waiting'); setCheckoutRequestId(null); }
         }}
         status={paymentStatus}
         coinSymbol={coin.symbol}
         amount={pendingBuyAmount * coin.price}
-        onRetry={() => { setPaymentStatus('waiting'); setShowPaymentModal(false); }}
+        onRetry={() => { setPaymentStatus('waiting'); setShowPaymentModal(false); setCheckoutRequestId(null); }}
       />
     </div>
   );

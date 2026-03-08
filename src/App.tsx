@@ -8,6 +8,7 @@ import { SiteSettingsProvider } from "@/lib/site-settings-context";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import Landing from "./pages/Landing";
 import Auth from "./pages/Auth";
+import ResetPassword from "./pages/ResetPassword";
 import Launchpad from "./pages/Launchpad";
 import CoinDetail from "./pages/CoinDetail";
 import Dashboard from "./pages/Dashboard";
@@ -31,9 +32,9 @@ const App = () => (
           <Sonner />
           <BrowserRouter>
             <Routes>
-              {/* Public Routes */}
               <Route path="/" element={<Landing />} />
               <Route path="/auth" element={<Auth />} />
+              <Route path="/reset-password" element={<ResetPassword />} />
               <Route path="/launchpad" element={<Launchpad />} />
               <Route path="/coin/:id" element={<CoinDetail />} />
               <Route path="/blockchain" element={<Blockchain />} />
@@ -41,38 +42,9 @@ const App = () => (
               <Route path="/privacy" element={<Privacy />} />
               <Route path="/about" element={<About />} />
               <Route path="/error" element={<ErrorPage />} />
-
-              {/* Protected Routes - User */}
-              <Route
-                path="/dashboard"
-                element={
-                  <ProtectedRoute>
-                    <Dashboard />
-                  </ProtectedRoute>
-                }
-              />
-
-              {/* Create Coin - Any authenticated user */}
-              <Route
-                path="/create-coin"
-                element={
-                  <ProtectedRoute>
-                    <CreateCoin />
-                  </ProtectedRoute>
-                }
-              />
-
-              {/* Super Admin Only */}
-              <Route
-                path="/admin"
-                element={
-                  <ProtectedRoute requireAdmin>
-                    <Admin />
-                  </ProtectedRoute>
-                }
-              />
-
-              {/* Catch-all 404 */}
+              <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+              <Route path="/create-coin" element={<ProtectedRoute><CreateCoin /></ProtectedRoute>} />
+              <Route path="/admin" element={<ProtectedRoute requireAdmin><Admin /></ProtectedRoute>} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </BrowserRouter>

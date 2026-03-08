@@ -291,6 +291,96 @@ export type Database = {
         }
         Relationships: []
       }
+      notification_log: {
+        Row: {
+          body: string
+          channel: string
+          created_at: string
+          error_message: string | null
+          id: string
+          recipient: string
+          status: string
+          subject: string | null
+          template_slug: string | null
+          user_id: string | null
+        }
+        Insert: {
+          body: string
+          channel: string
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          recipient: string
+          status?: string
+          subject?: string | null
+          template_slug?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          body?: string
+          channel?: string
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          recipient?: string
+          status?: string
+          subject?: string | null
+          template_slug?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      notification_templates: {
+        Row: {
+          category: string
+          created_at: string
+          email_body: string
+          id: string
+          is_email_enabled: boolean
+          is_sms_enabled: boolean
+          is_whatsapp_enabled: boolean
+          name: string
+          slug: string
+          sms_body: string
+          subject: string
+          updated_at: string
+          variables: string[]
+          whatsapp_body: string
+        }
+        Insert: {
+          category?: string
+          created_at?: string
+          email_body?: string
+          id?: string
+          is_email_enabled?: boolean
+          is_sms_enabled?: boolean
+          is_whatsapp_enabled?: boolean
+          name: string
+          slug: string
+          sms_body?: string
+          subject?: string
+          updated_at?: string
+          variables?: string[]
+          whatsapp_body?: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          email_body?: string
+          id?: string
+          is_email_enabled?: boolean
+          is_sms_enabled?: boolean
+          is_whatsapp_enabled?: boolean
+          name?: string
+          slug?: string
+          sms_body?: string
+          subject?: string
+          updated_at?: string
+          variables?: string[]
+          whatsapp_body?: string
+        }
+        Relationships: []
+      }
       payment_requests: {
         Row: {
           amount: number
@@ -587,6 +677,81 @@ export type Database = {
         }
         Relationships: []
       }
+      sms_config: {
+        Row: {
+          api_key: string
+          created_at: string
+          id: string
+          is_active: boolean
+          provider: string
+          sender_id: string | null
+          updated_at: string
+          username: string
+        }
+        Insert: {
+          api_key?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          provider?: string
+          sender_id?: string | null
+          updated_at?: string
+          username?: string
+        }
+        Update: {
+          api_key?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          provider?: string
+          sender_id?: string | null
+          updated_at?: string
+          username?: string
+        }
+        Relationships: []
+      }
+      smtp_config: {
+        Row: {
+          created_at: string
+          encryption: string
+          from_email: string
+          from_name: string
+          host: string
+          id: string
+          is_active: boolean
+          password: string
+          port: number
+          updated_at: string
+          username: string
+        }
+        Insert: {
+          created_at?: string
+          encryption?: string
+          from_email?: string
+          from_name?: string
+          host?: string
+          id?: string
+          is_active?: boolean
+          password?: string
+          port?: number
+          updated_at?: string
+          username?: string
+        }
+        Update: {
+          created_at?: string
+          encryption?: string
+          from_email?: string
+          from_name?: string
+          host?: string
+          id?: string
+          is_active?: boolean
+          password?: string
+          port?: number
+          updated_at?: string
+          username?: string
+        }
+        Relationships: []
+      }
       telegram_config: {
         Row: {
           bot_token: string | null
@@ -790,6 +955,39 @@ export type Database = {
           id?: string
           updated_at?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      whatsapp_config: {
+        Row: {
+          api_token: string
+          business_account_id: string
+          created_at: string
+          id: string
+          is_active: boolean
+          phone_number_id: string
+          provider: string
+          updated_at: string
+        }
+        Insert: {
+          api_token?: string
+          business_account_id?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          phone_number_id?: string
+          provider?: string
+          updated_at?: string
+        }
+        Update: {
+          api_token?: string
+          business_account_id?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          phone_number_id?: string
+          provider?: string
+          updated_at?: string
         }
         Relationships: []
       }

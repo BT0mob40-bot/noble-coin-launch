@@ -148,28 +148,21 @@ Deno.serve(async (req) => {
       if (pr && pr.status !== "completed") {
         await adminClient.from("payment_requests").update({ status: "completed", result_desc: queryResult.ResultDesc || "success" }).eq("checkout_request_id", checkoutRequestId);
 
-        // Fetch full payment request to handle coin_creation
-        const { data: fullPr } = await adminClient
-          .from("payment_requests")
-          .select("*")
-          .eq("checkout_request_id", checkoutRequestId)
-          .maybeSingle();
-
-        if (fullPr?.type === "coin_creation" && fullPr.coin_id) {
+        if (pr.type === "coin_creation" && pr.coin_id) {
           await adminClient
             .from("coins")
             .update({ creation_fee_paid: true })
-            .eq("id", fullPr.coin_id)
-            .eq("creator_id", fullPr.user_id);
+            .eq("id", pr.coin_id)
+            .eq("creator_id", pr.user_id);
         }
 
-        if (fullPr?.type === "deposit") {
+        if (pr.type === "deposit") {
           const { data: settings } = await adminClient
             .from("site_settings")
             .select("deposit_fee_percentage")
             .maybeSingle();
 
-          const grossAmount = Number(fullPr.amount || 0);
+          const grossAmount = Number(pr.amount || 0);
           const depositFee = settings?.deposit_fee_percentage
             ? grossAmount * (settings.deposit_fee_percentage / 100)
             : 0;
@@ -178,14 +171,14 @@ Deno.serve(async (req) => {
           const { data: wallet } = await adminClient
             .from("wallets")
             .select("fiat_balance")
-            .eq("user_id", fullPr.user_id)
+            .eq("user_id", pr.user_id)
             .single();
 
           if (wallet) {
             await adminClient
               .from("wallets")
               .update({ fiat_balance: wallet.fiat_balance + netDeposit })
-              .eq("user_id", fullPr.user_id);
+              .eq("user_id", pr.user_id);
           }
         }
       }

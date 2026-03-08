@@ -67,7 +67,7 @@ Deno.serve(async (req) => {
 
     const { data: pr } = await adminClient
       .from("payment_requests")
-      .select("status")
+      .select("*")
       .eq("checkout_request_id", checkoutRequestId)
       .maybeSingle();
 

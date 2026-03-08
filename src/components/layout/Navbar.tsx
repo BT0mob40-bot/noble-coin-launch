@@ -152,6 +152,10 @@ export function Navbar() {
                     <LayoutDashboard className="mr-2 h-4 w-4" />
                     Dashboard
                   </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => navigate('/profile')}>
+                    <User className="mr-2 h-4 w-4" />
+                    My Profile
+                  </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => navigate('/dashboard')}>
                     <Wallet className="mr-2 h-4 w-4" />
                     My Wallet
@@ -217,6 +221,11 @@ export function Navbar() {
                       <SheetClose asChild>
                         <Link to="/dashboard" className="flex items-center gap-3 p-3 rounded-lg hover:bg-muted transition-colors">
                           <LayoutDashboard className="h-5 w-5 text-muted-foreground" /> Dashboard
+                        </Link>
+                      </SheetClose>
+                      <SheetClose asChild>
+                        <Link to="/profile" className="flex items-center gap-3 p-3 rounded-lg hover:bg-muted transition-colors">
+                          <User className="h-5 w-5 text-muted-foreground" /> My Profile
                         </Link>
                       </SheetClose>
                       <SheetClose asChild>

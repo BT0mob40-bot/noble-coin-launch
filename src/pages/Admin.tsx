@@ -116,6 +116,7 @@ export default function Admin() {
       case 'commissions': return <CommissionDashboard />;
       case 'coins': return <div className="space-y-4"><CoinManagement userId={user.id} isSuperAdmin={true} /><BlockedWordsManager /></div>;
       case 'users': return <UserManagement currentUserId={user.id} isSuperAdmin={true} />;
+      case 'live-streams': return <LiveStreamManagement />;
       case 'withdrawals': return <WithdrawalManagement />;
       case 'send-notification': return <SendNotification />;
       case 'scheduled': return <ScheduledNotifications />;

@@ -13,6 +13,8 @@ import {
   Sheet, SheetContent, SheetTrigger, SheetClose,
 } from '@/components/ui/sheet';
 import { toast } from 'sonner';
+import { GoLiveDialog } from '@/components/live/GoLiveDialog';
+import { LiveStreamsBanner } from '@/components/live/LiveStreamsBanner';
 
 export function Navbar() {
   const { user, isSuperAdmin, signOut } = useAuth();

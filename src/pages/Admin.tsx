@@ -62,6 +62,7 @@ const sidebarSections: SidebarSection[] = [
   {
     label: 'Notifications',
     items: [
+      { id: 'send-notification', label: 'Send', icon: Send },
       { id: 'templates', label: 'Templates', icon: Bell },
       { id: 'notification-log', label: 'Send Log', icon: Mail },
     ],

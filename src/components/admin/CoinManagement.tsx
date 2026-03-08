@@ -180,9 +180,15 @@ export function CoinManagement({ userId, isSuperAdmin }: CoinManagementProps) {
     setOverrideMarketCap(coin.market_cap_override?.toString() || '');
     setOverrideLiquidity(coin.liquidity_override?.toString() || '');
     setOverrideHolders(coin.holders_override?.toString() || '');
+    setOverridePriceChange((coin as any).price_change_24h_override?.toString() || '');
+    setOverrideVolatility((coin as any).volatility_override?.toString() || '');
+    setOverrideCirculating((coin as any).circulating_supply_override?.toString() || '');
     setUseMarketCapOverride(coin.use_market_cap_override || false);
     setUseLiquidityOverride(coin.use_liquidity_override || false);
     setUseHoldersOverride(coin.use_holders_override || false);
+    setUsePriceChangeOverride((coin as any).use_price_change_24h_override || false);
+    setUseVolatilityOverride((coin as any).use_volatility_override || false);
+    setUseCirculatingOverride((coin as any).use_circulating_supply_override || false);
     setShowOverrideDialog(true);
   };
 

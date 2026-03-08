@@ -92,6 +92,7 @@ export function PlatformSettings() {
         creator_commission_percentage: settings.creator_commission_percentage,
         deposit_fee_percentage: settings.deposit_fee_percentage,
         withdrawal_fee_percentage: settings.withdrawal_fee_percentage,
+        live_fee: settings.live_fee,
         twitter_url: settings.twitter_url,
         discord_url: settings.discord_url,
         telegram_url: settings.telegram_url,

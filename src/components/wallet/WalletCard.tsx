@@ -27,6 +27,7 @@ export function WalletCard({ fiatBalance, userId, onBalanceChange }: WalletCardP
   const [processing, setProcessing] = useState(false);
   const [depositStatus, setDepositStatus] = useState<DepositStatus>('form');
   const [minDeposit, setMinDeposit] = useState(100);
+  const [withdrawalFeePct, setWithdrawalFeePct] = useState(0);
   const [elapsed, setElapsed] = useState(0);
   const [checkoutRequestId, setCheckoutRequestId] = useState<string | null>(null);
 

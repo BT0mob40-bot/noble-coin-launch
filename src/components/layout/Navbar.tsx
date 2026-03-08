@@ -2,7 +2,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/lib/auth-context';
 import { useSiteSettings } from '@/lib/site-settings-context';
-import { Rocket, User, LogOut, LayoutDashboard, Shield, Wallet, Menu, Plus, Search, Blocks } from 'lucide-react';
+import { Rocket, User, LogOut, LayoutDashboard, Shield, Wallet, Menu, Plus, Search, Blocks, Radio } from 'lucide-react';
 import { useState } from 'react';
 import { Input } from '@/components/ui/input';
 import { supabase } from '@/integrations/supabase/client';

@@ -7,7 +7,7 @@ import { Navigate } from 'react-router-dom';
 import {
   Shield, Coins, Users, Settings, CreditCard, DollarSign, Layout, 
   ArrowDownToLine, Bot, Ban, Bell, Mail, MessageSquare, Phone,
-  BarChart3, Plug, ChevronLeft, ChevronRight, ShieldCheck
+  BarChart3, Plug, ChevronLeft, ChevronRight, ShieldCheck, Send
 } from 'lucide-react';
 import { MpesaSettings } from '@/components/admin/MpesaSettings';
 import { PlatformSettings } from '@/components/admin/PlatformSettings';
@@ -19,6 +19,7 @@ import { WithdrawalManagement } from '@/components/admin/WithdrawalManagement';
 import { TelegramSettings } from '@/components/admin/TelegramSettings';
 import { BlockedWordsManager } from '@/components/admin/BlockedWordsManager';
 import { NotificationTemplates } from '@/components/admin/NotificationTemplates';
+import { SendNotification } from '@/components/admin/SendNotification';
 import { SmtpSettings } from '@/components/admin/SmtpSettings';
 import { SmsSettings } from '@/components/admin/SmsSettings';
 import { WhatsAppSettings } from '@/components/admin/WhatsAppSettings';
@@ -61,6 +62,7 @@ const sidebarSections: SidebarSection[] = [
   {
     label: 'Notifications',
     items: [
+      { id: 'send-notification', label: 'Send', icon: Send },
       { id: 'templates', label: 'Templates', icon: Bell },
       { id: 'notification-log', label: 'Send Log', icon: Mail },
     ],
@@ -111,6 +113,7 @@ export default function Admin() {
       case 'coins': return <div className="space-y-4"><CoinManagement userId={user.id} isSuperAdmin={true} /><BlockedWordsManager /></div>;
       case 'users': return <UserManagement currentUserId={user.id} isSuperAdmin={true} />;
       case 'withdrawals': return <WithdrawalManagement />;
+      case 'send-notification': return <SendNotification />;
       case 'templates': return <NotificationTemplates />;
       case 'notification-log': return <NotificationLog />;
       case 'mpesa': return <MpesaSettings />;

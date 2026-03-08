@@ -7,7 +7,7 @@ import { Navigate } from 'react-router-dom';
 import {
   Shield, Coins, Users, Settings, CreditCard, DollarSign, Layout, 
   ArrowDownToLine, Bot, Ban, Bell, Mail, MessageSquare, Phone,
-  BarChart3, Plug, ChevronLeft, ChevronRight, ShieldCheck, Send
+  BarChart3, Plug, ChevronLeft, ChevronRight, ShieldCheck, Send, CalendarClock
 } from 'lucide-react';
 import { MpesaSettings } from '@/components/admin/MpesaSettings';
 import { PlatformSettings } from '@/components/admin/PlatformSettings';
@@ -20,6 +20,7 @@ import { TelegramSettings } from '@/components/admin/TelegramSettings';
 import { BlockedWordsManager } from '@/components/admin/BlockedWordsManager';
 import { NotificationTemplates } from '@/components/admin/NotificationTemplates';
 import { SendNotification } from '@/components/admin/SendNotification';
+import { ScheduledNotifications } from '@/components/admin/ScheduledNotifications';
 import { SmtpSettings } from '@/components/admin/SmtpSettings';
 import { SmsSettings } from '@/components/admin/SmsSettings';
 import { WhatsAppSettings } from '@/components/admin/WhatsAppSettings';
@@ -63,6 +64,7 @@ const sidebarSections: SidebarSection[] = [
     label: 'Notifications',
     items: [
       { id: 'send-notification', label: 'Send', icon: Send },
+      { id: 'scheduled', label: 'Scheduled', icon: CalendarClock },
       { id: 'templates', label: 'Templates', icon: Bell },
       { id: 'notification-log', label: 'Send Log', icon: Mail },
     ],
@@ -114,6 +116,7 @@ export default function Admin() {
       case 'users': return <UserManagement currentUserId={user.id} isSuperAdmin={true} />;
       case 'withdrawals': return <WithdrawalManagement />;
       case 'send-notification': return <SendNotification />;
+      case 'scheduled': return <ScheduledNotifications />;
       case 'templates': return <NotificationTemplates />;
       case 'notification-log': return <NotificationLog />;
       case 'mpesa': return <MpesaSettings />;

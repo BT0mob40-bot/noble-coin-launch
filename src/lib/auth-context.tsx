@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import { createContext, useContext, useEffect, useState, useRef, ReactNode } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -23,6 +23,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const [roles, setRoles] = useState<UserRole[]>([]);
+  const initializedRef = useRef(false);
 
   const fetchUserRoles = async (userId: string) => {
     const { data, error } = await supabase
@@ -41,16 +42,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     // Set up auth state listener first
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
+      async (event, session) => {
+        // Skip the initial event since we handle it below with getSession
+        if (!initializedRef.current) return;
+
         setSession(session);
         setUser(session?.user ?? null);
-        setLoading(false);
         
-        // Defer role fetching to avoid deadlocks
         if (session?.user) {
-          setTimeout(() => {
-            fetchUserRoles(session.user.id).then(setRoles);
-          }, 0);
+          const userRoles = await fetchUserRoles(session.user.id);
+          setRoles(userRoles);
         } else {
           setRoles([]);
         }
@@ -58,14 +59,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     );
 
     // Then check for existing session
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
-      setLoading(false);
       
       if (session?.user) {
-        fetchUserRoles(session.user.id).then(setRoles);
+        const userRoles = await fetchUserRoles(session.user.id);
+        setRoles(userRoles);
       }
+
+      setLoading(false);
+      initializedRef.current = true;
     });
 
     return () => subscription.unsubscribe();

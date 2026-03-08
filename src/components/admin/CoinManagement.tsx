@@ -427,18 +427,32 @@ export function CoinManagement({ userId, isSuperAdmin }: CoinManagementProps) {
         </DialogContent>
       </Dialog>
 
-      {/* Override Dialog - Market Cap, Liquidity, Holders */}
+      {/* Override Dialog - All Stats */}
       <Dialog open={showOverrideDialog} onOpenChange={setShowOverrideDialog}>
-        <DialogContent className="glass-card">
+        <DialogContent className="glass-card max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2"><BarChart3 className="h-5 w-5 text-primary" /> Override Values - {selectedCoin?.symbol}</DialogTitle>
-            <DialogDescription>Override displayed market cap, liquidity, and holders. Toggle off to show actual organic values.</DialogDescription>
+            <DialogDescription>Override displayed stats for this coin. Toggle off to show actual organic values.</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
-            <div className="space-y-3">
+            {/* 24h Change */}
+            <div className="space-y-2">
               <div className="flex items-center justify-between p-3 rounded-lg bg-muted/30">
                 <div className="space-y-1">
-                  <Label className="text-sm">Market Cap Override</Label>
+                  <Label className="text-sm">24h Change Override (%)</Label>
+                  <p className="text-xs text-muted-foreground">Actual: 0%</p>
+                </div>
+                <Switch checked={usePriceChangeOverride} onCheckedChange={setUsePriceChangeOverride} />
+              </div>
+              {usePriceChangeOverride && (
+                <Input type="number" step="0.01" placeholder="e.g. 5.23 or -2.5" value={overridePriceChange} onChange={(e) => setOverridePriceChange(e.target.value)} className="bg-muted/30 font-mono" />
+              )}
+            </div>
+            {/* Market Cap */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between p-3 rounded-lg bg-muted/30">
+                <div className="space-y-1">
+                  <Label className="text-sm">Market Cap Override (KES)</Label>
                   <p className="text-xs text-muted-foreground">Actual: KES {selectedCoin?.market_cap?.toLocaleString() || '0'}</p>
                 </div>
                 <Switch checked={useMarketCapOverride} onCheckedChange={setUseMarketCapOverride} />
@@ -447,10 +461,11 @@ export function CoinManagement({ userId, isSuperAdmin }: CoinManagementProps) {
                 <Input type="number" placeholder="Override market cap (KES)" value={overrideMarketCap} onChange={(e) => setOverrideMarketCap(e.target.value)} className="bg-muted/30 font-mono" />
               )}
             </div>
-            <div className="space-y-3">
+            {/* Liquidity */}
+            <div className="space-y-2">
               <div className="flex items-center justify-between p-3 rounded-lg bg-muted/30">
                 <div className="space-y-1">
-                  <Label className="text-sm">Liquidity Override</Label>
+                  <Label className="text-sm">Liquidity Override (KES)</Label>
                   <p className="text-xs text-muted-foreground">Actual: KES {selectedCoin?.liquidity?.toLocaleString() || '0'}</p>
                 </div>
                 <Switch checked={useLiquidityOverride} onCheckedChange={setUseLiquidityOverride} />
@@ -459,7 +474,8 @@ export function CoinManagement({ userId, isSuperAdmin }: CoinManagementProps) {
                 <Input type="number" placeholder="Override liquidity (KES)" value={overrideLiquidity} onChange={(e) => setOverrideLiquidity(e.target.value)} className="bg-muted/30 font-mono" />
               )}
             </div>
-            <div className="space-y-3">
+            {/* Holders */}
+            <div className="space-y-2">
               <div className="flex items-center justify-between p-3 rounded-lg bg-muted/30">
                 <div className="space-y-1">
                   <Label className="text-sm">Holders Override</Label>
@@ -469,6 +485,32 @@ export function CoinManagement({ userId, isSuperAdmin }: CoinManagementProps) {
               </div>
               {useHoldersOverride && (
                 <Input type="number" placeholder="Override holders count" value={overrideHolders} onChange={(e) => setOverrideHolders(e.target.value)} className="bg-muted/30 font-mono" />
+              )}
+            </div>
+            {/* Volatility */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between p-3 rounded-lg bg-muted/30">
+                <div className="space-y-1">
+                  <Label className="text-sm">Volatility Override (%)</Label>
+                  <p className="text-xs text-muted-foreground">Actual: {selectedCoin?.volatility || 5}%</p>
+                </div>
+                <Switch checked={useVolatilityOverride} onCheckedChange={setUseVolatilityOverride} />
+              </div>
+              {useVolatilityOverride && (
+                <Input type="number" step="0.1" placeholder="e.g. 12.5" value={overrideVolatility} onChange={(e) => setOverrideVolatility(e.target.value)} className="bg-muted/30 font-mono" />
+              )}
+            </div>
+            {/* Circulating Supply */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between p-3 rounded-lg bg-muted/30">
+                <div className="space-y-1">
+                  <Label className="text-sm">Circulating Supply Override</Label>
+                  <p className="text-xs text-muted-foreground">Actual: {selectedCoin?.circulating_supply?.toLocaleString() || '0'}</p>
+                </div>
+                <Switch checked={useCirculatingOverride} onCheckedChange={setUseCirculatingOverride} />
+              </div>
+              {useCirculatingOverride && (
+                <Input type="number" placeholder="Override circulating supply" value={overrideCirculating} onChange={(e) => setOverrideCirculating(e.target.value)} className="bg-muted/30 font-mono" />
               )}
             </div>
             <div className="flex gap-2">

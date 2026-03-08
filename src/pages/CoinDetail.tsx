@@ -379,7 +379,7 @@ export default function CoinDetail() {
         )}
 
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="mb-3">
-          <MarketStats coin={displayCoin} priceChange24h={coin.price_change_24h || 0} />
+          <MarketStats coin={displayCoin} priceChange24h={displayPriceChange} />
         </motion.div>
 
         <div className="flex flex-col lg:grid lg:grid-cols-[1fr_320px] gap-3 sm:gap-4">

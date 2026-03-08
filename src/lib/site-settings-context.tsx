@@ -66,7 +66,9 @@ const defaultSettings: SiteSettings = {
   fee_percentage: 2.5,
   admin_commission: 2.5,
   coin_creation_fee: 5000,
+  coin_creation_fee: 5000,
   referral_commission_percentage: 5,
+  live_fee: 1000,
 };
 
 interface SiteSettingsContextType {

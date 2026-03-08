@@ -19,6 +19,7 @@ import { WithdrawalManagement } from '@/components/admin/WithdrawalManagement';
 import { TelegramSettings } from '@/components/admin/TelegramSettings';
 import { BlockedWordsManager } from '@/components/admin/BlockedWordsManager';
 import { NotificationTemplates } from '@/components/admin/NotificationTemplates';
+import { SendNotification } from '@/components/admin/SendNotification';
 import { SmtpSettings } from '@/components/admin/SmtpSettings';
 import { SmsSettings } from '@/components/admin/SmsSettings';
 import { WhatsAppSettings } from '@/components/admin/WhatsAppSettings';

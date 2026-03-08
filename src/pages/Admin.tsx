@@ -58,6 +58,7 @@ const sidebarSections: SidebarSection[] = [
     items: [
       { id: 'coins', label: 'Coins', icon: Coins },
       { id: 'users', label: 'Users', icon: Users },
+      { id: 'live-streams', label: 'Live Streams', icon: Radio },
       { id: 'withdrawals', label: 'Withdrawals', icon: ArrowDownToLine },
     ],
   },

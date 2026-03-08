@@ -29,6 +29,7 @@ export interface SiteSettings {
   admin_commission: number;
   coin_creation_fee: number;
   referral_commission_percentage: number;
+  live_fee: number;
   twitter_url?: string;
   discord_url?: string;
   telegram_url?: string;

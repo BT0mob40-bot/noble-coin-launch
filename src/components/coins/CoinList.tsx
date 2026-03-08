@@ -172,7 +172,7 @@ function CoinListRow({ coin, index }: { coin: any; index: number }) {
         {Math.abs(change).toFixed(2)}%
       </span>
       <span className="hidden sm:block text-right text-[10px] text-muted-foreground font-mono">KES {formatMcap(mcap)}</span>
-      <span className="hidden sm:block text-right text-[10px] text-muted-foreground">{coin.holders_count}</span>
+      <span className="hidden sm:block text-right text-[10px] text-muted-foreground">{holders}</span>
       <div className="hidden sm:flex justify-end" onClick={(e) => e.stopPropagation()}>
         <Button variant="success" size="sm" className="h-6 text-[10px] px-2" onClick={() => navigate(`/coin/${coin.id}?action=buy`)}>
           Buy

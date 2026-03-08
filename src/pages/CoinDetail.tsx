@@ -415,13 +415,13 @@ export default function CoinDetail() {
                   <TabsTrigger value="trades" className="text-[10px] sm:text-xs">Trades</TabsTrigger>
                 </TabsList>
                 <TabsContent value="chart" className="mt-2">
-                  <Card className="glass-card overflow-hidden"><CardContent className="p-1 h-[220px] sm:h-[280px]"><TradingChart symbol={coin.symbol} currentPrice={coin.price} volatility={coin.volatility} /></CardContent></Card>
+                  <Card className="glass-card overflow-hidden"><CardContent className="p-1 h-[220px] sm:h-[280px]"><TradingChart symbol={coin.symbol} currentPrice={coin.price} volatility={coin.volatility} coinId={coin.id} isOverridden={isAnyOverridden} /></CardContent></Card>
                 </TabsContent>
                 <TabsContent value="orderbook" className="mt-2">
-                  <Card className="glass-card overflow-hidden"><CardContent className="p-1 h-[260px] overflow-auto"><OrderBook currentPrice={coin.price} symbol={coin.symbol} /></CardContent></Card>
+                  <Card className="glass-card overflow-hidden"><CardContent className="p-1 h-[260px] overflow-auto"><OrderBook currentPrice={coin.price} symbol={coin.symbol} coinId={coin.id} isOverridden={isAnyOverridden} /></CardContent></Card>
                 </TabsContent>
                 <TabsContent value="trades" className="mt-2">
-                  <Card className="glass-card overflow-hidden"><CardContent className="p-1 h-[260px] overflow-auto"><TradeHistory currentPrice={coin.price} symbol={coin.symbol} /></CardContent></Card>
+                  <Card className="glass-card overflow-hidden"><CardContent className="p-1 h-[260px] overflow-auto"><TradeHistory currentPrice={coin.price} symbol={coin.symbol} coinId={coin.id} isOverridden={isAnyOverridden} /></CardContent></Card>
                 </TabsContent>
               </Tabs>
             </div>

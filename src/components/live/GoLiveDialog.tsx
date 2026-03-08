@@ -164,7 +164,7 @@ export function GoLiveDialog({ children }: GoLiveDialogProps) {
           </DialogTitle>
         </DialogHeader>
 
-        <div className="bg-gradient-to-r from-red-500/10 to-pink-500/10 border border-red-200 rounded-lg p-4 mb-4">
+        <div className="bg-gradient-to-r from-destructive/10 via-destructive/5 to-destructive/10 border border-destructive/20 rounded-lg p-4 mb-4">
           <div className="flex items-center gap-2 mb-2">
             <Wallet className="h-4 w-4 text-red-500" />
             <span className="font-medium">Live Fee: KES {settings.live_fee}</span>

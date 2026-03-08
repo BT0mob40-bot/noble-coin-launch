@@ -3,9 +3,11 @@ import { motion } from 'framer-motion';
 import { Navbar } from '@/components/layout/Navbar';
 import { Footer } from '@/components/layout/Footer';
 import { useAuth } from '@/lib/auth-context';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Navigate } from 'react-router-dom';
 import {
-  Shield, Coins, Users, Settings, CreditCard, DollarSign, Layout, ArrowDownToLine, Bot, Ban
+  Shield, Coins, Users, Settings, CreditCard, DollarSign, Layout, 
+  ArrowDownToLine, Bot, Ban, Bell, Mail, MessageSquare, Phone,
+  BarChart3, Plug, ChevronLeft, ChevronRight
 } from 'lucide-react';
 import { MpesaSettings } from '@/components/admin/MpesaSettings';
 import { PlatformSettings } from '@/components/admin/PlatformSettings';
@@ -16,58 +18,189 @@ import { LandingPageSettings } from '@/components/admin/LandingPageSettings';
 import { WithdrawalManagement } from '@/components/admin/WithdrawalManagement';
 import { TelegramSettings } from '@/components/admin/TelegramSettings';
 import { BlockedWordsManager } from '@/components/admin/BlockedWordsManager';
-import { Navigate } from 'react-router-dom';
+import { NotificationTemplates } from '@/components/admin/NotificationTemplates';
+import { SmtpSettings } from '@/components/admin/SmtpSettings';
+import { SmsSettings } from '@/components/admin/SmsSettings';
+import { WhatsAppSettings } from '@/components/admin/WhatsAppSettings';
+import { AdminAnalytics } from '@/components/admin/AdminAnalytics';
+import { NotificationLog } from '@/components/admin/NotificationLog';
+import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Badge } from '@/components/ui/badge';
+
+interface SidebarSection {
+  label: string;
+  items: SidebarItem[];
+}
+
+interface SidebarItem {
+  id: string;
+  label: string;
+  icon: React.ElementType;
+  badge?: string;
+}
+
+const sidebarSections: SidebarSection[] = [
+  {
+    label: 'Overview',
+    items: [
+      { id: 'analytics', label: 'Analytics', icon: BarChart3 },
+      { id: 'commissions', label: 'Revenue', icon: DollarSign },
+    ],
+  },
+  {
+    label: 'Management',
+    items: [
+      { id: 'coins', label: 'Coins', icon: Coins },
+      { id: 'users', label: 'Users', icon: Users },
+      { id: 'withdrawals', label: 'Withdrawals', icon: ArrowDownToLine },
+    ],
+  },
+  {
+    label: 'Notifications',
+    items: [
+      { id: 'templates', label: 'Templates', icon: Bell },
+      { id: 'notification-log', label: 'Send Log', icon: Mail },
+    ],
+  },
+  {
+    label: 'Integrations',
+    items: [
+      { id: 'mpesa', label: 'M-PESA', icon: CreditCard },
+      { id: 'smtp', label: 'Email / SMTP', icon: Mail },
+      { id: 'sms', label: 'SMS', icon: Phone },
+      { id: 'whatsapp', label: 'WhatsApp', icon: MessageSquare },
+      { id: 'telegram', label: 'Telegram', icon: Bot },
+    ],
+  },
+  {
+    label: 'Appearance',
+    items: [
+      { id: 'landing', label: 'Landing Page', icon: Layout },
+      { id: 'blocked', label: 'Blocked Words', icon: Ban },
+    ],
+  },
+  {
+    label: 'System',
+    items: [
+      { id: 'settings', label: 'Platform Settings', icon: Settings },
+    ],
+  },
+];
 
 export default function Admin() {
   const { user, isSuperAdmin } = useAuth();
+  const [activeItem, setActiveItem] = useState('analytics');
+  const [collapsed, setCollapsed] = useState(false);
 
   if (!user) return null;
   if (!isSuperAdmin) return <Navigate to="/dashboard" replace />;
 
+  const renderContent = () => {
+    switch (activeItem) {
+      case 'analytics': return <AdminAnalytics />;
+      case 'commissions': return <CommissionDashboard />;
+      case 'coins': return <div className="space-y-4"><CoinManagement userId={user.id} isSuperAdmin={true} /><BlockedWordsManager /></div>;
+      case 'users': return <UserManagement currentUserId={user.id} isSuperAdmin={true} />;
+      case 'withdrawals': return <WithdrawalManagement />;
+      case 'templates': return <NotificationTemplates />;
+      case 'notification-log': return <NotificationLog />;
+      case 'mpesa': return <MpesaSettings />;
+      case 'smtp': return <SmtpSettings />;
+      case 'sms': return <SmsSettings />;
+      case 'whatsapp': return <WhatsAppSettings />;
+      case 'telegram': return <TelegramSettings />;
+      case 'landing': return <LandingPageSettings />;
+      case 'blocked': return <BlockedWordsManager />;
+      case 'settings': return <PlatformSettings />;
+      default: return <AdminAnalytics />;
+    }
+  };
+
+  const currentItem = sidebarSections.flatMap(s => s.items).find(i => i.id === activeItem);
+
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
-      <main className="container pt-20 sm:pt-24 pb-16 px-4 sm:px-6">
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="mb-6 sm:mb-8">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-accent">
-              <Shield className="h-5 w-5 text-primary-foreground" />
-            </div>
-            <div>
-              <h1 className="text-2xl sm:text-3xl font-bold font-display">Super Admin</h1>
-              <p className="text-sm text-muted-foreground">Full platform management</p>
-            </div>
+      <div className="flex pt-16">
+        {/* Sidebar */}
+        <aside className={cn(
+          "fixed left-0 top-16 bottom-0 z-30 border-r border-border bg-card/50 backdrop-blur-sm transition-all duration-300",
+          collapsed ? "w-16" : "w-60"
+        )}>
+          <div className="flex items-center justify-between p-3 border-b border-border/50">
+            {!collapsed && (
+              <div className="flex items-center gap-2">
+                <Shield className="h-5 w-5 text-primary" />
+                <span className="text-sm font-bold">Super Admin</span>
+              </div>
+            )}
+            <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={() => setCollapsed(!collapsed)}>
+              {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
+            </Button>
           </div>
-        </motion.div>
+          <ScrollArea className="h-[calc(100vh-8rem)]">
+            <nav className="p-2 space-y-4">
+              {sidebarSections.map((section) => (
+                <div key={section.label}>
+                  {!collapsed && (
+                    <p className="px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                      {section.label}
+                    </p>
+                  )}
+                  <div className="space-y-0.5">
+                    {section.items.map((item) => (
+                      <button
+                        key={item.id}
+                        onClick={() => setActiveItem(item.id)}
+                        className={cn(
+                          "w-full flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-colors",
+                          activeItem === item.id
+                            ? "bg-primary/15 text-primary font-medium"
+                            : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+                        )}
+                        title={collapsed ? item.label : undefined}
+                      >
+                        <item.icon className="h-4 w-4 shrink-0" />
+                        {!collapsed && (
+                          <>
+                            <span className="truncate">{item.label}</span>
+                            {item.badge && (
+                              <Badge variant="secondary" className="ml-auto text-[9px] h-4 px-1">{item.badge}</Badge>
+                            )}
+                          </>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </nav>
+          </ScrollArea>
+        </aside>
 
-        <Tabs defaultValue="coins" className="space-y-4 sm:space-y-6">
-          <TabsList className="flex flex-wrap gap-1 h-auto">
-            <TabsTrigger value="coins" className="gap-1.5 text-xs sm:text-sm"><Coins className="h-3.5 w-3.5" />Coins</TabsTrigger>
-            <TabsTrigger value="users" className="gap-1.5 text-xs sm:text-sm"><Users className="h-3.5 w-3.5" />Users</TabsTrigger>
-            <TabsTrigger value="commissions" className="gap-1.5 text-xs sm:text-sm"><DollarSign className="h-3.5 w-3.5" />Revenue</TabsTrigger>
-            <TabsTrigger value="mpesa" className="gap-1.5 text-xs sm:text-sm"><CreditCard className="h-3.5 w-3.5" />M-PESA</TabsTrigger>
-            <TabsTrigger value="landing" className="gap-1.5 text-xs sm:text-sm"><Layout className="h-3.5 w-3.5" />Landing</TabsTrigger>
-            <TabsTrigger value="withdrawals" className="gap-1.5 text-xs sm:text-sm"><ArrowDownToLine className="h-3.5 w-3.5" />Withdrawals</TabsTrigger>
-            <TabsTrigger value="telegram" className="gap-1.5 text-xs sm:text-sm"><Bot className="h-3.5 w-3.5" />Telegram</TabsTrigger>
-            <TabsTrigger value="settings" className="gap-1.5 text-xs sm:text-sm"><Settings className="h-3.5 w-3.5" />Settings</TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="coins">
-            <div className="space-y-4">
-              <CoinManagement userId={user.id} isSuperAdmin={true} />
-              <BlockedWordsManager />
-            </div>
-          </TabsContent>
-          <TabsContent value="users"><UserManagement currentUserId={user.id} isSuperAdmin={true} /></TabsContent>
-          <TabsContent value="commissions"><CommissionDashboard /></TabsContent>
-          <TabsContent value="mpesa"><MpesaSettings /></TabsContent>
-          <TabsContent value="landing"><LandingPageSettings /></TabsContent>
-          <TabsContent value="withdrawals"><WithdrawalManagement /></TabsContent>
-          <TabsContent value="telegram"><TelegramSettings /></TabsContent>
-          <TabsContent value="settings"><PlatformSettings /></TabsContent>
-        </Tabs>
-      </main>
-      <Footer />
+        {/* Main Content */}
+        <main className={cn(
+          "flex-1 transition-all duration-300 min-h-[calc(100vh-4rem)]",
+          collapsed ? "ml-16" : "ml-60"
+        )}>
+          <div className="p-4 sm:p-6 max-w-6xl">
+            <motion.div
+              key={activeItem}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.2 }}
+            >
+              <div className="flex items-center gap-3 mb-6">
+                {currentItem && <currentItem.icon className="h-6 w-6 text-primary" />}
+                <h1 className="text-xl sm:text-2xl font-bold font-display">{currentItem?.label || 'Admin'}</h1>
+              </div>
+              {renderContent()}
+            </motion.div>
+          </div>
+        </main>
+      </div>
     </div>
   );
 }

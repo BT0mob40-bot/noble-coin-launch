@@ -7,7 +7,7 @@ import { Navigate } from 'react-router-dom';
 import {
   Shield, Coins, Users, Settings, CreditCard, DollarSign, Layout, 
   ArrowDownToLine, Bot, Ban, Bell, Mail, MessageSquare, Phone,
-  BarChart3, Plug, ChevronLeft, ChevronRight, ShieldCheck
+  BarChart3, Plug, ChevronLeft, ChevronRight, ShieldCheck, Send
 } from 'lucide-react';
 import { MpesaSettings } from '@/components/admin/MpesaSettings';
 import { PlatformSettings } from '@/components/admin/PlatformSettings';

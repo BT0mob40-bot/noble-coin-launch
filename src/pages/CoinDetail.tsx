@@ -218,6 +218,7 @@ export default function CoinDetail() {
         await supabase.from('coins').update({
           circulating_supply: coin.circulating_supply + amount,
           holders_count: existingHolding ? coin.holders_count : coin.holders_count + 1,
+          liquidity: (coin.liquidity || 0) + totalValue,
         }).eq('id', coin.id);
 
         // Record price history for real charts

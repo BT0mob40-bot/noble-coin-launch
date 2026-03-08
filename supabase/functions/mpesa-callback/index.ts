@@ -70,8 +70,8 @@ Deno.serve(async (req) => {
       return acceptedResponse;
     }
 
-    // Trade payment path
-    if (transaction) {
+    // Trade payment path (M-PESA buy)
+    if (transaction && transaction.status !== "completed") {
       await supabase
         .from("transactions")
         .update({ status: "completed", mpesa_receipt: mpesaReceiptNumber || CheckoutRequestID })
@@ -105,7 +105,7 @@ Deno.serve(async (req) => {
 
       const { data: coin } = await supabase
         .from("coins")
-        .select("circulating_supply, creator_id")
+        .select("circulating_supply, creator_id, liquidity")
         .eq("id", transaction.coin_id)
         .single();
 
@@ -121,8 +121,17 @@ Deno.serve(async (req) => {
           .update({
             circulating_supply: coin.circulating_supply + transaction.amount,
             holders_count: holdersCount || 0,
+            liquidity: (coin.liquidity || 0) + transaction.total_value,
           })
           .eq("id", transaction.coin_id);
+
+        // Record price history for real charts
+        await supabase.from("price_history").insert({
+          coin_id: transaction.coin_id,
+          price: transaction.price_per_coin,
+          volume: transaction.total_value,
+          trade_type: "buy",
+        });
 
         if (settings) {
           const tradingFee = transaction.total_value * (settings.fee_percentage / 100);
@@ -159,7 +168,7 @@ Deno.serve(async (req) => {
     }
 
     // Deposit / coin creation payment path
-    if (paymentRequest) {
+    if (paymentRequest && paymentRequest.status !== "completed") {
       await supabase
         .from("payment_requests")
         .update({

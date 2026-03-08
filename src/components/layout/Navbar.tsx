@@ -2,7 +2,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/lib/auth-context';
 import { useSiteSettings } from '@/lib/site-settings-context';
-import { Rocket, User, LogOut, LayoutDashboard, Shield, Wallet, Menu, Plus, Search, Blocks } from 'lucide-react';
+import { Rocket, User, LogOut, LayoutDashboard, Shield, Wallet, Menu, Plus, Search, Blocks, Radio } from 'lucide-react';
 import { useState } from 'react';
 import { Input } from '@/components/ui/input';
 import { supabase } from '@/integrations/supabase/client';
@@ -13,6 +13,8 @@ import {
   Sheet, SheetContent, SheetTrigger, SheetClose,
 } from '@/components/ui/sheet';
 import { toast } from 'sonner';
+import { GoLiveDialog } from '@/components/live/GoLiveDialog';
+import { LiveStreamsBanner } from '@/components/live/LiveStreamsBanner';
 
 export function Navbar() {
   const { user, isSuperAdmin, signOut } = useAuth();
@@ -86,7 +88,9 @@ export function Navbar() {
   };
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-50 border-b border-border/50 bg-background/80 backdrop-blur-xl">
+    <>
+      <LiveStreamsBanner />
+      <header className="fixed top-0 left-0 right-0 z-50 border-b border-border/50 bg-background/80 backdrop-blur-xl">
       <nav className="container flex h-14 sm:h-16 items-center justify-between px-4 sm:px-6">
         <Link to="/" className="flex items-center gap-2 text-lg sm:text-xl font-bold font-display">
           {settings.logo_url ? (
@@ -135,6 +139,12 @@ export function Navbar() {
         <div className="flex items-center gap-2 sm:gap-3">
           {user ? (
             <>
+              <GoLiveDialog>
+                <Button variant="outline" size="sm" className="gap-1.5 hidden sm:flex text-xs text-red-600 border-red-200 hover:bg-red-50">
+                  <Radio className="h-3.5 w-3.5" />
+                  Go Live
+                </Button>
+              </GoLiveDialog>
               <Button variant="hero" size="sm" className="gap-1.5 hidden sm:flex text-xs" onClick={() => navigate('/create-coin')}>
                 <Plus className="h-3.5 w-3.5" />
                 Create Coin
@@ -211,6 +221,12 @@ export function Navbar() {
                         />
                       </div>
                     </form>
+
+                    <GoLiveDialog>
+                      <Button variant="outline" className="w-full justify-start gap-2 text-red-600 border-red-200">
+                        <Radio className="h-4 w-4" /> Go Live
+                      </Button>
+                    </GoLiveDialog>
 
                     <div className="flex flex-col gap-1">
                       <SheetClose asChild>
@@ -302,5 +318,6 @@ export function Navbar() {
         </div>
       </nav>
     </header>
+    </>
   );
 }

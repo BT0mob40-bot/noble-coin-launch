@@ -240,6 +240,63 @@ export type Database = {
           },
         ]
       }
+      live_streams: {
+        Row: {
+          admin_override: boolean
+          coin_id: string
+          created_at: string
+          creator_id: string
+          description: string | null
+          expires_at: string
+          fee_paid: number
+          id: string
+          instagram_username: string | null
+          is_active: boolean
+          kick_username: string | null
+          tiktok_username: string | null
+          title: string | null
+          twitch_username: string | null
+          updated_at: string
+          youtube_username: string | null
+        }
+        Insert: {
+          admin_override?: boolean
+          coin_id: string
+          created_at?: string
+          creator_id: string
+          description?: string | null
+          expires_at?: string
+          fee_paid?: number
+          id?: string
+          instagram_username?: string | null
+          is_active?: boolean
+          kick_username?: string | null
+          tiktok_username?: string | null
+          title?: string | null
+          twitch_username?: string | null
+          updated_at?: string
+          youtube_username?: string | null
+        }
+        Update: {
+          admin_override?: boolean
+          coin_id?: string
+          created_at?: string
+          creator_id?: string
+          description?: string | null
+          expires_at?: string
+          fee_paid?: number
+          id?: string
+          instagram_username?: string | null
+          is_active?: boolean
+          kick_username?: string | null
+          tiktok_username?: string | null
+          title?: string | null
+          twitch_username?: string | null
+          updated_at?: string
+          youtube_username?: string | null
+        }
+        Relationships: []
+      }
       mpesa_config: {
         Row: {
           b2c_command_id: string | null
@@ -677,6 +734,7 @@ export type Database = {
           hero_title: string | null
           id: string
           instagram_url: string | null
+          live_fee: number
           logo_url: string | null
           max_buy_amount: number
           min_buy_amount: number
@@ -723,6 +781,7 @@ export type Database = {
           hero_title?: string | null
           id?: string
           instagram_url?: string | null
+          live_fee?: number
           logo_url?: string | null
           max_buy_amount?: number
           min_buy_amount?: number
@@ -769,6 +828,7 @@ export type Database = {
           hero_title?: string | null
           id?: string
           instagram_url?: string | null
+          live_fee?: number
           logo_url?: string | null
           max_buy_amount?: number
           min_buy_amount?: number
@@ -1118,6 +1178,7 @@ export type Database = {
         }
         Returns: number
       }
+      expire_live_streams: { Args: never; Returns: undefined }
       generate_referral_code: { Args: never; Returns: string }
       get_base_url: { Args: never; Returns: string }
       get_coin_price_changes_24h: {

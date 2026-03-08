@@ -7,7 +7,7 @@ import { Navigate } from 'react-router-dom';
 import {
   Shield, Coins, Users, Settings, CreditCard, DollarSign, Layout, 
   ArrowDownToLine, Bot, Ban, Bell, Mail, MessageSquare, Phone,
-  BarChart3, Plug, ChevronLeft, ChevronRight, ShieldCheck, Send, CalendarClock
+  BarChart3, Plug, ChevronLeft, ChevronRight, ShieldCheck, Send, CalendarClock, Radio
 } from 'lucide-react';
 import { MpesaSettings } from '@/components/admin/MpesaSettings';
 import { PlatformSettings } from '@/components/admin/PlatformSettings';
@@ -27,6 +27,7 @@ import { WhatsAppSettings } from '@/components/admin/WhatsAppSettings';
 import { AdminAnalytics } from '@/components/admin/AdminAnalytics';
 import { NotificationLog } from '@/components/admin/NotificationLog';
 import { VerificationSettings } from '@/components/admin/VerificationSettings';
+import { LiveStreamManagement } from '@/components/admin/LiveStreamManagement';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -57,6 +58,7 @@ const sidebarSections: SidebarSection[] = [
     items: [
       { id: 'coins', label: 'Coins', icon: Coins },
       { id: 'users', label: 'Users', icon: Users },
+      { id: 'live-streams', label: 'Live Streams', icon: Radio },
       { id: 'withdrawals', label: 'Withdrawals', icon: ArrowDownToLine },
     ],
   },
@@ -114,6 +116,7 @@ export default function Admin() {
       case 'commissions': return <CommissionDashboard />;
       case 'coins': return <div className="space-y-4"><CoinManagement userId={user.id} isSuperAdmin={true} /><BlockedWordsManager /></div>;
       case 'users': return <UserManagement currentUserId={user.id} isSuperAdmin={true} />;
+      case 'live-streams': return <LiveStreamManagement />;
       case 'withdrawals': return <WithdrawalManagement />;
       case 'send-notification': return <SendNotification />;
       case 'scheduled': return <ScheduledNotifications />;

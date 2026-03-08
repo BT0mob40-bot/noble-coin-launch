@@ -28,6 +28,7 @@ interface SiteSettings {
   creator_commission_percentage: number;
   deposit_fee_percentage: number;
   withdrawal_fee_percentage: number;
+  live_fee: number;
   twitter_url: string;
   discord_url: string;
   telegram_url: string;
@@ -55,6 +56,7 @@ export function PlatformSettings() {
           creator_commission_percentage: (data as any).creator_commission_percentage ?? 1,
           deposit_fee_percentage: (data as any).deposit_fee_percentage ?? 0,
           withdrawal_fee_percentage: (data as any).withdrawal_fee_percentage ?? 0,
+          live_fee: (data as any).live_fee ?? 1000,
           twitter_url: (data as any).twitter_url ?? '',
           discord_url: (data as any).discord_url ?? '',
           telegram_url: (data as any).telegram_url ?? '',
@@ -90,6 +92,7 @@ export function PlatformSettings() {
         creator_commission_percentage: settings.creator_commission_percentage,
         deposit_fee_percentage: settings.deposit_fee_percentage,
         withdrawal_fee_percentage: settings.withdrawal_fee_percentage,
+        live_fee: settings.live_fee,
         twitter_url: settings.twitter_url,
         discord_url: settings.discord_url,
         telegram_url: settings.telegram_url,
@@ -217,6 +220,11 @@ export function PlatformSettings() {
           <div className="space-y-2">
             <Label className="text-sm">Coin Creation Gas Fee (KES)</Label>
             <Input type="number" value={settings.coin_creation_fee} onChange={(e) => setSettings({ ...settings, coin_creation_fee: parseFloat(e.target.value) || 0 })} className="font-mono" />
+          </div>
+          <div className="space-y-2">
+            <Label className="text-sm">Live Streaming Fee (KES)</Label>
+            <Input type="number" value={settings.live_fee} onChange={(e) => setSettings({ ...settings, live_fee: parseFloat(e.target.value) || 0 })} className="font-mono" />
+            <p className="text-xs text-muted-foreground">Fee for coin creators to go live for 24 hours</p>
           </div>
           <div className="space-y-4">
             <div className="flex items-center justify-between">

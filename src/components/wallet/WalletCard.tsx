@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -9,6 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { SpiralLoader } from '@/components/ui/spiral-loader';
+import { useStkPolling } from '@/hooks/use-stk-polling';
 
 interface WalletCardProps {
   fiatBalance: number;
@@ -27,6 +28,23 @@ export function WalletCard({ fiatBalance, userId, onBalanceChange }: WalletCardP
   const [depositStatus, setDepositStatus] = useState<DepositStatus>('form');
   const [minDeposit, setMinDeposit] = useState(100);
   const [elapsed, setElapsed] = useState(0);
+  const [checkoutRequestId, setCheckoutRequestId] = useState<string | null>(null);
+
+  // STK Polling for deposits
+  useStkPolling({
+    checkoutRequestId,
+    enabled: depositStatus === 'processing' && !!checkoutRequestId,
+    onComplete: useCallback(() => {
+      setDepositStatus('success');
+      onBalanceChange();
+    }, [onBalanceChange]),
+    onFailed: useCallback(() => {
+      setDepositStatus('failed');
+    }, []),
+    onTimeout: useCallback(() => {
+      setDepositStatus('timeout');
+    }, []),
+  });
 
   useEffect(() => {
     const fetchSettings = async () => {
@@ -65,24 +83,11 @@ export function WalletCard({ fiatBalance, userId, onBalanceChange }: WalletCardP
         return;
       }
 
+      if (data?.checkoutRequestId) {
+        setCheckoutRequestId(data.checkoutRequestId);
+      }
+
       toast.success('STK Push sent! Check your phone.');
-
-      const initialBalance = fiatBalance;
-      let attempts = 0;
-      const maxAttempts = 40;
-
-      const checkDeposit = async () => {
-        attempts++;
-        const { data: wallet } = await supabase.from('wallets').select('fiat_balance').eq('user_id', userId).single();
-        if (wallet && wallet.fiat_balance > initialBalance) {
-          setDepositStatus('success');
-          onBalanceChange();
-          return;
-        }
-        if (attempts >= maxAttempts) { setDepositStatus('timeout'); return; }
-        setTimeout(checkDeposit, 3000);
-      };
-      setTimeout(checkDeposit, 5000);
     } catch (error: any) {
       console.error('Deposit error:', error);
       setDepositStatus('failed');
@@ -96,31 +101,17 @@ export function WalletCard({ fiatBalance, userId, onBalanceChange }: WalletCardP
 
     setProcessing(true);
     try {
-      const { data: settings } = await supabase
-        .from('site_settings')
-        .select('withdrawal_fee_percentage')
-        .maybeSingle();
-
+      const { data: settings } = await supabase.from('site_settings').select('withdrawal_fee_percentage').maybeSingle();
       const feePct = Number(settings?.withdrawal_fee_percentage || 0);
       const feeAmount = withdrawAmount * (feePct / 100);
       const netAmount = Math.max(0, withdrawAmount - feeAmount);
 
-      const { error: debitError } = await supabase
-        .from('wallets')
-        .update({ fiat_balance: fiatBalance - withdrawAmount })
-        .eq('user_id', userId);
-
+      const { error: debitError } = await supabase.from('wallets').update({ fiat_balance: fiatBalance - withdrawAmount }).eq('user_id', userId);
       if (debitError) throw debitError;
 
       const { error: reqError } = await supabase.from('wallet_withdrawals').insert({
-        user_id: userId,
-        phone,
-        amount: withdrawAmount,
-        fee_amount: feeAmount,
-        net_amount: netAmount,
-        status: 'pending',
+        user_id: userId, phone, amount: withdrawAmount, fee_amount: feeAmount, net_amount: netAmount, status: 'pending',
       } as any);
-
       if (reqError) throw reqError;
 
       toast.success('Withdrawal request submitted for admin approval.');
@@ -135,7 +126,7 @@ export function WalletCard({ fiatBalance, userId, onBalanceChange }: WalletCardP
   };
 
   const closeDeposit = () => {
-    setShowDeposit(false); setDepositStatus('form'); setAmount(''); setPhone(''); setElapsed(0);
+    setShowDeposit(false); setDepositStatus('form'); setAmount(''); setPhone(''); setElapsed(0); setCheckoutRequestId(null);
   };
 
   return (
@@ -146,9 +137,7 @@ export function WalletCard({ fiatBalance, userId, onBalanceChange }: WalletCardP
           <CardTitle className="text-[10px] sm:text-xs font-medium text-muted-foreground flex items-center gap-1.5">
             <Wallet className="h-3 w-3 sm:h-3.5 sm:w-3.5" /> Fiat Wallet
           </CardTitle>
-          <Button variant="ghost" size="icon" onClick={onBalanceChange} className="h-6 w-6 sm:h-7 sm:w-7">
-            <RefreshCw className="h-3 w-3" />
-          </Button>
+          <Button variant="ghost" size="icon" onClick={onBalanceChange} className="h-6 w-6 sm:h-7 sm:w-7"><RefreshCw className="h-3 w-3" /></Button>
         </CardHeader>
         <CardContent className="relative p-2.5 pt-0 sm:p-4 sm:pt-0">
           <div className="text-lg sm:text-2xl font-bold gradient-text font-mono mb-2 sm:mb-3">
@@ -207,8 +196,7 @@ export function WalletCard({ fiatBalance, userId, onBalanceChange }: WalletCardP
                 </div>
                 <div className="w-full max-w-xs space-y-1.5">
                   <div className="flex items-center gap-1.5 text-[10px] sm:text-xs">
-                    <CheckCircle className="h-3 w-3 text-success" />
-                    <span className="text-success">STK Push sent</span>
+                    <CheckCircle className="h-3 w-3 text-success" /><span className="text-success">STK Push sent</span>
                   </div>
                   <div className="flex items-center gap-1.5 text-[10px] sm:text-xs">
                     <motion.div animate={{ opacity: [0.3, 1, 0.3] }} transition={{ duration: 1.5, repeat: Infinity }}>
@@ -239,7 +227,7 @@ export function WalletCard({ fiatBalance, userId, onBalanceChange }: WalletCardP
                 <p className="text-xs text-muted-foreground">Transaction cancelled or failed</p>
                 <div className="flex gap-2">
                   <Button variant="outline" size="sm" onClick={closeDeposit}>Close</Button>
-                  <Button variant="hero" size="sm" onClick={() => setDepositStatus('form')}>Try Again</Button>
+                  <Button variant="hero" size="sm" onClick={() => { setDepositStatus('form'); setCheckoutRequestId(null); }}>Try Again</Button>
                 </div>
               </motion.div>
             )}
@@ -252,7 +240,7 @@ export function WalletCard({ fiatBalance, userId, onBalanceChange }: WalletCardP
                 <p className="text-xs text-muted-foreground">Payment wasn't completed in time</p>
                 <div className="flex gap-2">
                   <Button variant="outline" size="sm" onClick={closeDeposit}>Close</Button>
-                  <Button variant="hero" size="sm" onClick={() => setDepositStatus('form')}>Try Again</Button>
+                  <Button variant="hero" size="sm" onClick={() => { setDepositStatus('form'); setCheckoutRequestId(null); }}>Try Again</Button>
                 </div>
               </motion.div>
             )}

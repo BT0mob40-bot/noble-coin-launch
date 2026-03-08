@@ -3,16 +3,17 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
 } from '@/components/ui/dialog';
-import { Label } from '@/components/ui/label';
 import {
   Coins, Plus, Trash2, Loader2, Search, Star, TrendingUp,
-  CheckCircle, AlertCircle, Flame, Users, Pause, Play, Eye, EyeOff, Edit2, Copy
+  CheckCircle, AlertCircle, Flame, Users, Pause, Play, Eye, EyeOff, Edit2, Copy, BarChart3
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -42,6 +43,13 @@ interface Coin {
   description: string | null;
   contract_address: string | null;
   creator_id: string | null;
+  // Override fields
+  market_cap_override?: number | null;
+  liquidity_override?: number | null;
+  holders_override?: number | null;
+  use_market_cap_override?: boolean;
+  use_liquidity_override?: boolean;
+  use_holders_override?: boolean;
 }
 
 interface CoinManagementProps {
@@ -56,11 +64,19 @@ export function CoinManagement({ userId, isSuperAdmin }: CoinManagementProps) {
   const [showBurnDialog, setShowBurnDialog] = useState(false);
   const [showHoldersDialog, setShowHoldersDialog] = useState(false);
   const [showApproveDialog, setShowApproveDialog] = useState(false);
+  const [showOverrideDialog, setShowOverrideDialog] = useState(false);
   const [selectedCoin, setSelectedCoin] = useState<Coin | null>(null);
   const [burnAmount, setBurnAmount] = useState('');
   const [holdersCount, setHoldersCount] = useState('');
   const [initialPrice, setInitialPrice] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
+  // Override state
+  const [overrideMarketCap, setOverrideMarketCap] = useState('');
+  const [overrideLiquidity, setOverrideLiquidity] = useState('');
+  const [overrideHolders, setOverrideHolders] = useState('');
+  const [useMarketCapOverride, setUseMarketCapOverride] = useState(false);
+  const [useLiquidityOverride, setUseLiquidityOverride] = useState(false);
+  const [useHoldersOverride, setUseHoldersOverride] = useState(false);
 
   useEffect(() => { fetchCoins(); }, []);
 
@@ -69,7 +85,7 @@ export function CoinManagement({ userId, isSuperAdmin }: CoinManagementProps) {
     try {
       const { data, error } = await supabase.from('coins').select('*').order('created_at', { ascending: false });
       if (error) throw error;
-      setCoins(data || []);
+      setCoins((data as any) || []);
     } catch (error) {
       console.error('Error fetching coins:', error);
     } finally {
@@ -79,7 +95,7 @@ export function CoinManagement({ userId, isSuperAdmin }: CoinManagementProps) {
 
   const handleUpdateCoin = async (coinId: string, updates: Partial<Coin>) => {
     try {
-      const { error } = await supabase.from('coins').update(updates).eq('id', coinId);
+      const { error } = await supabase.from('coins').update(updates as any).eq('id', coinId);
       if (error) throw error;
       toast.success('Coin updated!');
       fetchCoins();
@@ -104,7 +120,6 @@ export function CoinManagement({ userId, isSuperAdmin }: CoinManagementProps) {
     if (!selectedCoin || !burnAmount) return;
     const amount = parseFloat(burnAmount);
     if (amount <= 0 || amount > selectedCoin.circulating_supply) { toast.error('Invalid burn amount'); return; }
-
     try {
       const { error } = await supabase.from('coins').update({
         circulating_supply: selectedCoin.circulating_supply - amount,
@@ -122,51 +137,67 @@ export function CoinManagement({ userId, isSuperAdmin }: CoinManagementProps) {
   const handleUpdateHolders = async () => {
     if (!selectedCoin || !holdersCount) return;
     try {
-      const { error } = await supabase.from('coins').update({
-        holders_count: parseInt(holdersCount),
-      }).eq('id', selectedCoin.id);
+      const { error } = await supabase.from('coins').update({ holders_count: parseInt(holdersCount) }).eq('id', selectedCoin.id);
       if (error) throw error;
       toast.success('Holders count updated!');
       setShowHoldersDialog(false); setHoldersCount(''); setSelectedCoin(null);
       fetchCoins();
-    } catch (error: any) {
-      toast.error(error.message);
-    }
+    } catch (error: any) { toast.error(error.message); }
   };
 
   const handleApproveCoin = async () => {
     if (!selectedCoin) return;
     const price = parseFloat(initialPrice);
     if (!price || price <= 0) { toast.error('Please set a valid initial price'); return; }
-
     try {
       const { error } = await supabase.from('coins').update({
-        is_approved: true,
-        approval_status: 'approved',
-        initial_price: price,
-        price: price,
-        is_active: true,
+        is_approved: true, approval_status: 'approved', initial_price: price, price, is_active: true,
       }).eq('id', selectedCoin.id);
       if (error) throw error;
       toast.success(`${selectedCoin.name} approved!`);
       setShowApproveDialog(false); setInitialPrice(''); setSelectedCoin(null);
       fetchCoins();
-    } catch (error: any) {
-      toast.error(error.message);
-    }
+    } catch (error: any) { toast.error(error.message); }
   };
 
   const handleRejectCoin = async (coinId: string) => {
     try {
-      const { error } = await supabase.from('coins').update({
-        approval_status: 'rejected',
-        is_active: false,
-      }).eq('id', coinId);
+      const { error } = await supabase.from('coins').update({ approval_status: 'rejected', is_active: false }).eq('id', coinId);
       if (error) throw error;
       toast.success('Coin rejected');
       fetchCoins();
+    } catch (error: any) { toast.error(error.message); }
+  };
+
+  const openOverrideDialog = (coin: Coin) => {
+    setSelectedCoin(coin);
+    setOverrideMarketCap(coin.market_cap_override?.toString() || '');
+    setOverrideLiquidity(coin.liquidity_override?.toString() || '');
+    setOverrideHolders(coin.holders_override?.toString() || '');
+    setUseMarketCapOverride(coin.use_market_cap_override || false);
+    setUseLiquidityOverride(coin.use_liquidity_override || false);
+    setUseHoldersOverride(coin.use_holders_override || false);
+    setShowOverrideDialog(true);
+  };
+
+  const handleSaveOverrides = async () => {
+    if (!selectedCoin) return;
+    try {
+      const { error } = await supabase.from('coins').update({
+        market_cap_override: overrideMarketCap ? parseFloat(overrideMarketCap) : null,
+        liquidity_override: overrideLiquidity ? parseFloat(overrideLiquidity) : null,
+        holders_override: overrideHolders ? parseInt(overrideHolders) : null,
+        use_market_cap_override: useMarketCapOverride,
+        use_liquidity_override: useLiquidityOverride,
+        use_holders_override: useHoldersOverride,
+      } as any).eq('id', selectedCoin.id);
+      if (error) throw error;
+      toast.success('Overrides saved!');
+      setShowOverrideDialog(false);
+      setSelectedCoin(null);
+      fetchCoins();
     } catch (error: any) {
-      toast.error(error.message);
+      toast.error(error.message || 'Failed to save overrides');
     }
   };
 
@@ -182,7 +213,6 @@ export function CoinManagement({ userId, isSuperAdmin }: CoinManagementProps) {
   );
 
   const pendingCoins = filteredCoins.filter(c => c.approval_status === 'pending' && c.creation_fee_paid);
-  const unpaidCoins = filteredCoins.filter(c => !c.creation_fee_paid);
   const activeCoins = filteredCoins.filter(c => c.approval_status !== 'pending' || !c.creation_fee_paid);
 
   return (
@@ -190,26 +220,15 @@ export function CoinManagement({ userId, isSuperAdmin }: CoinManagementProps) {
       <Card className="glass-card">
         <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 sm:p-6">
           <div>
-            <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
-              <Coins className="h-5 w-5" />
-              Coin Management
-            </CardTitle>
+            <CardTitle className="flex items-center gap-2 text-base sm:text-lg"><Coins className="h-5 w-5" />Coin Management</CardTitle>
             <CardDescription className="text-xs sm:text-sm">Create, edit, and manage token listings</CardDescription>
           </div>
           <div className="flex gap-2 flex-wrap">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search coins or contracts..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-9 w-full sm:w-56 bg-muted/30 h-9"
-              />
+              <Input placeholder="Search coins..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-9 w-full sm:w-56 bg-muted/30 h-9" />
             </div>
-            <Button variant="hero" className="gap-2 h-9" onClick={() => setShowCreateCoin(true)}>
-              <Plus className="h-4 w-4" />
-              Create Coin
-            </Button>
+            <Button variant="hero" className="gap-2 h-9" onClick={() => setShowCreateCoin(true)}><Plus className="h-4 w-4" />Create Coin</Button>
           </div>
         </CardHeader>
         <CardContent className="p-4 sm:p-6 pt-0">
@@ -217,46 +236,26 @@ export function CoinManagement({ userId, isSuperAdmin }: CoinManagementProps) {
           {isSuperAdmin && pendingCoins.length > 0 && (
             <div className="mb-6">
               <h3 className="text-sm font-semibold text-warning mb-3 flex items-center gap-2">
-                <AlertCircle className="h-4 w-4" />
-                Pending Approval ({pendingCoins.length})
+                <AlertCircle className="h-4 w-4" />Pending Approval ({pendingCoins.length})
               </h3>
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 {pendingCoins.map((coin) => (
                   <Card key={coin.id} className="border-warning/30 bg-warning/5 p-4">
                     <div className="flex items-center gap-3 mb-3">
                       <div className="h-10 w-10 rounded-lg bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center overflow-hidden">
-                        {coin.logo_url ? (
-                          <img src={coin.logo_url} alt={coin.name} className="h-full w-full object-cover" />
-                        ) : (
-                          <Coins className="h-5 w-5 text-primary" />
-                        )}
+                        {coin.logo_url ? <img src={coin.logo_url} alt={coin.name} className="h-full w-full object-cover" /> : <Coins className="h-5 w-5 text-primary" />}
                       </div>
                       <div>
                         <p className="font-medium text-sm">{coin.name}</p>
                         <p className="text-xs text-muted-foreground">{coin.symbol}</p>
                       </div>
-                      <Badge variant="outline" className="ml-auto text-warning border-warning/50 text-xs">
-                        Pending
-                      </Badge>
+                      <Badge variant="outline" className="ml-auto text-warning border-warning/50 text-xs">Pending</Badge>
                     </div>
                     <div className="flex gap-2">
-                      <Button
-                        variant="success"
-                        size="sm"
-                        className="flex-1 gap-1"
-                        onClick={() => { setSelectedCoin(coin); setShowApproveDialog(true); }}
-                      >
-                        <CheckCircle className="h-3 w-3" />
-                        Approve
+                      <Button variant="success" size="sm" className="flex-1 gap-1" onClick={() => { setSelectedCoin(coin); setShowApproveDialog(true); }}>
+                        <CheckCircle className="h-3 w-3" />Approve
                       </Button>
-                      <Button
-                        variant="destructive"
-                        size="sm"
-                        className="flex-1"
-                        onClick={() => handleRejectCoin(coin.id)}
-                      >
-                        Reject
-                      </Button>
+                      <Button variant="destructive" size="sm" className="flex-1" onClick={() => handleRejectCoin(coin.id)}>Reject</Button>
                     </div>
                   </Card>
                 ))}
@@ -265,9 +264,7 @@ export function CoinManagement({ userId, isSuperAdmin }: CoinManagementProps) {
           )}
 
           {loading ? (
-            <div className="flex justify-center py-12">
-              <Loader2 className="h-8 w-8 animate-spin text-primary" />
-            </div>
+            <div className="flex justify-center py-12"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
           ) : (
             <div className="overflow-x-auto -mx-4 sm:mx-0">
               <Table>
@@ -287,11 +284,7 @@ export function CoinManagement({ userId, isSuperAdmin }: CoinManagementProps) {
                       <TableCell>
                         <div className="flex items-center gap-2 sm:gap-3">
                           <div className="h-8 w-8 sm:h-10 sm:w-10 rounded-lg bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center overflow-hidden flex-shrink-0">
-                            {coin.logo_url ? (
-                              <img src={coin.logo_url} alt={coin.name} className="h-full w-full object-cover" />
-                            ) : (
-                              <Coins className="h-4 w-4 text-primary" />
-                            )}
+                            {coin.logo_url ? <img src={coin.logo_url} alt={coin.name} className="h-full w-full object-cover" /> : <Coins className="h-4 w-4 text-primary" />}
                           </div>
                           <div className="min-w-0">
                             <p className="font-medium text-sm truncate">{coin.name}</p>
@@ -299,58 +292,33 @@ export function CoinManagement({ userId, isSuperAdmin }: CoinManagementProps) {
                           </div>
                         </div>
                       </TableCell>
-                      <TableCell className="font-mono text-xs sm:text-sm">
-                        KES {coin.price.toFixed(6)}
-                      </TableCell>
+                      <TableCell className="font-mono text-xs sm:text-sm">KES {coin.price.toFixed(6)}</TableCell>
                       <TableCell className="hidden sm:table-cell">
-                        <div className="text-xs">
-                          <p>Circ: {(coin.circulating_supply / 1000000).toFixed(2)}M</p>
-                        </div>
+                        <div className="text-xs"><p>Circ: {(coin.circulating_supply / 1000000).toFixed(2)}M</p></div>
                       </TableCell>
                       <TableCell className="hidden md:table-cell">
                         <div className="flex items-center gap-1 text-xs">
-                          <Users className="h-3 w-3" />
-                          {coin.holders_count}
+                          <Users className="h-3 w-3" />{coin.holders_count}
+                          {coin.use_holders_override && <Badge variant="outline" className="text-[8px] ml-1">OVR</Badge>}
                         </div>
                       </TableCell>
                       <TableCell>
                         <div className="flex flex-wrap gap-1">
-                          {!coin.creation_fee_paid && (
-                            <Badge variant="outline" className="text-xs text-destructive border-destructive/50">
-                              Unpaid
-                            </Badge>
-                          )}
-                          {coin.approval_status === 'pending' && (
-                            <Badge variant="outline" className="text-xs text-warning border-warning/50">
-                              Pending
-                            </Badge>
-                          )}
-                          {coin.is_approved && (
-                            <Badge variant="default" className="text-xs">Active</Badge>
-                          )}
-                          {coin.is_featured && (
-                            <Badge variant="outline" className="text-xs text-yellow-400 border-yellow-400/50">
-                              <Star className="h-3 w-3 mr-0.5" />
-                            </Badge>
-                          )}
-                          {coin.is_trending && (
-                            <Badge variant="outline" className="text-xs text-orange-400 border-orange-400/50">
-                              <Flame className="h-3 w-3 mr-0.5" />
-                            </Badge>
-                          )}
+                          {!coin.creation_fee_paid && <Badge variant="outline" className="text-xs text-destructive border-destructive/50">Unpaid</Badge>}
+                          {coin.approval_status === 'pending' && <Badge variant="outline" className="text-xs text-warning border-warning/50">Pending</Badge>}
+                          {coin.is_approved && <Badge variant="default" className="text-xs">Active</Badge>}
+                          {coin.is_featured && <Badge variant="outline" className="text-xs text-yellow-400 border-yellow-400/50"><Star className="h-3 w-3 mr-0.5" /></Badge>}
+                          {coin.is_trending && <Badge variant="outline" className="text-xs text-orange-400 border-orange-400/50"><Flame className="h-3 w-3 mr-0.5" /></Badge>}
                         </div>
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-0.5">
-                          {/* Contract address copy */}
                           {coin.contract_address && (
-                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => copyContract(coin.contract_address!)} title="Copy Contract">
-                              <Copy className="h-3.5 w-3.5" />
-                            </Button>
+                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => copyContract(coin.contract_address!)} title="Copy Contract"><Copy className="h-3.5 w-3.5" /></Button>
                           )}
-                          {/* Super Admin only actions */}
                           {isSuperAdmin && (
                             <>
+                              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openOverrideDialog(coin)} title="Override Values"><BarChart3 className="h-3.5 w-3.5" /></Button>
                               <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleUpdateCoin(coin.id, { is_featured: !coin.is_featured })} title="Toggle Featured">
                                 <Star className={`h-3.5 w-3.5 ${coin.is_featured ? 'fill-yellow-400 text-yellow-400' : ''}`} />
                               </Button>
@@ -360,7 +328,7 @@ export function CoinManagement({ userId, isSuperAdmin }: CoinManagementProps) {
                               <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleUpdateCoin(coin.id, { trading_paused: !coin.trading_paused })} title="Toggle Trading">
                                 {coin.trading_paused ? <Play className="h-3.5 w-3.5 text-success" /> : <Pause className="h-3.5 w-3.5 text-warning" />}
                               </Button>
-                              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleUpdateCoin(coin.id, { is_active: !coin.is_active })} title="Toggle Active">
+                              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleUpdateCoin(coin.id, { is_active: !coin.is_active })} title="Delist/Relist">
                                 {coin.is_active ? <Eye className="h-3.5 w-3.5 text-success" /> : <EyeOff className="h-3.5 w-3.5 text-muted-foreground" />}
                               </Button>
                               <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setSelectedCoin(coin); setHoldersCount(String(coin.holders_count)); setShowHoldersDialog(true); }} title="Edit Holders">
@@ -397,18 +365,11 @@ export function CoinManagement({ userId, isSuperAdmin }: CoinManagementProps) {
             <DialogDescription>Permanently remove tokens from circulation.</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
-            <div className="p-3 rounded-lg bg-muted/50 text-sm">
-              Available: <span className="font-mono font-medium">{selectedCoin?.circulating_supply.toLocaleString()} {selectedCoin?.symbol}</span>
-            </div>
-            <div className="space-y-2">
-              <Label>Amount to Burn</Label>
-              <Input type="number" value={burnAmount} onChange={(e) => setBurnAmount(e.target.value)} className="bg-muted/30" />
-            </div>
+            <div className="p-3 rounded-lg bg-muted/50 text-sm">Available: <span className="font-mono font-medium">{selectedCoin?.circulating_supply.toLocaleString()} {selectedCoin?.symbol}</span></div>
+            <div className="space-y-2"><Label>Amount to Burn</Label><Input type="number" value={burnAmount} onChange={(e) => setBurnAmount(e.target.value)} className="bg-muted/30" /></div>
             <div className="flex gap-2">
               <Button variant="outline" className="flex-1" onClick={() => setShowBurnDialog(false)}>Cancel</Button>
-              <Button variant="destructive" className="flex-1 gap-2" onClick={handleBurnCoins} disabled={!burnAmount || parseFloat(burnAmount) <= 0}>
-                <Flame className="h-4 w-4" /> Burn
-              </Button>
+              <Button variant="destructive" className="flex-1 gap-2" onClick={handleBurnCoins} disabled={!burnAmount || parseFloat(burnAmount) <= 0}><Flame className="h-4 w-4" /> Burn</Button>
             </div>
           </div>
         </DialogContent>
@@ -417,14 +378,9 @@ export function CoinManagement({ userId, isSuperAdmin }: CoinManagementProps) {
       {/* Edit Holders Dialog */}
       <Dialog open={showHoldersDialog} onOpenChange={setShowHoldersDialog}>
         <DialogContent className="glass-card">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2"><Users className="h-5 w-5" /> Edit Holders - {selectedCoin?.symbol}</DialogTitle>
-          </DialogHeader>
+          <DialogHeader><DialogTitle className="flex items-center gap-2"><Users className="h-5 w-5" /> Edit Holders - {selectedCoin?.symbol}</DialogTitle></DialogHeader>
           <div className="space-y-4">
-            <div className="space-y-2">
-              <Label>Holders Count</Label>
-              <Input type="number" value={holdersCount} onChange={(e) => setHoldersCount(e.target.value)} className="bg-muted/30" />
-            </div>
+            <div className="space-y-2"><Label>Holders Count</Label><Input type="number" value={holdersCount} onChange={(e) => setHoldersCount(e.target.value)} className="bg-muted/30" /></div>
             <div className="flex gap-2">
               <Button variant="outline" className="flex-1" onClick={() => setShowHoldersDialog(false)}>Cancel</Button>
               <Button variant="hero" className="flex-1" onClick={handleUpdateHolders}>Save</Button>
@@ -433,31 +389,73 @@ export function CoinManagement({ userId, isSuperAdmin }: CoinManagementProps) {
         </DialogContent>
       </Dialog>
 
-      {/* Approve Coin Dialog - Super Admin sets initial price */}
+      {/* Approve Coin Dialog */}
       <Dialog open={showApproveDialog} onOpenChange={setShowApproveDialog}>
         <DialogContent className="glass-card">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2"><CheckCircle className="h-5 w-5 text-success" /> Approve {selectedCoin?.name}</DialogTitle>
-            <DialogDescription>Set the initial price for this coin. After approval, price will be driven by market activity.</DialogDescription>
+            <DialogDescription>Set the initial price. Market activity will drive it after listing.</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
               <Label>Initial Price (KES)</Label>
-              <Input
-                type="number"
-                placeholder="0.001"
-                value={initialPrice}
-                onChange={(e) => setInitialPrice(e.target.value)}
-                className="bg-muted/30 text-lg font-mono"
-                step="0.000001"
-              />
-              <p className="text-xs text-muted-foreground">This sets the starting price. Market activity and bonding curve will adjust it dynamically.</p>
+              <Input type="number" placeholder="0.001" value={initialPrice} onChange={(e) => setInitialPrice(e.target.value)} className="bg-muted/30 text-lg font-mono" step="0.000001" />
             </div>
             <div className="flex gap-2">
               <Button variant="outline" className="flex-1" onClick={() => setShowApproveDialog(false)}>Cancel</Button>
-              <Button variant="success" className="flex-1 gap-2" onClick={handleApproveCoin} disabled={!initialPrice || parseFloat(initialPrice) <= 0}>
-                <CheckCircle className="h-4 w-4" /> Approve & List
-              </Button>
+              <Button variant="success" className="flex-1 gap-2" onClick={handleApproveCoin} disabled={!initialPrice || parseFloat(initialPrice) <= 0}><CheckCircle className="h-4 w-4" /> Approve & List</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Override Dialog - Market Cap, Liquidity, Holders */}
+      <Dialog open={showOverrideDialog} onOpenChange={setShowOverrideDialog}>
+        <DialogContent className="glass-card">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2"><BarChart3 className="h-5 w-5 text-primary" /> Override Values - {selectedCoin?.symbol}</DialogTitle>
+            <DialogDescription>Override displayed market cap, liquidity, and holders. Toggle off to show actual organic values.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-3">
+              <div className="flex items-center justify-between p-3 rounded-lg bg-muted/30">
+                <div className="space-y-1">
+                  <Label className="text-sm">Market Cap Override</Label>
+                  <p className="text-xs text-muted-foreground">Actual: KES {selectedCoin?.market_cap?.toLocaleString() || '0'}</p>
+                </div>
+                <Switch checked={useMarketCapOverride} onCheckedChange={setUseMarketCapOverride} />
+              </div>
+              {useMarketCapOverride && (
+                <Input type="number" placeholder="Override market cap (KES)" value={overrideMarketCap} onChange={(e) => setOverrideMarketCap(e.target.value)} className="bg-muted/30 font-mono" />
+              )}
+            </div>
+            <div className="space-y-3">
+              <div className="flex items-center justify-between p-3 rounded-lg bg-muted/30">
+                <div className="space-y-1">
+                  <Label className="text-sm">Liquidity Override</Label>
+                  <p className="text-xs text-muted-foreground">Actual: KES {selectedCoin?.liquidity?.toLocaleString() || '0'}</p>
+                </div>
+                <Switch checked={useLiquidityOverride} onCheckedChange={setUseLiquidityOverride} />
+              </div>
+              {useLiquidityOverride && (
+                <Input type="number" placeholder="Override liquidity (KES)" value={overrideLiquidity} onChange={(e) => setOverrideLiquidity(e.target.value)} className="bg-muted/30 font-mono" />
+              )}
+            </div>
+            <div className="space-y-3">
+              <div className="flex items-center justify-between p-3 rounded-lg bg-muted/30">
+                <div className="space-y-1">
+                  <Label className="text-sm">Holders Override</Label>
+                  <p className="text-xs text-muted-foreground">Actual: {selectedCoin?.holders_count?.toLocaleString() || '0'}</p>
+                </div>
+                <Switch checked={useHoldersOverride} onCheckedChange={setUseHoldersOverride} />
+              </div>
+              {useHoldersOverride && (
+                <Input type="number" placeholder="Override holders count" value={overrideHolders} onChange={(e) => setOverrideHolders(e.target.value)} className="bg-muted/30 font-mono" />
+              )}
+            </div>
+            <div className="flex gap-2">
+              <Button variant="outline" className="flex-1" onClick={() => setShowOverrideDialog(false)}>Cancel</Button>
+              <Button variant="hero" className="flex-1" onClick={handleSaveOverrides}>Save Overrides</Button>
             </div>
           </div>
         </DialogContent>

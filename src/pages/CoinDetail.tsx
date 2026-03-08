@@ -220,6 +220,11 @@ export default function CoinDetail() {
           holders_count: existingHolding ? coin.holders_count : coin.holders_count + 1,
         }).eq('id', coin.id);
 
+        // Record price history for real charts
+        await supabase.from('price_history').insert({
+          coin_id: coin.id, price: coin.price, volume: totalValue, trade_type: 'buy',
+        });
+
         if (coin.creator_id && coin.creator_id !== user.id && settings.creator_commission_percentage) {
           const creatorEarning = totalValue * (settings.creator_commission_percentage / 100);
           const { data: cw } = await supabase.from('wallets').select('fiat_balance').eq('user_id', coin.creator_id).single();

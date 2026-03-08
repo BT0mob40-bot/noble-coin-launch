@@ -27,6 +27,7 @@ export function WalletCard({ fiatBalance, userId, onBalanceChange }: WalletCardP
   const [processing, setProcessing] = useState(false);
   const [depositStatus, setDepositStatus] = useState<DepositStatus>('form');
   const [minDeposit, setMinDeposit] = useState(100);
+  const [withdrawalFeePct, setWithdrawalFeePct] = useState(0);
   const [elapsed, setElapsed] = useState(0);
   const [checkoutRequestId, setCheckoutRequestId] = useState<string | null>(null);
 
@@ -48,8 +49,9 @@ export function WalletCard({ fiatBalance, userId, onBalanceChange }: WalletCardP
 
   useEffect(() => {
     const fetchSettings = async () => {
-      const { data } = await supabase.from('site_settings').select('min_buy_amount').maybeSingle();
+      const { data } = await supabase.from('site_settings').select('min_buy_amount, withdrawal_fee_percentage').maybeSingle();
       if (data?.min_buy_amount) setMinDeposit(data.min_buy_amount);
+      if (data?.withdrawal_fee_percentage != null) setWithdrawalFeePct(Number(data.withdrawal_fee_percentage));
     };
     fetchSettings();
   }, []);
@@ -269,7 +271,35 @@ export function WalletCard({ fiatBalance, userId, onBalanceChange }: WalletCardP
               <Label className="flex items-center gap-1.5 text-xs sm:text-sm"><Phone className="h-3.5 w-3.5" /> M-PESA Phone</Label>
               <Input type="tel" placeholder="254712345678" value={phone} onChange={(e) => setPhone(e.target.value)} className="bg-muted/30 h-10 font-mono" />
             </div>
-            <Button className="w-full gap-2 h-10" onClick={handleWithdraw} disabled={processing}>
+
+            {/* Fee breakdown */}
+            {parseFloat(amount) > 0 && (
+              <div className="rounded-lg border border-border/50 bg-muted/20 p-3 space-y-1.5 text-xs">
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">Amount</span>
+                  <span className="font-mono">KES {parseFloat(amount).toLocaleString()}</span>
+                </div>
+                {withdrawalFeePct > 0 && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground">Fee ({withdrawalFeePct}%)</span>
+                    <span className="font-mono text-warning">- KES {(parseFloat(amount) * withdrawalFeePct / 100).toFixed(0)}</span>
+                  </div>
+                )}
+                <div className="border-t border-border/50 pt-1.5 flex items-center justify-between font-medium">
+                  <span>You'll receive</span>
+                  <span className="font-mono text-success">
+                    KES {Math.max(0, parseFloat(amount) - parseFloat(amount) * withdrawalFeePct / 100).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                  </span>
+                </div>
+              </div>
+            )}
+
+            <div className="text-[10px] text-muted-foreground flex items-center gap-1">
+              <Clock className="h-3 w-3" />
+              Withdrawals require admin approval before M-PESA payout
+            </div>
+
+            <Button className="w-full gap-2 h-10" onClick={handleWithdraw} disabled={processing || !amount || !phone || parseFloat(amount) > fiatBalance || parseFloat(amount) <= 0}>
               {processing ? <Loader2 className="h-4 w-4 animate-spin" /> : <>Withdraw KES {amount || '0'}</>}
             </Button>
           </div>

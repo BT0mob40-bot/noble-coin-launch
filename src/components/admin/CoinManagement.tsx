@@ -199,9 +199,15 @@ export function CoinManagement({ userId, isSuperAdmin }: CoinManagementProps) {
         market_cap_override: overrideMarketCap ? parseFloat(overrideMarketCap) : null,
         liquidity_override: overrideLiquidity ? parseFloat(overrideLiquidity) : null,
         holders_override: overrideHolders ? parseInt(overrideHolders) : null,
+        price_change_24h_override: overridePriceChange ? parseFloat(overridePriceChange) : null,
+        volatility_override: overrideVolatility ? parseFloat(overrideVolatility) : null,
+        circulating_supply_override: overrideCirculating ? parseFloat(overrideCirculating) : null,
         use_market_cap_override: useMarketCapOverride,
         use_liquidity_override: useLiquidityOverride,
         use_holders_override: useHoldersOverride,
+        use_price_change_24h_override: usePriceChangeOverride,
+        use_volatility_override: useVolatilityOverride,
+        use_circulating_supply_override: useCirculatingOverride,
       } as any).eq('id', selectedCoin.id);
       if (error) throw error;
       toast.success('Overrides saved!');

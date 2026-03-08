@@ -20,6 +20,7 @@ import Privacy from "./pages/Privacy";
 import About from "./pages/About";
 import NotFound from "./pages/NotFound";
 import ErrorPage from "./pages/Error";
+import Profile from "./pages/Profile";
 
 const queryClient = new QueryClient();
 

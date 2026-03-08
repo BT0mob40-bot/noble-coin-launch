@@ -428,10 +428,10 @@ export default function CoinDetail() {
 
             {/* Desktop */}
             <div className="hidden lg:block space-y-4">
-              <Card className="glass-card overflow-hidden"><CardContent className="p-4 h-[450px]"><TradingChart symbol={coin.symbol} currentPrice={coin.price} volatility={coin.volatility} /></CardContent></Card>
+              <Card className="glass-card overflow-hidden"><CardContent className="p-4 h-[450px]"><TradingChart symbol={coin.symbol} currentPrice={coin.price} volatility={coin.volatility} coinId={coin.id} isOverridden={isAnyOverridden} /></CardContent></Card>
               <div className="grid gap-4 grid-cols-2">
-                <Card className="glass-card h-[400px] overflow-hidden"><CardContent className="p-4 h-full overflow-auto"><OrderBook currentPrice={coin.price} symbol={coin.symbol} /></CardContent></Card>
-                <Card className="glass-card h-[400px] overflow-hidden"><CardContent className="p-4 h-full overflow-auto"><TradeHistory currentPrice={coin.price} symbol={coin.symbol} /></CardContent></Card>
+                <Card className="glass-card h-[400px] overflow-hidden"><CardContent className="p-4 h-full overflow-auto"><OrderBook currentPrice={coin.price} symbol={coin.symbol} coinId={coin.id} isOverridden={isAnyOverridden} /></CardContent></Card>
+                <Card className="glass-card h-[400px] overflow-hidden"><CardContent className="p-4 h-full overflow-auto"><TradeHistory currentPrice={coin.price} symbol={coin.symbol} coinId={coin.id} isOverridden={isAnyOverridden} /></CardContent></Card>
               </div>
             </div>
 

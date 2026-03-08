@@ -113,6 +113,7 @@ export default function Admin() {
       case 'coins': return <div className="space-y-4"><CoinManagement userId={user.id} isSuperAdmin={true} /><BlockedWordsManager /></div>;
       case 'users': return <UserManagement currentUserId={user.id} isSuperAdmin={true} />;
       case 'withdrawals': return <WithdrawalManagement />;
+      case 'send-notification': return <SendNotification />;
       case 'templates': return <NotificationTemplates />;
       case 'notification-log': return <NotificationLog />;
       case 'mpesa': return <MpesaSettings />;

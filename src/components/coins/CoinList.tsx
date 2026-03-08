@@ -27,14 +27,29 @@ export function CoinList() {
       } else if (activeTab === 'latest') {
         query = query.order('created_at', { ascending: false });
       } else {
-        // All - sorted by market cap (rank)
         query = query.order('market_cap', { ascending: false, nullsFirst: false });
       }
 
       const { data, error } = await query.limit(50);
       if (error) throw error;
-      // Add rank numbers
-      return (data || []).map((coin, i) => ({ ...coin, rank: i + 1 }));
+
+      // Fetch real 24h price changes from price_history
+      const { data: priceChanges } = await supabase.rpc('get_coin_price_changes_24h');
+      const changeMap = new Map<string, number>();
+      if (priceChanges) {
+        priceChanges.forEach((pc: { coin_id: string; price_change_24h: number }) => {
+          changeMap.set(pc.coin_id, pc.price_change_24h);
+        });
+      }
+
+      // Merge real 24h change into non-overridden coins
+      return (data || []).map((coin, i) => ({
+        ...coin,
+        rank: i + 1,
+        price_change_24h: coin.use_price_change_24h_override && coin.price_change_24h_override != null
+          ? coin.price_change_24h_override
+          : (changeMap.get(coin.id) ?? 0),
+      }));
     },
   });
 

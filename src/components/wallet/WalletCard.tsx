@@ -49,8 +49,9 @@ export function WalletCard({ fiatBalance, userId, onBalanceChange }: WalletCardP
 
   useEffect(() => {
     const fetchSettings = async () => {
-      const { data } = await supabase.from('site_settings').select('min_buy_amount').maybeSingle();
+      const { data } = await supabase.from('site_settings').select('min_buy_amount, withdrawal_fee_percentage').maybeSingle();
       if (data?.min_buy_amount) setMinDeposit(data.min_buy_amount);
+      if (data?.withdrawal_fee_percentage != null) setWithdrawalFeePct(Number(data.withdrawal_fee_percentage));
     };
     fetchSettings();
   }, []);

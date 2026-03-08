@@ -76,6 +76,12 @@ const sidebarSections: SidebarSection[] = [
     ],
   },
   {
+    label: 'Security',
+    items: [
+      { id: 'verification', label: 'Verification & 2FA', icon: ShieldCheck },
+    ],
+  },
+  {
     label: 'Appearance',
     items: [
       { id: 'landing', label: 'Landing Page', icon: Layout },

@@ -305,6 +305,11 @@ export default function CoinDetail() {
         holders_count: newAmount <= 0 ? Math.max(0, coin.holders_count - 1) : coin.holders_count,
       }).eq('id', coin.id);
 
+      // Record price history for real charts
+      await supabase.from('price_history').insert({
+        coin_id: coin.id, price: coin.price, volume: totalValue, trade_type: 'sell',
+      });
+
       if (toWallet) {
         await supabase.from('wallets').update({ fiat_balance: userFiatBalance + netValue }).eq('user_id', user.id);
         toast.success(`Sold! KES ${netValue.toLocaleString()} added to wallet.`);

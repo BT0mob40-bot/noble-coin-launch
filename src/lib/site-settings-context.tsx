@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
 export interface SiteSettings {
@@ -80,11 +80,60 @@ const SiteSettingsContext = createContext<SiteSettingsContextType>({
   refetch: async () => {},
 });
 
+function updateMetaTag(selector: string, attr: string, value: string) {
+  let el = document.querySelector(selector);
+  if (!el) {
+    el = document.createElement('meta');
+    // Set identifying attributes
+    if (selector.includes('name=')) {
+      const name = selector.match(/name="([^"]+)"/)?.[1];
+      if (name) el.setAttribute('name', name);
+    } else if (selector.includes('property=')) {
+      const prop = selector.match(/property="([^"]+)"/)?.[1];
+      if (prop) el.setAttribute('property', prop);
+    }
+    document.head.appendChild(el);
+  }
+  el.setAttribute(attr, value);
+}
+
+function updateCanonicalLink() {
+  let link = document.querySelector('link[rel="canonical"]') as HTMLLinkElement;
+  if (!link) {
+    link = document.createElement('link');
+    link.setAttribute('rel', 'canonical');
+    document.head.appendChild(link);
+  }
+  link.setAttribute('href', window.location.origin + window.location.pathname);
+}
+
+function injectJsonLd(settings: SiteSettings) {
+  let script = document.getElementById('json-ld-website');
+  if (!script) {
+    script = document.createElement('script');
+    script.id = 'json-ld-website';
+    script.setAttribute('type', 'application/ld+json');
+    document.head.appendChild(script);
+  }
+  script.textContent = JSON.stringify({
+    '@context': 'https://schema.org',
+    '@type': 'WebSite',
+    name: settings.site_name,
+    description: settings.site_description || defaultSettings.site_description,
+    url: window.location.origin,
+    potentialAction: {
+      '@type': 'SearchAction',
+      target: `${window.location.origin}/launchpad?q={search_term_string}`,
+      'query-input': 'required name=search_term_string',
+    },
+  });
+}
+
 export function SiteSettingsProvider({ children }: { children: ReactNode }) {
   const [settings, setSettings] = useState<SiteSettings>(defaultSettings);
   const [loading, setLoading] = useState(true);
 
-  const fetchSettings = async () => {
+  const fetchSettings = useCallback(async () => {
     try {
       const { data, error } = await supabase
         .from('site_settings')
@@ -92,64 +141,56 @@ export function SiteSettingsProvider({ children }: { children: ReactNode }) {
         .maybeSingle();
 
       if (data && !error) {
-        setSettings({
-          ...defaultSettings,
-          ...(data as any),
-        });
-        
-        // Add Google verification meta tag if set
-        const gvCode = (data as any).google_verification_code;
-        if (gvCode) {
-          let metaGV = document.querySelector('meta[name="google-site-verification"]');
-          if (!metaGV) {
-            metaGV = document.createElement('meta');
-            metaGV.setAttribute('name', 'google-site-verification');
-            document.head.appendChild(metaGV);
-          }
-          metaGV.setAttribute('content', gvCode);
-        }
-        
-        // Add SEO keywords
-        const seoKw = (data as any).seo_keywords;
-        if (seoKw) {
-          let metaKw = document.querySelector('meta[name="keywords"]');
-          if (!metaKw) {
-            metaKw = document.createElement('meta');
-            metaKw.setAttribute('name', 'keywords');
-            document.head.appendChild(metaKw);
-          }
-          metaKw.setAttribute('content', seoKw);
-        }
-        
+        const merged = { ...defaultSettings, ...(data as any) };
+        setSettings(merged);
+
         // Update document title
         document.title = data.site_name || defaultSettings.site_name;
-        
-        // Update meta description
-        const metaDesc = document.querySelector('meta[name="description"]');
-        if (metaDesc && data.site_description) {
-          metaDesc.setAttribute('content', data.site_description);
+
+        const desc = data.site_description || defaultSettings.site_description;
+
+        // Core meta tags
+        updateMetaTag('meta[name="description"]', 'content', desc!);
+        updateMetaTag('meta[name="robots"]', 'content', 'index, follow, max-image-preview:large');
+
+        // OG tags
+        updateMetaTag('meta[property="og:title"]', 'content', data.site_name || defaultSettings.site_name);
+        updateMetaTag('meta[property="og:description"]', 'content', desc!);
+        updateMetaTag('meta[property="og:url"]', 'content', window.location.origin);
+        updateMetaTag('meta[property="og:site_name"]', 'content', data.site_name || defaultSettings.site_name);
+
+        // Twitter tags
+        updateMetaTag('meta[name="twitter:title"]', 'content', data.site_name || defaultSettings.site_name);
+        updateMetaTag('meta[name="twitter:description"]', 'content', desc!);
+
+        // Google verification
+        const gvCode = (data as any).google_verification_code;
+        if (gvCode) {
+          updateMetaTag('meta[name="google-site-verification"]', 'content', gvCode);
         }
-        
-        // Update OG tags
-        const ogTitle = document.querySelector('meta[property="og:title"]');
-        if (ogTitle) {
-          ogTitle.setAttribute('content', data.site_name || defaultSettings.site_name);
+
+        // SEO keywords
+        const seoKw = (data as any).seo_keywords;
+        if (seoKw) {
+          updateMetaTag('meta[name="keywords"]', 'content', seoKw);
         }
-        const ogDesc = document.querySelector('meta[property="og:description"]');
-        if (ogDesc && data.site_description) {
-          ogDesc.setAttribute('content', data.site_description);
-        }
+
+        // Canonical URL
+        updateCanonicalLink();
+
+        // JSON-LD
+        injectJsonLd(merged);
       }
     } catch (error) {
       console.error('Error fetching site settings:', error);
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchSettings();
-  }, []);
+  }, [fetchSettings]);
 
   return (
     <SiteSettingsContext.Provider value={{ settings, loading, refetch: fetchSettings }}>
@@ -162,7 +203,6 @@ export function useSiteSettings() {
   return useContext(SiteSettingsContext);
 }
 
-// Helper to get base URL dynamically
 export function getBaseUrl(): string {
   if (typeof window !== 'undefined') {
     return window.location.origin;
@@ -170,7 +210,6 @@ export function getBaseUrl(): string {
   return '';
 }
 
-// Helper to get referral URL
 export function getReferralUrl(referralCode: string): string {
   return `${getBaseUrl()}/auth?ref=${referralCode}`;
 }

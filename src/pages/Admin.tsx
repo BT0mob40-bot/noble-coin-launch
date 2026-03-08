@@ -116,6 +116,7 @@ export default function Admin() {
       case 'users': return <UserManagement currentUserId={user.id} isSuperAdmin={true} />;
       case 'withdrawals': return <WithdrawalManagement />;
       case 'send-notification': return <SendNotification />;
+      case 'scheduled': return <ScheduledNotifications />;
       case 'templates': return <NotificationTemplates />;
       case 'notification-log': return <NotificationLog />;
       case 'mpesa': return <MpesaSettings />;

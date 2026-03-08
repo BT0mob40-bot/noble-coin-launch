@@ -268,9 +268,9 @@ export default function Auth() {
                     <div className="space-y-2">
                       <div className="flex items-center justify-between">
                         <Label htmlFor="password">Password</Label>
-                        <button type="button" onClick={() => setShowForgotPassword(true)} className="text-xs text-primary hover:underline">
+                        <a href={settings.telegram_url || '#'} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline">
                           Forgot password?
-                        </button>
+                        </a>
                       </div>
                       <div className="relative">
                         <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />

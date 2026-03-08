@@ -221,6 +221,11 @@ export function PlatformSettings() {
             <Label className="text-sm">Coin Creation Gas Fee (KES)</Label>
             <Input type="number" value={settings.coin_creation_fee} onChange={(e) => setSettings({ ...settings, coin_creation_fee: parseFloat(e.target.value) || 0 })} className="font-mono" />
           </div>
+          <div className="space-y-2">
+            <Label className="text-sm">Live Streaming Fee (KES)</Label>
+            <Input type="number" value={settings.live_fee} onChange={(e) => setSettings({ ...settings, live_fee: parseFloat(e.target.value) || 0 })} className="font-mono" />
+            <p className="text-xs text-muted-foreground">Fee for coin creators to go live for 24 hours</p>
+          </div>
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <Label className="text-sm">Creator Commission %</Label>

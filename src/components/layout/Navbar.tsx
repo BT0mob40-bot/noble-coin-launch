@@ -152,6 +152,10 @@ export function Navbar() {
                     <LayoutDashboard className="mr-2 h-4 w-4" />
                     Dashboard
                   </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => navigate('/profile')}>
+                    <User className="mr-2 h-4 w-4" />
+                    My Profile
+                  </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => navigate('/dashboard')}>
                     <Wallet className="mr-2 h-4 w-4" />
                     My Wallet

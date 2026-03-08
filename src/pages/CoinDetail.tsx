@@ -108,6 +108,12 @@ export default function CoinDetail() {
     ? coin.liquidity_override : coin?.liquidity;
   const displayHolders = coin?.use_holders_override && coin.holders_override != null
     ? coin.holders_override : coin?.holders_count;
+  const displayPriceChange = (coin as any)?.use_price_change_24h_override && (coin as any)?.price_change_24h_override != null
+    ? (coin as any).price_change_24h_override : coin?.price_change_24h || 0;
+  const displayVolatility = (coin as any)?.use_volatility_override && (coin as any)?.volatility_override != null
+    ? (coin as any).volatility_override : coin?.volatility;
+  const displayCirculating = (coin as any)?.use_circulating_supply_override && (coin as any)?.circulating_supply_override != null
+    ? (coin as any).circulating_supply_override : coin?.circulating_supply;
 
   useEffect(() => { if (id) fetchData(); }, [id]);
   useEffect(() => { if (user && coin) fetchUserData(); }, [user, coin]);
@@ -323,6 +329,8 @@ export default function CoinDetail() {
     market_cap: displayMarketCap ?? coin.market_cap,
     liquidity: displayLiquidity ?? coin.liquidity,
     holders_count: displayHolders ?? coin.holders_count,
+    volatility: displayVolatility ?? coin.volatility,
+    circulating_supply: displayCirculating ?? coin.circulating_supply,
   };
 
   return (
@@ -371,7 +379,7 @@ export default function CoinDetail() {
         )}
 
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="mb-3">
-          <MarketStats coin={displayCoin} priceChange24h={coin.price_change_24h || 0} />
+          <MarketStats coin={displayCoin} priceChange24h={displayPriceChange} />
         </motion.div>
 
         <div className="flex flex-col lg:grid lg:grid-cols-[1fr_320px] gap-3 sm:gap-4">

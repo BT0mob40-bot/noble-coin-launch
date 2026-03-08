@@ -329,6 +329,8 @@ export default function CoinDetail() {
     market_cap: displayMarketCap ?? coin.market_cap,
     liquidity: displayLiquidity ?? coin.liquidity,
     holders_count: displayHolders ?? coin.holders_count,
+    volatility: displayVolatility ?? coin.volatility,
+    circulating_supply: displayCirculating ?? coin.circulating_supply,
   };
 
   return (

@@ -74,9 +74,15 @@ export function CoinManagement({ userId, isSuperAdmin }: CoinManagementProps) {
   const [overrideMarketCap, setOverrideMarketCap] = useState('');
   const [overrideLiquidity, setOverrideLiquidity] = useState('');
   const [overrideHolders, setOverrideHolders] = useState('');
+  const [overridePriceChange, setOverridePriceChange] = useState('');
+  const [overrideVolatility, setOverrideVolatility] = useState('');
+  const [overrideCirculating, setOverrideCirculating] = useState('');
   const [useMarketCapOverride, setUseMarketCapOverride] = useState(false);
   const [useLiquidityOverride, setUseLiquidityOverride] = useState(false);
   const [useHoldersOverride, setUseHoldersOverride] = useState(false);
+  const [usePriceChangeOverride, setUsePriceChangeOverride] = useState(false);
+  const [useVolatilityOverride, setUseVolatilityOverride] = useState(false);
+  const [useCirculatingOverride, setUseCirculatingOverride] = useState(false);
 
   useEffect(() => { fetchCoins(); }, []);
 

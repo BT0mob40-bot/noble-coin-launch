@@ -88,7 +88,9 @@ export function Navbar() {
   };
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-50 border-b border-border/50 bg-background/80 backdrop-blur-xl">
+    <>
+      <LiveStreamsBanner />
+      <header className="fixed top-0 left-0 right-0 z-50 border-b border-border/50 bg-background/80 backdrop-blur-xl">
       <nav className="container flex h-14 sm:h-16 items-center justify-between px-4 sm:px-6">
         <Link to="/" className="flex items-center gap-2 text-lg sm:text-xl font-bold font-display">
           {settings.logo_url ? (

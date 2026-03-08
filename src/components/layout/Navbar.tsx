@@ -224,6 +224,11 @@ export function Navbar() {
                         </Link>
                       </SheetClose>
                       <SheetClose asChild>
+                        <Link to="/profile" className="flex items-center gap-3 p-3 rounded-lg hover:bg-muted transition-colors">
+                          <User className="h-5 w-5 text-muted-foreground" /> My Profile
+                        </Link>
+                      </SheetClose>
+                      <SheetClose asChild>
                         <Link to="/create-coin" className="flex items-center gap-3 p-3 rounded-lg hover:bg-muted transition-colors">
                           <Plus className="h-5 w-5 text-muted-foreground" /> Create Coin
                         </Link>

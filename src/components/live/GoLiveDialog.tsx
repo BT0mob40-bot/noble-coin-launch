@@ -337,7 +337,7 @@ export function GoLiveDialog({ children }: GoLiveDialogProps) {
               <Button 
                 type="submit" 
                 disabled={isSubmitting || !wallet || wallet.fiat_balance < settings.live_fee}
-                className="flex-1 bg-red-500 hover:bg-red-600"
+                className="flex-1 bg-destructive hover:bg-destructive/90"
               >
                 {isSubmitting ? (
                   <Loader2 className="h-4 w-4 animate-spin" />

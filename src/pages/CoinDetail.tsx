@@ -49,6 +49,12 @@ interface CoinData {
   liquidity_override?: number | null;
   use_holders_override?: boolean;
   holders_override?: number | null;
+  use_price_change_24h_override?: boolean;
+  price_change_24h_override?: number | null;
+  use_volatility_override?: boolean;
+  volatility_override?: number | null;
+  use_circulating_supply_override?: boolean;
+  circulating_supply_override?: number | null;
 }
 
 interface SiteSettings {

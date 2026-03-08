@@ -9,10 +9,13 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Rocket, Loader2, Mail, Lock, AlertCircle, Gift, Phone, User } from 'lucide-react';
+import { Rocket, Loader2, Mail, Lock, AlertCircle, Gift, Phone, User, ShieldCheck } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { z } from 'zod';
 import { toast } from 'sonner';
+import { PhoneVerification } from '@/components/auth/PhoneVerification';
+import { TwoFactorSetup } from '@/components/auth/TwoFactorSetup';
+import { TwoFactorVerify } from '@/components/auth/TwoFactorVerify';
 
 const signInSchema = z.object({
   email: z.string().email('Please enter a valid email address'),
@@ -25,6 +28,8 @@ const signUpSchema = z.object({
   fullName: z.string().min(1, 'Full name is required'),
   phone: z.string().min(9, 'Phone number is required'),
 });
+
+type AuthStep = 'auth' | 'phone_verify' | '2fa_setup' | '2fa_verify';
 
 export default function Auth() {
   const navigate = useNavigate();
@@ -47,15 +52,59 @@ export default function Auth() {
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
 
+  // Verification flow state
+  const [authStep, setAuthStep] = useState<AuthStep>('auth');
+  const [verificationSettings, setVerificationSettings] = useState({
+    require_phone_verification: false,
+    require_2fa: false,
+    allow_2fa_optional: true,
+  });
+
   useEffect(() => {
     const storedRef = getReferralCode();
     const urlRef = searchParams.get('ref');
     setReferralCode(urlRef || storedRef);
   }, [searchParams]);
 
+  // Fetch verification settings
   useEffect(() => {
-    if (user && !loading) navigate('/dashboard', { replace: true });
-  }, [user, loading, navigate]);
+    supabase.from('site_settings').select('require_phone_verification, require_2fa, allow_2fa_optional').maybeSingle()
+      .then(({ data }) => {
+        if (data) setVerificationSettings(data as any);
+      });
+  }, []);
+
+  // Handle post-login verification flow
+  useEffect(() => {
+    if (user && !loading && authStep === 'auth') {
+      checkVerificationSteps(user.id);
+    }
+  }, [user, loading, authStep]);
+
+  const checkVerificationSteps = async (userId: string) => {
+    const { data: profile } = await supabase.from('profiles').select('phone_verified, two_factor_enabled, phone').eq('user_id', userId).maybeSingle();
+    
+    if (!profile) { navigate('/dashboard', { replace: true }); return; }
+
+    // Check phone verification
+    if (verificationSettings.require_phone_verification && !profile.phone_verified && profile.phone) {
+      setAuthStep('phone_verify');
+      return;
+    }
+
+    // Check 2FA
+    if (verificationSettings.require_2fa && !profile.two_factor_enabled) {
+      setAuthStep('2fa_setup');
+      return;
+    }
+
+    if (profile.two_factor_enabled) {
+      setAuthStep('2fa_verify');
+      return;
+    }
+
+    navigate('/dashboard', { replace: true });
+  };
 
   const processReferral = async (newUserId: string) => {
     const refCode = getReferralCode();
@@ -64,7 +113,7 @@ export default function Auth() {
       const { data: referrerProfile } = await supabase.from('profiles').select('user_id').eq('referral_code', refCode).maybeSingle();
       if (referrerProfile && referrerProfile.user_id !== newUserId) {
         await supabase.from('referrals').insert({ referrer_id: referrerProfile.user_id, referred_id: newUserId });
-        await supabase.from('profiles').update({ referred_by: refCode }).eq('user_id', newUserId);
+        await supabase.from('profiles').update({ referred_by: refCode } as any).eq('user_id', newUserId);
         clearReferralCode();
       }
     } catch (error) { console.error('Error processing referral:', error); }
@@ -107,17 +156,13 @@ export default function Auth() {
         const { error } = await signIn(email, password);
         if (error) {
           setError(error.message.includes('Invalid login credentials') ? 'Invalid email or password.' : error.message);
-        } else {
-          navigate('/dashboard');
         }
+        // Post-login checks handled by useEffect
       } else {
         const { error } = await signUp(email, password);
         if (error) {
           setError(error.message.includes('already registered') ? 'This email is already registered.' : error.message);
         } else {
-          // Update profile with full name and phone after signup
-          // This will be done after email confirmation via the handle_new_user trigger
-          // Store locally for now
           const tempData = { fullName, phone };
           localStorage.setItem('signup_profile_data', JSON.stringify(tempData));
           setSuccess('Account created! Please check your email to verify, then sign in.');
@@ -135,7 +180,7 @@ export default function Auth() {
       const stored = localStorage.getItem('signup_profile_data');
       if (stored) {
         const { fullName, phone } = JSON.parse(stored);
-        supabase.from('profiles').update({ full_name: fullName, phone }).eq('user_id', user.id).then(() => {
+        supabase.from('profiles').update({ full_name: fullName, phone } as any).eq('user_id', user.id).then(() => {
           localStorage.removeItem('signup_profile_data');
         });
         processReferral(user.id);
@@ -147,6 +192,48 @@ export default function Auth() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  // Verification steps
+  if (authStep === 'phone_verify' && user) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background p-4">
+        <PhoneVerification
+          userId={user.id}
+          onVerified={() => {
+            if (verificationSettings.require_2fa) {
+              setAuthStep('2fa_setup');
+            } else {
+              navigate('/dashboard', { replace: true });
+            }
+          }}
+          onSkip={verificationSettings.require_phone_verification ? undefined : () => navigate('/dashboard', { replace: true })}
+        />
+      </div>
+    );
+  }
+
+  if (authStep === '2fa_setup' && user) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background p-4">
+        <TwoFactorSetup
+          userId={user.id}
+          onComplete={() => navigate('/dashboard', { replace: true })}
+          onSkip={verificationSettings.require_2fa ? undefined : () => navigate('/dashboard', { replace: true })}
+        />
+      </div>
+    );
+  }
+
+  if (authStep === '2fa_verify' && user) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background p-4">
+        <TwoFactorVerify
+          userId={user.id}
+          onVerified={() => navigate('/dashboard', { replace: true })}
+        />
       </div>
     );
   }
@@ -175,11 +262,6 @@ export default function Auth() {
           <p className="text-lg text-muted-foreground max-w-md">
             Join thousands of traders on Africa's first crypto launchpad with mobile money integration.
           </p>
-          {settings.telegram_url && (
-            <a href={settings.telegram_url} target="_blank" rel="noopener noreferrer" className="mt-6 inline-flex items-center gap-2 text-primary hover:underline text-sm">
-              🤖 Trade via Telegram Bot
-            </a>
-          )}
         </div>
       </div>
 
@@ -268,9 +350,9 @@ export default function Auth() {
                     <div className="space-y-2">
                       <div className="flex items-center justify-between">
                         <Label htmlFor="password">Password</Label>
-                        <a href={settings.telegram_url || '#'} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline">
+                        <button type="button" onClick={() => setShowForgotPassword(true)} className="text-xs text-primary hover:underline">
                           Forgot password?
-                        </a>
+                        </button>
                       </div>
                       <div className="relative">
                         <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />

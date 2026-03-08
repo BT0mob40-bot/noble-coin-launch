@@ -429,6 +429,39 @@ export type Database = {
         }
         Relationships: []
       }
+      phone_otps: {
+        Row: {
+          attempts: number
+          created_at: string
+          expires_at: string
+          id: string
+          otp_code: string
+          phone: string
+          user_id: string
+          verified: boolean
+        }
+        Insert: {
+          attempts?: number
+          created_at?: string
+          expires_at: string
+          id?: string
+          otp_code: string
+          phone: string
+          user_id: string
+          verified?: boolean
+        }
+        Update: {
+          attempts?: number
+          created_at?: string
+          expires_at?: string
+          id?: string
+          otp_code?: string
+          phone?: string
+          user_id?: string
+          verified?: boolean
+        }
+        Relationships: []
+      }
       price_history: {
         Row: {
           coin_id: string
@@ -472,8 +505,11 @@ export type Database = {
           full_name: string | null
           id: string
           phone: string | null
+          phone_verified: boolean
           referral_code: string | null
           referred_by: string | null
+          two_factor_enabled: boolean
+          two_factor_secret: string | null
           updated_at: string
           user_id: string
         }
@@ -484,8 +520,11 @@ export type Database = {
           full_name?: string | null
           id?: string
           phone?: string | null
+          phone_verified?: boolean
           referral_code?: string | null
           referred_by?: string | null
+          two_factor_enabled?: boolean
+          two_factor_secret?: string | null
           updated_at?: string
           user_id: string
         }
@@ -496,8 +535,11 @@ export type Database = {
           full_name?: string | null
           id?: string
           phone?: string | null
+          phone_verified?: boolean
           referral_code?: string | null
           referred_by?: string | null
+          two_factor_enabled?: boolean
+          two_factor_secret?: string | null
           updated_at?: string
           user_id?: string
         }
@@ -551,6 +593,7 @@ export type Database = {
       site_settings: {
         Row: {
           admin_commission: number
+          allow_2fa_optional: boolean
           coin_creation_fee: number
           created_at: string
           creator_commission_percentage: number
@@ -579,6 +622,9 @@ export type Database = {
           min_buy_amount: number
           primary_color: string | null
           referral_commission_percentage: number
+          require_2fa: boolean
+          require_email_verification: boolean
+          require_phone_verification: boolean
           seo_keywords: string | null
           site_description: string | null
           site_name: string
@@ -593,6 +639,7 @@ export type Database = {
         }
         Insert: {
           admin_commission?: number
+          allow_2fa_optional?: boolean
           coin_creation_fee?: number
           created_at?: string
           creator_commission_percentage?: number
@@ -621,6 +668,9 @@ export type Database = {
           min_buy_amount?: number
           primary_color?: string | null
           referral_commission_percentage?: number
+          require_2fa?: boolean
+          require_email_verification?: boolean
+          require_phone_verification?: boolean
           seo_keywords?: string | null
           site_description?: string | null
           site_name?: string
@@ -635,6 +685,7 @@ export type Database = {
         }
         Update: {
           admin_commission?: number
+          allow_2fa_optional?: boolean
           coin_creation_fee?: number
           created_at?: string
           creator_commission_percentage?: number
@@ -663,6 +714,9 @@ export type Database = {
           min_buy_amount?: number
           primary_color?: string | null
           referral_commission_percentage?: number
+          require_2fa?: boolean
+          require_email_verification?: boolean
+          require_phone_verification?: boolean
           seo_keywords?: string | null
           site_description?: string | null
           site_name?: string

@@ -7,7 +7,7 @@ import { Navigate } from 'react-router-dom';
 import {
   Shield, Coins, Users, Settings, CreditCard, DollarSign, Layout, 
   ArrowDownToLine, Bot, Ban, Bell, Mail, MessageSquare, Phone,
-  BarChart3, Plug, ChevronLeft, ChevronRight
+  BarChart3, Plug, ChevronLeft, ChevronRight, ShieldCheck
 } from 'lucide-react';
 import { MpesaSettings } from '@/components/admin/MpesaSettings';
 import { PlatformSettings } from '@/components/admin/PlatformSettings';
@@ -24,6 +24,7 @@ import { SmsSettings } from '@/components/admin/SmsSettings';
 import { WhatsAppSettings } from '@/components/admin/WhatsAppSettings';
 import { AdminAnalytics } from '@/components/admin/AdminAnalytics';
 import { NotificationLog } from '@/components/admin/NotificationLog';
+import { VerificationSettings } from '@/components/admin/VerificationSettings';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -75,6 +76,12 @@ const sidebarSections: SidebarSection[] = [
     ],
   },
   {
+    label: 'Security',
+    items: [
+      { id: 'verification', label: 'Verification & 2FA', icon: ShieldCheck },
+    ],
+  },
+  {
     label: 'Appearance',
     items: [
       { id: 'landing', label: 'Landing Page', icon: Layout },
@@ -114,6 +121,7 @@ export default function Admin() {
       case 'landing': return <LandingPageSettings />;
       case 'blocked': return <BlockedWordsManager />;
       case 'settings': return <PlatformSettings />;
+      case 'verification': return <VerificationSettings />;
       default: return <AdminAnalytics />;
     }
   };

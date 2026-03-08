@@ -590,6 +590,66 @@ export type Database = {
         }
         Relationships: []
       }
+      scheduled_notifications: {
+        Row: {
+          channels: string[]
+          created_at: string
+          email_body: string | null
+          frequency: string
+          id: string
+          is_active: boolean
+          last_run_at: string | null
+          name: string
+          next_run_at: string
+          run_count: number
+          sms_body: string | null
+          subject: string | null
+          target: string
+          target_user_ids: string[]
+          template_slug: string | null
+          updated_at: string
+          whatsapp_body: string | null
+        }
+        Insert: {
+          channels?: string[]
+          created_at?: string
+          email_body?: string | null
+          frequency?: string
+          id?: string
+          is_active?: boolean
+          last_run_at?: string | null
+          name: string
+          next_run_at: string
+          run_count?: number
+          sms_body?: string | null
+          subject?: string | null
+          target?: string
+          target_user_ids?: string[]
+          template_slug?: string | null
+          updated_at?: string
+          whatsapp_body?: string | null
+        }
+        Update: {
+          channels?: string[]
+          created_at?: string
+          email_body?: string | null
+          frequency?: string
+          id?: string
+          is_active?: boolean
+          last_run_at?: string | null
+          name?: string
+          next_run_at?: string
+          run_count?: number
+          sms_body?: string | null
+          subject?: string | null
+          target?: string
+          target_user_ids?: string[]
+          template_slug?: string | null
+          updated_at?: string
+          whatsapp_body?: string | null
+        }
+        Relationships: []
+      }
       site_settings: {
         Row: {
           admin_commission: number

@@ -1,17 +1,18 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
-import { Loader2, Upload, X, Image as ImageIcon, Coins, Phone, CheckCircle, XCircle, AlertTriangle, Clock } from 'lucide-react';
+import { Loader2, Upload, X, Image as ImageIcon, Coins, Phone, CheckCircle, XCircle, AlertTriangle, Clock, AlertCircle } from 'lucide-react';
 import {
   Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter,
 } from '@/components/ui/dialog';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
 import { SpiralLoader } from '@/components/ui/spiral-loader';
+import { useStkPolling } from '@/hooks/use-stk-polling';
 
 interface CoinFormData {
   name: string;
@@ -48,11 +49,44 @@ export function CoinFormDialog({ open, onOpenChange, onSuccess, userId, isSuperA
   const [phone, setPhone] = useState('');
   const [gasFee, setGasFee] = useState(5000);
   const [elapsed, setElapsed] = useState(0);
+  const [checkoutRequestId, setCheckoutRequestId] = useState<string | null>(null);
+  const [createdCoinId, setCreatedCoinId] = useState<string | null>(null);
+
+  // Real-time duplicate checking
+  const [nameExists, setNameExists] = useState(false);
+  const [symbolExists, setSymbolExists] = useState(false);
+  const [checkingName, setCheckingName] = useState(false);
+  const [checkingSymbol, setCheckingSymbol] = useState(false);
+  const nameTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const symbolTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [formData, setFormData] = useState<CoinFormData>({
     name: '', symbol: '', description: '', total_supply: 1000000000,
     initial_price: 0.001,
     logo_url: '', whitepaper_url: '', website_url: '', twitter_url: '', telegram_url: '', discord_url: '', is_featured: false, is_trending: false,
+  });
+
+  // STK Polling for gas fee payment
+  useStkPolling({
+    checkoutRequestId,
+    enabled: step === 'processing' && !!checkoutRequestId,
+    onComplete: useCallback(() => {
+      setStep('success');
+      setCreating(false);
+    }, []),
+    onFailed: useCallback((desc?: string) => {
+      setStep('failed');
+      setCreating(false);
+      if (desc) console.log('Gas fee payment failed:', desc);
+    }, []),
+    onTimeout: useCallback(() => {
+      // On timeout, clean up the coin
+      if (createdCoinId) {
+        supabase.from('coins').delete().eq('id', createdCoinId);
+      }
+      setStep('timeout');
+      setCreating(false);
+    }, [createdCoinId]),
   });
 
   useEffect(() => {
@@ -70,6 +104,30 @@ export function CoinFormDialog({ open, onOpenChange, onSuccess, userId, isSuperA
     const timer = setInterval(() => setElapsed(e => e + 1), 1000);
     return () => clearInterval(timer);
   }, [step]);
+
+  // Debounced name check
+  const checkNameDuplicate = (name: string) => {
+    if (nameTimeoutRef.current) clearTimeout(nameTimeoutRef.current);
+    if (!name.trim()) { setNameExists(false); return; }
+    setCheckingName(true);
+    nameTimeoutRef.current = setTimeout(async () => {
+      const { data } = await supabase.from('coins').select('id').ilike('name', name.trim()).limit(1);
+      setNameExists(!!data && data.length > 0);
+      setCheckingName(false);
+    }, 500);
+  };
+
+  // Debounced symbol check
+  const checkSymbolDuplicate = (symbol: string) => {
+    if (symbolTimeoutRef.current) clearTimeout(symbolTimeoutRef.current);
+    if (!symbol.trim()) { setSymbolExists(false); return; }
+    setCheckingSymbol(true);
+    symbolTimeoutRef.current = setTimeout(async () => {
+      const { data } = await supabase.from('coins').select('id').ilike('symbol', symbol.trim()).limit(1);
+      setSymbolExists(!!data && data.length > 0);
+      setCheckingSymbol(false);
+    }, 500);
+  };
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -102,6 +160,8 @@ export function CoinFormDialog({ open, onOpenChange, onSuccess, userId, isSuperA
 
   const handleCreateCoin = () => {
     if (!formData.name || !formData.symbol) { toast.error('Name and symbol are required'); return; }
+    if (nameExists) { toast.error('A coin with this name already exists'); return; }
+    if (symbolExists) { toast.error('A coin with this symbol already exists'); return; }
     if (isSuperAdmin) {
       handleSuperAdminCreate();
     } else {
@@ -173,6 +233,7 @@ export function CoinFormDialog({ open, onOpenChange, onSuccess, userId, isSuperA
       } as any).select().single();
 
       if (coinError) throw coinError;
+      setCreatedCoinId(coinData.id);
 
       let formattedPhone = phone.replace(/\s+/g, '').replace(/^\+/, '');
       if (formattedPhone.startsWith('0')) formattedPhone = '254' + formattedPhone.substring(1);
@@ -205,40 +266,17 @@ export function CoinFormDialog({ open, onOpenChange, onSuccess, userId, isSuperA
         return;
       }
 
+      // Store checkoutRequestId to trigger STK polling
+      if (stkData?.checkoutRequestId) {
+        setCheckoutRequestId(stkData.checkoutRequestId);
+      }
+
       toast.success('Check your phone for M-PESA prompt!');
-      startPaymentPolling(coinData.id);
     } catch (error: any) {
       toast.error(error.message || 'Failed to create coin');
       setStep('failed');
       setCreating(false);
     }
-  };
-
-  const startPaymentPolling = (coinId: string) => {
-    let attempts = 0;
-    const maxAttempts = 40;
-
-    const checkPayment = async () => {
-      attempts++;
-      const { data: coin } = await supabase.from('coins').select('creation_fee_paid').eq('id', coinId).single();
-
-      if (coin?.creation_fee_paid) {
-        setStep('success');
-        setCreating(false);
-        return;
-      }
-
-      if (attempts >= maxAttempts) {
-        await supabase.from('coins').delete().eq('id', coinId);
-        setStep('timeout');
-        setCreating(false);
-        return;
-      }
-
-      setTimeout(checkPayment, 3000);
-    };
-
-    setTimeout(checkPayment, 5000);
   };
 
   const handleClose = () => {
@@ -257,6 +295,10 @@ export function CoinFormDialog({ open, onOpenChange, onSuccess, userId, isSuperA
     setStep('form');
     setCreating(false);
     setElapsed(0);
+    setCheckoutRequestId(null);
+    setCreatedCoinId(null);
+    setNameExists(false);
+    setSymbolExists(false);
   };
 
   const formatTime = (s: number) => `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, '0')}`;
@@ -327,11 +369,41 @@ export function CoinFormDialog({ open, onOpenChange, onSuccess, userId, isSuperA
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-2">
                     <Label className="text-sm">Name *</Label>
-                    <Input placeholder="SafariCoin" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} />
+                    <Input
+                      placeholder="SafariCoin"
+                      value={formData.name}
+                      onChange={(e) => {
+                        setFormData({ ...formData, name: e.target.value });
+                        checkNameDuplicate(e.target.value);
+                      }}
+                      className={nameExists ? 'border-destructive' : ''}
+                    />
+                    {checkingName && <p className="text-[10px] text-muted-foreground">Checking...</p>}
+                    {nameExists && !checkingName && (
+                      <p className="text-[10px] text-destructive flex items-center gap-1">
+                        <AlertCircle className="h-3 w-3" /> Name already taken
+                      </p>
+                    )}
                   </div>
                   <div className="space-y-2">
                     <Label className="text-sm">Symbol *</Label>
-                    <Input placeholder="SFRI" value={formData.symbol} onChange={(e) => setFormData({ ...formData, symbol: e.target.value.toUpperCase() })} maxLength={10} />
+                    <Input
+                      placeholder="SFRI"
+                      value={formData.symbol}
+                      onChange={(e) => {
+                        const val = e.target.value.toUpperCase();
+                        setFormData({ ...formData, symbol: val });
+                        checkSymbolDuplicate(val);
+                      }}
+                      maxLength={10}
+                      className={symbolExists ? 'border-destructive' : ''}
+                    />
+                    {checkingSymbol && <p className="text-[10px] text-muted-foreground">Checking...</p>}
+                    {symbolExists && !checkingSymbol && (
+                      <p className="text-[10px] text-destructive flex items-center gap-1">
+                        <AlertCircle className="h-3 w-3" /> Symbol already taken
+                      </p>
+                    )}
                   </div>
                 </div>
 
@@ -398,7 +470,7 @@ export function CoinFormDialog({ open, onOpenChange, onSuccess, userId, isSuperA
               </div>
               <DialogFooter className="flex-col sm:flex-row gap-2">
                 <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-                <Button onClick={handleCreateCoin} disabled={!formData.name || !formData.symbol || creating} className="bg-success hover:bg-success/90 text-success-foreground">
+                <Button onClick={handleCreateCoin} disabled={!formData.name || !formData.symbol || creating || nameExists || symbolExists} className="bg-success hover:bg-success/90 text-success-foreground">
                   {creating ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
                   {isSuperAdmin ? 'Create & Activate Coin' : 'Continue to Payment'}
                 </Button>
@@ -473,7 +545,7 @@ export function CoinFormDialog({ open, onOpenChange, onSuccess, userId, isSuperA
               <p className="text-xs text-muted-foreground">{step === 'failed' ? 'Transaction was cancelled or failed.' : 'Payment was not completed in time.'}</p>
               <div className="flex gap-2">
                 <Button variant="outline" onClick={handleClose}>Close</Button>
-                <Button onClick={() => setStep('payment')}>Try Again</Button>
+                <Button onClick={() => { setStep('payment'); setCheckoutRequestId(null); }}>Try Again</Button>
               </div>
             </motion.div>
           )}

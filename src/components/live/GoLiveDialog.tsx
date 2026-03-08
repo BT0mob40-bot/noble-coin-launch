@@ -144,11 +144,11 @@ export function GoLiveDialog({ children }: GoLiveDialogProps) {
   };
 
   const platformIcons = {
-    instagram: <Instagram className="h-4 w-4 text-pink-500" />,
-    youtube: <Youtube className="h-4 w-4 text-red-500" />,
-    tiktok: <Music className="h-4 w-4 text-black" />,
-    twitch: <Twitch className="h-4 w-4 text-purple-500" />,
-    kick: <div className="h-4 w-4 bg-green-500 rounded" />,
+    instagram: <Instagram className="h-4 w-4 text-pink-600" />,
+    youtube: <Youtube className="h-4 w-4 text-red-600" />,
+    tiktok: <Music className="h-4 w-4" />,
+    twitch: <Twitch className="h-4 w-4 text-purple-600" />,
+    kick: <div className="h-4 w-4 bg-green-600 rounded" />,
   };
 
   return (

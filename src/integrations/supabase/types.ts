@@ -808,6 +808,13 @@ export type Database = {
       }
       generate_referral_code: { Args: never; Returns: string }
       get_base_url: { Args: never; Returns: string }
+      get_coin_price_changes_24h: {
+        Args: never
+        Returns: {
+          coin_id: string
+          price_change_24h: number
+        }[]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]

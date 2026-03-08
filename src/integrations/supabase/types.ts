@@ -38,6 +38,7 @@ export type Database = {
           bonding_curve_factor: number
           burned_supply: number
           circulating_supply: number
+          circulating_supply_override: number | null
           contract_address: string | null
           created_at: string
           creation_fee_paid: boolean
@@ -59,16 +60,21 @@ export type Database = {
           market_cap_override: number | null
           name: string
           price: number
+          price_change_24h_override: number | null
           symbol: string
           telegram_url: string | null
           total_supply: number
           trading_paused: boolean
           twitter_url: string | null
           updated_at: string
+          use_circulating_supply_override: boolean
           use_holders_override: boolean
           use_liquidity_override: boolean
           use_market_cap_override: boolean
+          use_price_change_24h_override: boolean
+          use_volatility_override: boolean
           volatility: number
+          volatility_override: number | null
           website_url: string | null
           whitepaper_url: string | null
         }
@@ -77,6 +83,7 @@ export type Database = {
           bonding_curve_factor?: number
           burned_supply?: number
           circulating_supply?: number
+          circulating_supply_override?: number | null
           contract_address?: string | null
           created_at?: string
           creation_fee_paid?: boolean
@@ -98,16 +105,21 @@ export type Database = {
           market_cap_override?: number | null
           name: string
           price?: number
+          price_change_24h_override?: number | null
           symbol: string
           telegram_url?: string | null
           total_supply?: number
           trading_paused?: boolean
           twitter_url?: string | null
           updated_at?: string
+          use_circulating_supply_override?: boolean
           use_holders_override?: boolean
           use_liquidity_override?: boolean
           use_market_cap_override?: boolean
+          use_price_change_24h_override?: boolean
+          use_volatility_override?: boolean
           volatility?: number
+          volatility_override?: number | null
           website_url?: string | null
           whitepaper_url?: string | null
         }
@@ -116,6 +128,7 @@ export type Database = {
           bonding_curve_factor?: number
           burned_supply?: number
           circulating_supply?: number
+          circulating_supply_override?: number | null
           contract_address?: string | null
           created_at?: string
           creation_fee_paid?: boolean
@@ -137,16 +150,21 @@ export type Database = {
           market_cap_override?: number | null
           name?: string
           price?: number
+          price_change_24h_override?: number | null
           symbol?: string
           telegram_url?: string | null
           total_supply?: number
           trading_paused?: boolean
           twitter_url?: string | null
           updated_at?: string
+          use_circulating_supply_override?: boolean
           use_holders_override?: boolean
           use_liquidity_override?: boolean
           use_market_cap_override?: boolean
+          use_price_change_24h_override?: boolean
+          use_volatility_override?: boolean
           volatility?: number
+          volatility_override?: number | null
           website_url?: string | null
           whitepaper_url?: string | null
         }

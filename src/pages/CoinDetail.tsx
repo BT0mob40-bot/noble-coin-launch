@@ -49,6 +49,12 @@ interface CoinData {
   liquidity_override?: number | null;
   use_holders_override?: boolean;
   holders_override?: number | null;
+  use_price_change_24h_override?: boolean;
+  price_change_24h_override?: number | null;
+  use_volatility_override?: boolean;
+  volatility_override?: number | null;
+  use_circulating_supply_override?: boolean;
+  circulating_supply_override?: number | null;
 }
 
 interface SiteSettings {
@@ -108,12 +114,18 @@ export default function CoinDetail() {
     ? coin.liquidity_override : coin?.liquidity;
   const displayHolders = coin?.use_holders_override && coin.holders_override != null
     ? coin.holders_override : coin?.holders_count;
-  const displayPriceChange = (coin as any)?.use_price_change_24h_override && (coin as any)?.price_change_24h_override != null
-    ? (coin as any).price_change_24h_override : coin?.price_change_24h || 0;
-  const displayVolatility = (coin as any)?.use_volatility_override && (coin as any)?.volatility_override != null
-    ? (coin as any).volatility_override : coin?.volatility;
-  const displayCirculating = (coin as any)?.use_circulating_supply_override && (coin as any)?.circulating_supply_override != null
-    ? (coin as any).circulating_supply_override : coin?.circulating_supply;
+  const displayPriceChange = coin?.use_price_change_24h_override && coin?.price_change_24h_override != null
+    ? coin.price_change_24h_override : coin?.price_change_24h || 0;
+  const displayVolatility = coin?.use_volatility_override && coin?.volatility_override != null
+    ? coin.volatility_override : coin?.volatility;
+  const displayCirculating = coin?.use_circulating_supply_override && coin?.circulating_supply_override != null
+    ? coin.circulating_supply_override : coin?.circulating_supply;
+
+  // Determine if this coin has ANY override active (for chart/trade simulation)
+  const isAnyOverridden = !!(
+    coin?.use_market_cap_override || coin?.use_liquidity_override || coin?.use_holders_override ||
+    coin?.use_price_change_24h_override || coin?.use_volatility_override || coin?.use_circulating_supply_override
+  );
 
   useEffect(() => { if (id) fetchData(); }, [id]);
   useEffect(() => { if (user && coin) fetchUserData(); }, [user, coin]);
@@ -208,6 +220,11 @@ export default function CoinDetail() {
           holders_count: existingHolding ? coin.holders_count : coin.holders_count + 1,
         }).eq('id', coin.id);
 
+        // Record price history for real charts
+        await supabase.from('price_history').insert({
+          coin_id: coin.id, price: coin.price, volume: totalValue, trade_type: 'buy',
+        });
+
         if (coin.creator_id && coin.creator_id !== user.id && settings.creator_commission_percentage) {
           const creatorEarning = totalValue * (settings.creator_commission_percentage / 100);
           const { data: cw } = await supabase.from('wallets').select('fiat_balance').eq('user_id', coin.creator_id).single();
@@ -287,6 +304,11 @@ export default function CoinDetail() {
         circulating_supply: Math.max(0, coin.circulating_supply - amount),
         holders_count: newAmount <= 0 ? Math.max(0, coin.holders_count - 1) : coin.holders_count,
       }).eq('id', coin.id);
+
+      // Record price history for real charts
+      await supabase.from('price_history').insert({
+        coin_id: coin.id, price: coin.price, volume: totalValue, trade_type: 'sell',
+      });
 
       if (toWallet) {
         await supabase.from('wallets').update({ fiat_balance: userFiatBalance + netValue }).eq('user_id', user.id);
@@ -393,23 +415,23 @@ export default function CoinDetail() {
                   <TabsTrigger value="trades" className="text-[10px] sm:text-xs">Trades</TabsTrigger>
                 </TabsList>
                 <TabsContent value="chart" className="mt-2">
-                  <Card className="glass-card overflow-hidden"><CardContent className="p-1 h-[220px] sm:h-[280px]"><TradingChart symbol={coin.symbol} currentPrice={coin.price} volatility={coin.volatility} /></CardContent></Card>
+                  <Card className="glass-card overflow-hidden"><CardContent className="p-1 h-[220px] sm:h-[280px]"><TradingChart symbol={coin.symbol} currentPrice={coin.price} volatility={coin.volatility} coinId={coin.id} isOverridden={isAnyOverridden} /></CardContent></Card>
                 </TabsContent>
                 <TabsContent value="orderbook" className="mt-2">
-                  <Card className="glass-card overflow-hidden"><CardContent className="p-1 h-[260px] overflow-auto"><OrderBook currentPrice={coin.price} symbol={coin.symbol} /></CardContent></Card>
+                  <Card className="glass-card overflow-hidden"><CardContent className="p-1 h-[260px] overflow-auto"><OrderBook currentPrice={coin.price} symbol={coin.symbol} coinId={coin.id} isOverridden={isAnyOverridden} /></CardContent></Card>
                 </TabsContent>
                 <TabsContent value="trades" className="mt-2">
-                  <Card className="glass-card overflow-hidden"><CardContent className="p-1 h-[260px] overflow-auto"><TradeHistory currentPrice={coin.price} symbol={coin.symbol} /></CardContent></Card>
+                  <Card className="glass-card overflow-hidden"><CardContent className="p-1 h-[260px] overflow-auto"><TradeHistory currentPrice={coin.price} symbol={coin.symbol} coinId={coin.id} isOverridden={isAnyOverridden} /></CardContent></Card>
                 </TabsContent>
               </Tabs>
             </div>
 
             {/* Desktop */}
             <div className="hidden lg:block space-y-4">
-              <Card className="glass-card overflow-hidden"><CardContent className="p-4 h-[450px]"><TradingChart symbol={coin.symbol} currentPrice={coin.price} volatility={coin.volatility} /></CardContent></Card>
+              <Card className="glass-card overflow-hidden"><CardContent className="p-4 h-[450px]"><TradingChart symbol={coin.symbol} currentPrice={coin.price} volatility={coin.volatility} coinId={coin.id} isOverridden={isAnyOverridden} /></CardContent></Card>
               <div className="grid gap-4 grid-cols-2">
-                <Card className="glass-card h-[400px] overflow-hidden"><CardContent className="p-4 h-full overflow-auto"><OrderBook currentPrice={coin.price} symbol={coin.symbol} /></CardContent></Card>
-                <Card className="glass-card h-[400px] overflow-hidden"><CardContent className="p-4 h-full overflow-auto"><TradeHistory currentPrice={coin.price} symbol={coin.symbol} /></CardContent></Card>
+                <Card className="glass-card h-[400px] overflow-hidden"><CardContent className="p-4 h-full overflow-auto"><OrderBook currentPrice={coin.price} symbol={coin.symbol} coinId={coin.id} isOverridden={isAnyOverridden} /></CardContent></Card>
+                <Card className="glass-card h-[400px] overflow-hidden"><CardContent className="p-4 h-full overflow-auto"><TradeHistory currentPrice={coin.price} symbol={coin.symbol} coinId={coin.id} isOverridden={isAnyOverridden} /></CardContent></Card>
               </div>
             </div>
 

@@ -339,6 +339,41 @@ export type Database = {
         }
         Relationships: []
       }
+      price_history: {
+        Row: {
+          coin_id: string
+          created_at: string
+          id: string
+          price: number
+          trade_type: string
+          volume: number
+        }
+        Insert: {
+          coin_id: string
+          created_at?: string
+          id?: string
+          price: number
+          trade_type?: string
+          volume?: number
+        }
+        Update: {
+          coin_id?: string
+          created_at?: string
+          id?: string
+          price?: number
+          trade_type?: string
+          volume?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "price_history_coin_id_fkey"
+            columns: ["coin_id"]
+            isOneToOne: false
+            referencedRelation: "coins"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null

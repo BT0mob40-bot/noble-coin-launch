@@ -23,6 +23,15 @@ interface CoinCardProps {
     circulating_supply?: number;
     total_supply?: number;
     rank?: number | null;
+    // Override fields
+    use_price_change_24h_override?: boolean;
+    price_change_24h_override?: number | null;
+    use_market_cap_override?: boolean;
+    market_cap_override?: number | null;
+    use_liquidity_override?: boolean;
+    liquidity_override?: number | null;
+    use_holders_override?: boolean;
+    holders_override?: number | null;
   };
   index?: number;
 }
@@ -42,9 +51,18 @@ function formatPrice(price: number): string {
 
 export function CoinCard({ coin, index = 0 }: CoinCardProps) {
   const navigate = useNavigate();
-  const change = coin.price_change_24h || 0;
+  
+  // Use override values when enabled
+  const change = coin.use_price_change_24h_override && coin.price_change_24h_override != null
+    ? coin.price_change_24h_override : (coin.price_change_24h || 0);
   const isUp = change >= 0;
   const multiplier = coin.initial_price && coin.initial_price > 0 ? coin.price / coin.initial_price : 1;
+  const mcap = coin.use_market_cap_override && coin.market_cap_override != null
+    ? coin.market_cap_override : (coin.market_cap || 0);
+  const liquidity = coin.use_liquidity_override && coin.liquidity_override != null
+    ? coin.liquidity_override : coin.liquidity;
+  const holders = coin.use_holders_override && coin.holders_override != null
+    ? coin.holders_override : coin.holders_count;
 
   return (
     <motion.div
@@ -103,15 +121,15 @@ export function CoinCard({ coin, index = 0 }: CoinCardProps) {
         <div className="grid grid-cols-3 gap-2 mb-3">
           <div className="text-center p-1.5 rounded-md bg-muted/30">
             <p className="text-[10px] text-muted-foreground">MCap</p>
-            <p className="text-xs font-medium font-mono">{formatNumber(coin.market_cap || 0)}</p>
+            <p className="text-xs font-medium font-mono">{formatNumber(mcap)}</p>
           </div>
           <div className="text-center p-1.5 rounded-md bg-muted/30">
             <p className="text-[10px] text-muted-foreground">Liquidity</p>
-            <p className="text-xs font-medium font-mono">{formatNumber(coin.liquidity)}</p>
+            <p className="text-xs font-medium font-mono">{formatNumber(liquidity)}</p>
           </div>
           <div className="text-center p-1.5 rounded-md bg-muted/30">
             <p className="text-[10px] text-muted-foreground">Holders</p>
-            <p className="text-xs font-medium">{coin.holders_count}</p>
+            <p className="text-xs font-medium">{holders}</p>
           </div>
         </div>
 

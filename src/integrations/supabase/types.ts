@@ -14,6 +14,24 @@ export type Database = {
   }
   public: {
     Tables: {
+      blocked_words: {
+        Row: {
+          created_at: string
+          id: string
+          word: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          word: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          word?: string
+        }
+        Relationships: []
+      }
       coins: {
         Row: {
           approval_status: string | null
@@ -27,6 +45,7 @@ export type Database = {
           description: string | null
           discord_url: string | null
           holders_count: number
+          holders_override: number | null
           id: string
           initial_price: number
           is_active: boolean
@@ -34,8 +53,10 @@ export type Database = {
           is_featured: boolean
           is_trending: boolean
           liquidity: number
+          liquidity_override: number | null
           logo_url: string | null
           market_cap: number | null
+          market_cap_override: number | null
           name: string
           price: number
           symbol: string
@@ -44,6 +65,9 @@ export type Database = {
           trading_paused: boolean
           twitter_url: string | null
           updated_at: string
+          use_holders_override: boolean
+          use_liquidity_override: boolean
+          use_market_cap_override: boolean
           volatility: number
           website_url: string | null
           whitepaper_url: string | null
@@ -60,6 +84,7 @@ export type Database = {
           description?: string | null
           discord_url?: string | null
           holders_count?: number
+          holders_override?: number | null
           id?: string
           initial_price?: number
           is_active?: boolean
@@ -67,8 +92,10 @@ export type Database = {
           is_featured?: boolean
           is_trending?: boolean
           liquidity?: number
+          liquidity_override?: number | null
           logo_url?: string | null
           market_cap?: number | null
+          market_cap_override?: number | null
           name: string
           price?: number
           symbol: string
@@ -77,6 +104,9 @@ export type Database = {
           trading_paused?: boolean
           twitter_url?: string | null
           updated_at?: string
+          use_holders_override?: boolean
+          use_liquidity_override?: boolean
+          use_market_cap_override?: boolean
           volatility?: number
           website_url?: string | null
           whitepaper_url?: string | null
@@ -93,6 +123,7 @@ export type Database = {
           description?: string | null
           discord_url?: string | null
           holders_count?: number
+          holders_override?: number | null
           id?: string
           initial_price?: number
           is_active?: boolean
@@ -100,8 +131,10 @@ export type Database = {
           is_featured?: boolean
           is_trending?: boolean
           liquidity?: number
+          liquidity_override?: number | null
           logo_url?: string | null
           market_cap?: number | null
+          market_cap_override?: number | null
           name?: string
           price?: number
           symbol?: string
@@ -110,6 +143,9 @@ export type Database = {
           trading_paused?: boolean
           twitter_url?: string | null
           updated_at?: string
+          use_holders_override?: boolean
+          use_liquidity_override?: boolean
+          use_market_cap_override?: boolean
           volatility?: number
           website_url?: string | null
           whitepaper_url?: string | null
@@ -495,6 +531,39 @@ export type Database = {
           twitter_url?: string | null
           updated_at?: string
           withdrawal_fee_percentage?: number
+        }
+        Relationships: []
+      }
+      telegram_config: {
+        Row: {
+          bot_token: string | null
+          bot_username: string | null
+          chat_id: string | null
+          created_at: string
+          id: string
+          is_active: boolean
+          updated_at: string
+          webhook_url: string | null
+        }
+        Insert: {
+          bot_token?: string | null
+          bot_username?: string | null
+          chat_id?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          updated_at?: string
+          webhook_url?: string | null
+        }
+        Update: {
+          bot_token?: string | null
+          bot_username?: string | null
+          chat_id?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          updated_at?: string
+          webhook_url?: string | null
         }
         Relationships: []
       }

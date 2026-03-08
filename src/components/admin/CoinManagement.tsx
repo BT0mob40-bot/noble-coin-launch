@@ -32,6 +32,7 @@ interface Coin {
   market_cap: number | null;
   liquidity: number;
   holders_count: number;
+  volatility: number;
   is_active: boolean;
   is_featured: boolean;
   is_trending: boolean;

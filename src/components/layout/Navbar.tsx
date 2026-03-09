@@ -226,7 +226,7 @@ export function Navbar() {
                       </SheetClose>
                       <SheetClose asChild>
                         <Link to="/live" className="flex items-center gap-3 p-3 rounded-lg hover:bg-muted transition-colors">
-                          <Radio className="h-5 w-5 text-muted-foreground" /> Live
+                          <Rocket className="h-5 w-5 text-muted-foreground" /> Live
                         </Link>
                       </SheetClose>
                       <SheetClose asChild>

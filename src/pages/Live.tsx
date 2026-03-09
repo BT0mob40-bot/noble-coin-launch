@@ -145,7 +145,7 @@ export default function Live() {
                         alt={stream.coin.name}
                         className="h-12 w-12 rounded-lg object-cover"
                       />
-                      <div className="absolute -top-1 -right-1 h-4 w-4 bg-red-500 rounded-full animate-pulse"></div>
+                      <div className="absolute -top-1 -right-1 h-4 w-4 bg-destructive rounded-full animate-pulse"></div>
                     </div>
                     <div className="flex-1 min-w-0">
                       <CardTitle className="text-lg font-semibold truncate">
@@ -155,7 +155,7 @@ export default function Live() {
                         ${stream.coin.symbol}
                       </p>
                     </div>
-                    <Badge variant="secondary" className="animate-pulse border-red-500 text-red-600">
+                    <Badge variant="destructive" className="animate-pulse">
                       LIVE
                     </Badge>
                   </div>

@@ -108,6 +108,9 @@ export function Navbar() {
           <Link to="/launchpad" className="text-muted-foreground hover:text-foreground transition-colors text-sm">
             Launchpad
           </Link>
+          <Link to="/live" className="text-muted-foreground hover:text-foreground transition-colors text-sm">
+            Live
+          </Link>
           {user && (
             <Link to="/dashboard" className="text-muted-foreground hover:text-foreground transition-colors text-sm">
               Portfolio

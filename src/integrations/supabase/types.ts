@@ -573,6 +573,9 @@ export type Database = {
           phone_verified: boolean
           referral_code: string | null
           referred_by: string | null
+          telegram_first_name: string | null
+          telegram_user_id: string | null
+          telegram_username: string | null
           two_factor_enabled: boolean
           two_factor_secret: string | null
           updated_at: string
@@ -588,6 +591,9 @@ export type Database = {
           phone_verified?: boolean
           referral_code?: string | null
           referred_by?: string | null
+          telegram_first_name?: string | null
+          telegram_user_id?: string | null
+          telegram_username?: string | null
           two_factor_enabled?: boolean
           two_factor_secret?: string | null
           updated_at?: string
@@ -603,6 +609,9 @@ export type Database = {
           phone_verified?: boolean
           referral_code?: string | null
           referred_by?: string | null
+          telegram_first_name?: string | null
+          telegram_user_id?: string | null
+          telegram_username?: string | null
           two_factor_enabled?: boolean
           two_factor_secret?: string | null
           updated_at?: string
@@ -736,6 +745,7 @@ export type Database = {
           feature_4_description: string | null
           feature_4_title: string | null
           fee_percentage: number
+          google_auth_enabled: boolean
           google_verification_code: string | null
           hero_badge: string | null
           hero_subtitle: string | null
@@ -758,6 +768,7 @@ export type Database = {
           stats_traders: string | null
           stats_uptime: string | null
           stats_volume: string | null
+          telegram_auth_enabled: boolean
           telegram_url: string | null
           twitter_url: string | null
           updated_at: string
@@ -783,6 +794,7 @@ export type Database = {
           feature_4_description?: string | null
           feature_4_title?: string | null
           fee_percentage?: number
+          google_auth_enabled?: boolean
           google_verification_code?: string | null
           hero_badge?: string | null
           hero_subtitle?: string | null
@@ -805,6 +817,7 @@ export type Database = {
           stats_traders?: string | null
           stats_uptime?: string | null
           stats_volume?: string | null
+          telegram_auth_enabled?: boolean
           telegram_url?: string | null
           twitter_url?: string | null
           updated_at?: string
@@ -830,6 +843,7 @@ export type Database = {
           feature_4_description?: string | null
           feature_4_title?: string | null
           fee_percentage?: number
+          google_auth_enabled?: boolean
           google_verification_code?: string | null
           hero_badge?: string | null
           hero_subtitle?: string | null
@@ -852,6 +866,7 @@ export type Database = {
           stats_traders?: string | null
           stats_uptime?: string | null
           stats_volume?: string | null
+          telegram_auth_enabled?: boolean
           telegram_url?: string | null
           twitter_url?: string | null
           updated_at?: string
@@ -936,6 +951,7 @@ export type Database = {
       }
       telegram_config: {
         Row: {
+          auth_enabled: boolean
           bot_token: string | null
           bot_username: string | null
           chat_id: string | null
@@ -946,6 +962,7 @@ export type Database = {
           webhook_url: string | null
         }
         Insert: {
+          auth_enabled?: boolean
           bot_token?: string | null
           bot_username?: string | null
           chat_id?: string | null
@@ -956,6 +973,7 @@ export type Database = {
           webhook_url?: string | null
         }
         Update: {
+          auth_enabled?: boolean
           bot_token?: string | null
           bot_username?: string | null
           chat_id?: string | null
@@ -1204,6 +1222,15 @@ export type Database = {
         Returns: boolean
       }
       is_admin: { Args: { _user_id: string }; Returns: boolean }
+      link_telegram_user: {
+        Args: {
+          _telegram_first_name?: string
+          _telegram_id: string
+          _telegram_username?: string
+          _user_id: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
       app_role: "super_admin" | "admin" | "coin_creator" | "user" | "banned"

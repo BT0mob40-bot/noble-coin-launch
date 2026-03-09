@@ -233,9 +233,16 @@ export default function CreateCoin() {
                       </Button>
                     )}
                     {coin.is_approved && (
-                      <Link to={`/coin/${coin.id}`}>
-                        <Button variant="outline" size="sm" className="w-full mt-1">View Coin</Button>
-                      </Link>
+                      <div className="flex gap-2 mt-1">
+                        <Link to={`/coin/${coin.id}`} className="flex-1">
+                          <Button variant="outline" size="sm" className="w-full">View</Button>
+                        </Link>
+                        <GoLiveDialog>
+                          <Button variant="destructive" size="sm" className="gap-1">
+                            <Radio className="h-3 w-3" /> Live
+                          </Button>
+                        </GoLiveDialog>
+                      </div>
                     )}
                   </CardContent>
                 </Card>

@@ -291,6 +291,7 @@ export default function Live() {
           />
         )}
       </div>
+      <Footer />
     </div>
   );
 }

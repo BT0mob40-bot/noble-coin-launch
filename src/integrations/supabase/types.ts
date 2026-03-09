@@ -990,6 +990,7 @@ export type Database = {
           chat_id: string | null
           created_at: string
           id: string
+          last_selected_coin_id: string | null
           telegram_id: string
           user_id: string
         }
@@ -997,6 +998,7 @@ export type Database = {
           chat_id?: string | null
           created_at?: string
           id?: string
+          last_selected_coin_id?: string | null
           telegram_id: string
           user_id: string
         }
@@ -1004,6 +1006,7 @@ export type Database = {
           chat_id?: string | null
           created_at?: string
           id?: string
+          last_selected_coin_id?: string | null
           telegram_id?: string
           user_id?: string
         }

@@ -5,11 +5,12 @@ import { Footer } from '@/components/layout/Footer';
 import { useAuth } from '@/lib/auth-context';
 import { supabase } from '@/integrations/supabase/client';
 import { CoinFormDialog } from '@/components/admin/CoinFormDialog';
+import { GoLiveDialog } from '@/components/live/GoLiveDialog';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Plus, Coins, Loader2, Phone, CreditCard } from 'lucide-react';
+import { Plus, Coins, Loader2, Phone, CreditCard, Radio } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,

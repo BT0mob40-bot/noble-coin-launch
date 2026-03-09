@@ -2,7 +2,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/lib/auth-context';
 import { useSiteSettings } from '@/lib/site-settings-context';
-import { Rocket, User, LogOut, LayoutDashboard, Shield, Wallet, Menu, Plus, Search, Blocks, Radio } from 'lucide-react';
+import { Rocket, User, LogOut, LayoutDashboard, Shield, Wallet, Menu, Plus, Search, Blocks } from 'lucide-react';
 import { useState } from 'react';
 import { Input } from '@/components/ui/input';
 import { supabase } from '@/integrations/supabase/client';
@@ -13,7 +13,6 @@ import {
   Sheet, SheetContent, SheetTrigger, SheetClose,
 } from '@/components/ui/sheet';
 import { toast } from 'sonner';
-import { GoLiveDialog } from '@/components/live/GoLiveDialog';
 import { LiveStreamsBanner } from '@/components/live/LiveStreamsBanner';
 
 export function Navbar() {
@@ -142,12 +141,6 @@ export function Navbar() {
         <div className="flex items-center gap-2 sm:gap-3">
           {user ? (
             <>
-              <GoLiveDialog>
-                <Button variant="outline" size="sm" className="gap-1.5 hidden sm:flex text-xs text-red-600 border-red-200 hover:bg-red-50">
-                  <Radio className="h-3.5 w-3.5" />
-                  Go Live
-                </Button>
-              </GoLiveDialog>
               <Button variant="hero" size="sm" className="gap-1.5 hidden sm:flex text-xs" onClick={() => navigate('/create-coin')}>
                 <Plus className="h-3.5 w-3.5" />
                 Create Coin
@@ -225,12 +218,6 @@ export function Navbar() {
                       </div>
                     </form>
 
-                    <GoLiveDialog>
-                      <Button variant="outline" className="w-full justify-start gap-2 text-red-600 border-red-200">
-                        <Radio className="h-4 w-4" /> Go Live
-                      </Button>
-                    </GoLiveDialog>
-
                     <div className="flex flex-col gap-1">
                       <SheetClose asChild>
                         <Link to="/launchpad" className="flex items-center gap-3 p-3 rounded-lg hover:bg-muted transition-colors">
@@ -239,7 +226,7 @@ export function Navbar() {
                       </SheetClose>
                       <SheetClose asChild>
                         <Link to="/live" className="flex items-center gap-3 p-3 rounded-lg hover:bg-muted transition-colors">
-                          <Radio className="h-5 w-5 text-muted-foreground" /> Live
+                          <Rocket className="h-5 w-5 text-muted-foreground" /> Live
                         </Link>
                       </SheetClose>
                       <SheetClose asChild>
@@ -304,7 +291,7 @@ export function Navbar() {
                     </SheetClose>
                     <SheetClose asChild>
                       <Link to="/live" className="flex items-center gap-3 p-3 rounded-lg hover:bg-muted transition-colors">
-                        <Radio className="h-5 w-5 text-muted-foreground" /> Live
+                        <Rocket className="h-5 w-5 text-muted-foreground" /> Live
                       </Link>
                     </SheetClose>
                     <SheetClose asChild>

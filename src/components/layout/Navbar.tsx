@@ -141,12 +141,6 @@ export function Navbar() {
         <div className="flex items-center gap-2 sm:gap-3">
           {user ? (
             <>
-              <GoLiveDialog>
-                <Button variant="outline" size="sm" className="gap-1.5 hidden sm:flex text-xs text-red-600 border-red-200 hover:bg-red-50">
-                  <Radio className="h-3.5 w-3.5" />
-                  Go Live
-                </Button>
-              </GoLiveDialog>
               <Button variant="hero" size="sm" className="gap-1.5 hidden sm:flex text-xs" onClick={() => navigate('/create-coin')}>
                 <Plus className="h-3.5 w-3.5" />
                 Create Coin

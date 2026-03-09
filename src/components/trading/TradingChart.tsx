@@ -210,7 +210,7 @@ export function TradingChart({ symbol, currentPrice, volatility, coinId, isOverr
       </div>
 
       {/* Chart */}
-      <div className="flex-1 min-h-[280px]">
+      <div className="flex-1 min-h-[180px] sm:min-h-[280px]">
         <ResponsiveContainer width="100%" height="100%">
           <AreaChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
             <defs>

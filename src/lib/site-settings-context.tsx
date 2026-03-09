@@ -70,6 +70,8 @@ const defaultSettings: SiteSettings = {
   coin_creation_fee: 5000,
   referral_commission_percentage: 5,
   live_fee: 1000,
+  google_auth_enabled: true,
+  telegram_auth_enabled: false,
 };
 
 interface SiteSettingsContextType {

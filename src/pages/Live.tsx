@@ -191,7 +191,7 @@ export default function Live() {
                   <div className="flex items-center gap-4 mb-4 text-sm">
                     <div className="flex items-center gap-1">
                       <TrendingUp className="h-4 w-4 text-primary" />
-                      <span className="font-medium">${stream.coin.price.toFixed(6)}</span>
+                      <span className="font-medium">KSH {stream.coin.price.toFixed(6)}</span>
                     </div>
                     <div className="flex items-center gap-1">
                       <Users className="h-4 w-4 text-muted-foreground" />

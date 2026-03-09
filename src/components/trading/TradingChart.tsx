@@ -177,11 +177,11 @@ export function TradingChart({ symbol, currentPrice, volatility, coinId, isOverr
   return (
     <div className="w-full h-full flex flex-col">
       {/* Chart Header */}
-      <div className="flex items-center justify-between mb-4 px-2">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-3 sm:mb-4 px-2 gap-2">
         <div className="flex items-center gap-4">
           <div>
             <div className="flex items-center gap-2">
-              <span className="text-2xl font-bold">{symbol}/KES</span>
+              <span className="text-lg sm:text-2xl font-bold">{symbol}/KES</span>
               {!isOverridden && realDataLoaded && (
                 <span className="text-[10px] px-1.5 py-0.5 rounded bg-success/10 text-success border border-success/20">LIVE</span>
               )}

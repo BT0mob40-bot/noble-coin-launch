@@ -417,6 +417,7 @@ export default function Auth() {
                       {isSubmitting ? <><Loader2 className="h-4 w-4 animate-spin" /> Creating account...</> : 'Create Account'}
                     </Button>
                   </form>
+                  <SocialLogin />
                   <p className="text-xs text-center text-muted-foreground">
                     By creating an account, you agree to our{' '}
                     <Link to="/terms" className="text-primary hover:underline">Terms</Link>{' '}and{' '}

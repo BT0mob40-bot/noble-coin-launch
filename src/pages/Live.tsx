@@ -63,7 +63,9 @@ const PlatformIcon = ({ platform }: { platform: string }) => {
 export default function Live() {
   const [liveStreams, setLiveStreams] = useState<LiveStream[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showMobileViewer, setShowMobileViewer] = useState(false);
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
 
   useEffect(() => {
     fetchLiveStreams();

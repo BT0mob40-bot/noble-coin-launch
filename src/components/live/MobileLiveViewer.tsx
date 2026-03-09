@@ -107,12 +107,12 @@ export function MobileLiveViewer({ streams, initialIndex = 0, onClose }: MobileL
   return (
     <motion.div
       ref={containerRef}
-      className={`fixed inset-0 z-50 bg-black ${isFullscreen ? '' : 'safe-area-insets'}`}
+      className={`fixed inset-0 z-50 bg-background ${isFullscreen ? '' : 'safe-area-insets'}`}
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      {...bind()}
     >
+      <div {...bind()} className="h-full w-full touch-none">/
       {/* Header */}
       {!isFullscreen && (
         <div className="absolute top-0 left-0 right-0 z-10 bg-gradient-to-b from-black/60 to-transparent p-4 safe-top">

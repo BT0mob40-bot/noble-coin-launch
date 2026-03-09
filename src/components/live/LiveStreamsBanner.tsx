@@ -100,56 +100,38 @@ export function LiveStreamsBanner() {
   return (
     <div className="fixed top-14 sm:top-16 left-0 right-0 z-40 bg-gradient-to-r from-destructive/10 via-destructive/5 to-destructive/10 border-b border-destructive/20 backdrop-blur-sm">
       <div className="container px-4 sm:px-6">
-        <ScrollArea className="w-full">
-          <div className="flex items-center gap-4 py-2">
-            <div className="flex items-center gap-1.5 shrink-0">
-              <div className="relative flex items-center">
-                <Radio className="h-4 w-4 text-destructive" />
-                <span className="absolute -top-0.5 -right-0.5 h-2 w-2 bg-destructive rounded-full animate-pulse" />
-              </div>
-              <span className="text-xs font-semibold text-destructive uppercase tracking-wider">Live</span>
+        <div className="flex items-center gap-3 py-2">
+          <div className="flex items-center gap-1.5">
+            <div className="relative flex items-center">
+              <Radio className="h-4 w-4 text-destructive" />
+              <span className="absolute -top-0.5 -right-0.5 h-2 w-2 bg-destructive rounded-full animate-pulse" />
             </div>
-
-            <div className="flex items-center gap-3">
-              {liveStreams.map((stream) => (
-                <Link
-                  key={stream.id}
-                  to={`/coin/${stream.coin_id}`}
-                  className="flex items-center gap-2 px-3 py-1 rounded-full bg-background/80 border border-border/50 hover:border-destructive/50 transition-all hover:scale-105 shrink-0 group"
-                >
-                  <div className="relative">
-                    {stream.coins?.logo_url ? (
-                      <img src={stream.coins.logo_url} alt={stream.coins.name} className="h-6 w-6 rounded-full" />
-                    ) : (
-                      <div className="h-6 w-6 rounded-full bg-primary/20 flex items-center justify-center text-[10px] font-bold">
-                        {stream.coins?.symbol?.charAt(0)}
-                      </div>
-                    )}
-                    <span className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 bg-destructive rounded-full border-2 border-background animate-pulse" />
-                  </div>
-                  <div className="flex flex-col">
-                    <span className="text-xs font-medium group-hover:text-destructive transition-colors">
-                      {stream.coins?.symbol}
-                    </span>
-                    {stream.title && (
-                      <span className="text-[10px] text-muted-foreground max-w-[120px] truncate">
-                        {stream.title}
-                      </span>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-1 ml-1">
-                    {stream.instagram_username && <PlatformBadge platform="instagram" username={stream.instagram_username} />}
-                    {stream.youtube_username && <PlatformBadge platform="youtube" username={stream.youtube_username} />}
-                    {stream.tiktok_username && <PlatformBadge platform="tiktok" username={stream.tiktok_username} />}
-                    {stream.twitch_username && <PlatformBadge platform="twitch" username={stream.twitch_username} />}
-                    {stream.kick_username && <PlatformBadge platform="kick" username={stream.kick_username} />}
-                  </div>
-                </Link>
-              ))}
-            </div>
+            <span className="text-xs font-semibold text-destructive uppercase tracking-wider">Live</span>
           </div>
-          <ScrollBar orientation="horizontal" />
-        </ScrollArea>
+
+          <div className="flex items-center gap-2">
+            {liveStreams.map((stream) => (
+              <Link
+                key={stream.id}
+                to={`/coin/${stream.coin_id}`}
+                className="relative hover:scale-110 transition-transform"
+              >
+                <div className="relative">
+                  {stream.coins?.logo_url ? (
+                    <img src={stream.coins.logo_url} alt={stream.coins.name} className="h-8 w-8 rounded-full ring-2 ring-destructive/30" />
+                  ) : (
+                    <div className="h-8 w-8 rounded-full bg-primary/20 flex items-center justify-center text-xs font-bold ring-2 ring-destructive/30">
+                      {stream.coins?.symbol?.charAt(0)}
+                    </div>
+                  )}
+                  <span className="absolute -bottom-1 -right-1 h-3 w-3 bg-destructive rounded-full border-2 border-background animate-pulse flex items-center justify-center">
+                    <span className="h-1 w-1 bg-white rounded-full" />
+                  </span>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </div>
       </div>
     </div>
   );

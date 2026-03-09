@@ -113,7 +113,7 @@ export function LiveStreamManagement() {
               </div>
               <div className="space-y-2">
                 <Label>Title (optional)</Label>
-                <Input value={forceTitle} onChange={(e) => setForceTitle(e.target.value)} placeholder="Admin Featured Live" />
+                <Input value={forceTitle} onChange={(e) => setForceTitle(e.target.value)} placeholder="Live Stream" />
               </div>
               <Button onClick={handleForceLive} disabled={!selectedCoinId} className="w-full gap-2">
                 <Radio className="h-4 w-4" /> Make Live (Free Override)

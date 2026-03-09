@@ -67,7 +67,7 @@ export function LiveStreamManagement() {
       .insert({
         coin_id: selectedCoinId,
         creator_id: user.id,
-        title: forceTitle || 'Admin Featured Live',
+        title: forceTitle || 'Live Stream',
         admin_override: true,
         fee_paid: 0,
       });

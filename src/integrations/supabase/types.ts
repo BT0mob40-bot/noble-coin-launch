@@ -295,7 +295,15 @@ export type Database = {
           updated_at?: string
           youtube_username?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "live_streams_coin_id_fkey"
+            columns: ["coin_id"]
+            isOneToOne: false
+            referencedRelation: "coins"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       mpesa_config: {
         Row: {

@@ -194,7 +194,7 @@ export default function Live() {
                         <Button
                           variant="outline"
                           size="sm"
-                          className="gap-2 text-pink-600 border-pink-200 hover:bg-pink-50"
+                          className="gap-2"
                           onClick={() => window.open(getPlatformLink('instagram', stream.instagram_username!), '_blank')}
                         >
                           <PlatformIcon platform="instagram" />
@@ -205,7 +205,7 @@ export default function Live() {
                         <Button
                           variant="outline"
                           size="sm"
-                          className="gap-2 text-red-600 border-red-200 hover:bg-red-50"
+                          className="gap-2"
                           onClick={() => window.open(getPlatformLink('youtube', stream.youtube_username!), '_blank')}
                         >
                           <PlatformIcon platform="youtube" />
@@ -216,7 +216,7 @@ export default function Live() {
                         <Button
                           variant="outline"
                           size="sm"
-                          className="gap-2 text-black border-gray-200 hover:bg-gray-50"
+                          className="gap-2"
                           onClick={() => window.open(getPlatformLink('tiktok', stream.tiktok_username!), '_blank')}
                         >
                           <PlatformIcon platform="tiktok" />
@@ -227,7 +227,7 @@ export default function Live() {
                         <Button
                           variant="outline"
                           size="sm"
-                          className="gap-2 text-purple-600 border-purple-200 hover:bg-purple-50"
+                          className="gap-2"
                           onClick={() => window.open(getPlatformLink('twitch', stream.twitch_username!), '_blank')}
                         >
                           <PlatformIcon platform="twitch" />
@@ -238,7 +238,7 @@ export default function Live() {
                         <Button
                           variant="outline"
                           size="sm"
-                          className="gap-2 text-green-600 border-green-200 hover:bg-green-50"
+                          className="gap-2"
                           onClick={() => window.open(getPlatformLink('kick', stream.kick_username!), '_blank')}
                         >
                           <PlatformIcon platform="kick" />

@@ -256,6 +256,21 @@ Deno.serve(async (req) => {
       return ok();
     }
 
+    // ── Helper: save last selected coin for this telegram user ──
+    const saveLastCoin = async (tgId: string, coinId: string) => {
+      await supabase.from("telegram_users").update({ last_selected_coin_id: coinId }).eq("telegram_id", tgId);
+    };
+    const getLastCoin = async (tgId: string) => {
+      const { data } = await supabase.from("telegram_users").select("last_selected_coin_id").eq("telegram_id", tgId).maybeSingle();
+      return data?.last_selected_coin_id;
+    };
+
+    // ── Helper: fetch min buy amount from site settings ──
+    const getMinBuyAmount = async () => {
+      const { data } = await supabase.from("site_settings").select("min_buy_amount").maybeSingle();
+      return data?.min_buy_amount || 500;
+    };
+
     // ── Buy tokens: show coin list ──
     if (callbackData === "buy_tokens") {
       await answerCallback();
@@ -300,23 +315,24 @@ Deno.serve(async (req) => {
         );
         return ok();
       }
+      // Save last selected coin
+      await saveLastCoin(telegramUserId, coinId);
+
+      const minAmount = await getMinBuyAmount();
       const tokensFor = (kes: number) => (kes / Number(coin.price)).toFixed(2);
+
+      // Build preset buttons based on min amount
+      const presets = [500, 1000, 5000].filter(a => a >= minAmount);
+      if (!presets.includes(minAmount)) presets.unshift(minAmount);
+      const presetButtons = presets.map(a => [
+        { text: `KES ${a.toLocaleString()} (~${tokensFor(a)} ${coin.symbol})`, callback_data: `amt_${coinId}_${a}` },
+      ]);
+
       await sendMessage(chatId,
-        `💰 <b>${coin.name} (${coin.symbol})</b>\nPrice: KES ${Number(coin.price).toFixed(4)}\n\nSelect amount to spend:`,
+        `💰 <b>${coin.name} (${coin.symbol})</b>\nPrice: KES ${Number(coin.price).toFixed(4)}\nMin: KES ${minAmount.toLocaleString()}\n\nSelect amount to spend:`,
         {
           inline_keyboard: [
-            [
-              { text: `KES 100 (~${tokensFor(100)} ${coin.symbol})`, callback_data: `amt_${coinId}_100` },
-            ],
-            [
-              { text: `KES 500 (~${tokensFor(500)} ${coin.symbol})`, callback_data: `amt_${coinId}_500` },
-            ],
-            [
-              { text: `KES 1,000 (~${tokensFor(1000)} ${coin.symbol})`, callback_data: `amt_${coinId}_1000` },
-            ],
-            [
-              { text: `KES 5,000 (~${tokensFor(5000)} ${coin.symbol})`, callback_data: `amt_${coinId}_5000` },
-            ],
+            ...presetButtons,
             [{ text: "✏️ Custom Amount", callback_data: `cust_${coinId}` }],
             [{ text: "⬅️ Back to Tokens", callback_data: "buy_tokens" }, { text: "🏠 Menu", callback_data: "main_menu" }],
           ],
@@ -329,28 +345,57 @@ Deno.serve(async (req) => {
     if (callbackData?.startsWith("cust_")) {
       await answerCallback();
       const coinId = callbackData.replace("cust_", "");
+      await saveLastCoin(telegramUserId, coinId);
       await sendMessage(chatId,
-        `✏️ <b>Enter custom amount</b>\n\nType the amount in KES:\n\n<code>/amount ${coinId} 2500</code>\n\n(Replace 2500 with your amount)`,
+        `✏️ <b>Enter custom amount</b>\n\nJust type the amount in KES, e.g.:\n\n<code>2500</code>`,
         { inline_keyboard: [[{ text: "⬅️ Back", callback_data: `sel_${coinId}` }, { text: "🏠 Menu", callback_data: "main_menu" }]] }
       );
       return ok();
     }
 
-    // ── Handle /amount command ──
+    // ── Handle /amount command (legacy support) ──
     if (text.startsWith("/amount ")) {
       const parts = text.replace("/amount ", "").trim().split(/\s+/);
-      if (parts.length < 2) {
-        await sendMessage(chatId, "❌ Format: /amount coinId amount");
+      let coinId: string | null = null;
+      let amtStr: string;
+
+      if (parts.length >= 2) {
+        // /amount coinId amount (legacy)
+        coinId = parts[0];
+        amtStr = parts[1];
+      } else {
+        // /amount 2500 (use last selected coin)
+        amtStr = parts[0];
+        coinId = await getLastCoin(telegramUserId);
+      }
+
+      if (!coinId) {
+        await sendMessage(chatId, "❌ Please select a token first.", { inline_keyboard: [[{ text: "💰 Buy Tokens", callback_data: "buy_tokens" }]] });
         return ok();
       }
-      const [coinId, amtStr] = parts;
       const amount = parseInt(amtStr);
-      if (!amount || amount < 1) {
-        await sendMessage(chatId, "❌ Invalid amount. Please enter a number.");
+      const minAmount = await getMinBuyAmount();
+      if (!amount || amount < minAmount) {
+        await sendMessage(chatId, `❌ Minimum amount is KES ${minAmount}. Please enter a valid amount.`);
         return ok();
       }
       await confirmPurchase(chatId, telegramUserId, coinId, amount);
       return ok();
+    }
+
+    // ── Handle plain number (custom amount for last selected coin) ──
+    if (/^\d+$/.test(text.trim()) && !text.startsWith("/")) {
+      const amount = parseInt(text.trim());
+      const coinId = await getLastCoin(telegramUserId);
+      if (coinId && amount > 0) {
+        const minAmount = await getMinBuyAmount();
+        if (amount < minAmount) {
+          await sendMessage(chatId, `❌ Minimum amount is KES ${minAmount}.`);
+          return ok();
+        }
+        await confirmPurchase(chatId, telegramUserId, coinId, amount);
+        return ok();
+      }
     }
 
     // ── Preset amount selected ──
@@ -359,6 +404,11 @@ Deno.serve(async (req) => {
       const parts = callbackData.replace("amt_", "").split("_");
       const coinId = parts[0];
       const amount = parseInt(parts[1]);
+      const minAmount = await getMinBuyAmount();
+      if (amount < minAmount) {
+        await sendMessage(chatId, `❌ Minimum buy amount is KES ${minAmount}.`);
+        return ok();
+      }
       await confirmPurchase(chatId, telegramUserId, coinId, amount);
       return ok();
     }
@@ -398,11 +448,34 @@ Deno.serve(async (req) => {
           }
         );
       } else {
-        // No phone — ask for it
+        // No phone — ask for it naturally
         await sendMessage(chat,
-          `📱 <b>Enter M-PESA Number</b>\n\nTo buy <b>${tokenAmount} ${coin.symbol}</b> for KES ${amount}:\n\n<code>/pay ${coinId} ${amount} 254712345678</code>\n\n(Replace with your M-PESA number)`,
+          `📱 <b>Enter your M-PESA number</b>\n\nTo buy <b>${tokenAmount} ${coin.symbol}</b> for KES ${amount}:\n\nJust type your number, e.g.:\n<code>254712345678</code>`,
           { inline_keyboard: [[{ text: "❌ Cancel", callback_data: "buy_tokens" }]] }
         );
+        // Store coin & amount so we can process when they send phone
+        await supabase.from("telegram_users").update({ last_selected_coin_id: coinId }).eq("telegram_id", tgId);
+      }
+    }
+
+    // ── Handle phone number input (254...) ──
+    if (/^254\d{9}$/.test(text.trim()) || /^07\d{8}$/.test(text.trim()) || /^01\d{8}$/.test(text.trim())) {
+      // This could be a phone number for a pending purchase or deposit
+      // We don't have amount stored, so just save the phone and guide them
+      const linked = await findLinkedUser(telegramUserId);
+      if (linked) {
+        let phone = text.trim();
+        // Convert 07/01 to 254
+        if (phone.startsWith("07") || phone.startsWith("01")) {
+          phone = "254" + phone.substring(1);
+        }
+        // Save phone to profile
+        await supabase.from("profiles").update({ phone }).eq("user_id", linked.user_id);
+        await sendMessage(chatId,
+          `✅ Phone number saved: <b>${phone}</b>\n\nNow select a token and amount to buy:`,
+          linkedMenu
+        );
+        return ok();
       }
     }
 
@@ -413,7 +486,7 @@ Deno.serve(async (req) => {
       const coinId = parts[0];
       const amount = parts[1];
       await sendMessage(chatId,
-        `📱 <b>Enter M-PESA Number</b>\n\n<code>/pay ${coinId} ${amount} 254712345678</code>`,
+        `📱 <b>Enter M-PESA Number</b>\n\nType your number, e.g.:\n<code>254712345678</code>\n\nOr use the command:\n<code>/pay ${coinId} ${amount} 254712345678</code>`,
         { inline_keyboard: [[{ text: "❌ Cancel", callback_data: "buy_tokens" }]] }
       );
       return ok();

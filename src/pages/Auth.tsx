@@ -247,16 +247,21 @@ export default function Auth() {
         <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-primary/30 rounded-full blur-3xl" />
         <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-accent/30 rounded-full blur-3xl" />
         <div className="relative z-10 flex flex-col justify-center p-12">
-          <Link to="/" className="flex items-center gap-3 mb-12">
-            {settings.logo_url ? (
-              <img src={settings.logo_url} alt={settings.site_name} className="h-12 w-12 rounded-xl object-cover" />
-            ) : (
-              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-accent">
-                <Rocket className="h-7 w-7 text-primary-foreground" />
-              </div>
-            )}
-            <span className="text-2xl font-bold font-display gradient-text">{settings.site_name}</span>
-          </Link>
+          <div className="flex items-center justify-between mb-12">
+            <Link to="/" className="flex items-center gap-3">
+              {settings.logo_url ? (
+                <img src={settings.logo_url} alt={settings.site_name} className="h-12 w-12 rounded-xl object-cover" />
+              ) : (
+                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-accent">
+                  <Rocket className="h-7 w-7 text-primary-foreground" />
+                </div>
+              )}
+              <span className="text-2xl font-bold font-display gradient-text">{settings.site_name}</span>
+            </Link>
+            <Button variant="outline" onClick={() => navigate('/')} className="text-sm">
+              Home
+            </Button>
+          </div>
           <h1 className="text-4xl font-bold font-display mb-4">
             Trade Crypto with<br /><span className="gradient-text">M-PESA</span>
           </h1>

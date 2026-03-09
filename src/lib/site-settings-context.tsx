@@ -37,6 +37,8 @@ export interface SiteSettings {
   facebook_url?: string;
   google_verification_code?: string;
   seo_keywords?: string;
+  google_auth_enabled?: boolean;
+  telegram_auth_enabled?: boolean;
 }
 
 const defaultSettings: SiteSettings = {

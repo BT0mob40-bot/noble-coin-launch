@@ -177,11 +177,11 @@ export function TradingChart({ symbol, currentPrice, volatility, coinId, isOverr
   return (
     <div className="w-full h-full flex flex-col">
       {/* Chart Header */}
-      <div className="flex items-center justify-between mb-4 px-2">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-3 sm:mb-4 px-2 gap-2">
         <div className="flex items-center gap-4">
           <div>
             <div className="flex items-center gap-2">
-              <span className="text-2xl font-bold">{symbol}/KES</span>
+              <span className="text-lg sm:text-2xl font-bold">{symbol}/KES</span>
               {!isOverridden && realDataLoaded && (
                 <span className="text-[10px] px-1.5 py-0.5 rounded bg-success/10 text-success border border-success/20">LIVE</span>
               )}
@@ -194,13 +194,13 @@ export function TradingChart({ symbol, currentPrice, volatility, coinId, isOverr
           </div>
         </div>
         
-        <div className="flex items-center gap-1 bg-muted/50 rounded-lg p-1">
+        <div className="flex items-center gap-0.5 sm:gap-1 bg-muted/50 rounded-lg p-0.5 sm:p-1 w-full sm:w-auto">
           {timeframes.map((tf) => (
             <Button
               key={tf}
               variant={timeframe === tf ? 'default' : 'ghost'}
               size="sm"
-              className={`h-7 px-3 text-xs ${timeframe === tf ? 'bg-primary' : ''}`}
+              className={`h-6 sm:h-7 px-2 sm:px-3 text-[10px] sm:text-xs flex-1 sm:flex-initial ${timeframe === tf ? 'bg-primary' : ''}`}
               onClick={() => setTimeframe(tf)}
             >
               {tf}
@@ -210,7 +210,7 @@ export function TradingChart({ symbol, currentPrice, volatility, coinId, isOverr
       </div>
 
       {/* Chart */}
-      <div className="flex-1 min-h-[280px]">
+      <div className="flex-1 min-h-[180px] sm:min-h-[280px]">
         <ResponsiveContainer width="100%" height="100%">
           <AreaChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
             <defs>
@@ -258,7 +258,7 @@ export function TradingChart({ symbol, currentPrice, volatility, coinId, isOverr
       </div>
 
       {/* Chart Stats */}
-      <div className="grid grid-cols-4 gap-4 mt-4 px-2 py-3 bg-muted/30 rounded-lg">
+      <div className="grid grid-cols-4 gap-2 sm:gap-4 mt-3 sm:mt-4 px-2 py-2 sm:py-3 bg-muted/30 rounded-lg">
         <div className="text-center">
           <p className="text-xs text-muted-foreground">High</p>
           <p className="text-sm font-medium text-success">

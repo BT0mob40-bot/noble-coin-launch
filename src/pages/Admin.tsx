@@ -133,6 +133,7 @@ export default function Admin() {
       case 'blocked': return <BlockedWordsManager />;
       case 'settings': return <PlatformSettings />;
       case 'verification': return <VerificationSettings />;
+      case 'social-auth': return <SocialAuthSettings />;
       default: return <AdminAnalytics />;
     }
   };

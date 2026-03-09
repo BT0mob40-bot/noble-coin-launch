@@ -152,7 +152,7 @@ export default function CreateCoin() {
     <div className="min-h-screen bg-background">
       <Navbar />
 
-      <main className="container pt-20 sm:pt-24 pb-16 px-4 sm:px-6">
+      <main className="container pt-24 sm:pt-32 pb-16 px-4 sm:px-6">
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="mb-6 sm:mb-8">
           <div className="flex items-center justify-between">
             <div>

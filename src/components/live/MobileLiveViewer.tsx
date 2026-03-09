@@ -161,19 +161,19 @@ export function MobileLiveViewer({ streams, initialIndex = 0, onClose }: MobileL
               {/* Coin info */}
               <div className="text-center">
                 <div className="flex items-center justify-center gap-3 mb-4">
-                  {currentStream.coins?.logo_url && (
+                  {currentStream.coin?.logo_url && (
                     <img
-                      src={currentStream.coins.logo_url}
-                      alt={currentStream.coins.name}
+                      src={currentStream.coin.logo_url}
+                      alt={currentStream.coin.name}
                       className="w-16 h-16 rounded-full"
                     />
                   )}
                   <div>
                     <h1 className="text-2xl font-bold text-foreground">
-                      {currentStream.coins?.name}
+                      {currentStream.coin?.name}
                     </h1>
                     <p className="text-muted-foreground">
-                      ${currentStream.coins?.symbol}
+                      ${currentStream.coin?.symbol}
                     </p>
                   </div>
                 </div>

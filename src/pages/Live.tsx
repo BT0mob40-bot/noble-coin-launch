@@ -278,7 +278,12 @@ export default function Live() {
         {/* Mobile Viewer */}
         {showMobileViewer && (
           <MobileLiveViewer
-            streams={liveStreams}
+            streams={liveStreams.map(stream => ({
+              ...stream,
+              creator_id: 'creator',
+              coin_id: stream.coin.id,
+              coin: stream.coin
+            }))}
             onClose={() => setShowMobileViewer(false)}
           />
         )}

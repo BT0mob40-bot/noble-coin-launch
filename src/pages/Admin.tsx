@@ -86,6 +86,7 @@ const sidebarSections: SidebarSection[] = [
     label: 'Security',
     items: [
       { id: 'verification', label: 'Verification & 2FA', icon: ShieldCheck },
+      { id: 'social-auth', label: 'Social Login', icon: Shield },
     ],
   },
   {

@@ -166,7 +166,7 @@ export default function Live() {
                         {stream.coin.name}
                       </CardTitle>
                       <p className="text-sm text-muted-foreground">
-                        ${stream.coin.symbol}
+                        {stream.coin.symbol}
                       </p>
                     </div>
                     <Badge variant="destructive" className="animate-pulse">

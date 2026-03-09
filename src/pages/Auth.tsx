@@ -269,7 +269,7 @@ export default function Auth() {
       {/* Right Panel */}
       <div className="flex-1 flex items-center justify-center p-4 sm:p-8">
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-md">
-          <div className="lg:hidden flex items-center gap-3 mb-8">
+          <div className="lg:hidden flex items-center justify-between mb-8">
             <Link to="/" className="flex items-center gap-2">
               {settings.logo_url ? (
                 <img src={settings.logo_url} alt={settings.site_name} className="h-10 w-10 rounded-lg object-cover" />
@@ -280,6 +280,9 @@ export default function Auth() {
               )}
               <span className="text-xl font-bold font-display gradient-text">{settings.site_name}</span>
             </Link>
+            <Button variant="outline" size="sm" onClick={() => navigate('/')} className="text-sm">
+              Home
+            </Button>
           </div>
 
           {referralCode && activeTab === 'signup' && (

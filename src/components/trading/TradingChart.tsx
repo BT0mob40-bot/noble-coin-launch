@@ -194,13 +194,13 @@ export function TradingChart({ symbol, currentPrice, volatility, coinId, isOverr
           </div>
         </div>
         
-        <div className="flex items-center gap-1 bg-muted/50 rounded-lg p-1">
+        <div className="flex items-center gap-0.5 sm:gap-1 bg-muted/50 rounded-lg p-0.5 sm:p-1 w-full sm:w-auto">
           {timeframes.map((tf) => (
             <Button
               key={tf}
               variant={timeframe === tf ? 'default' : 'ghost'}
               size="sm"
-              className={`h-7 px-3 text-xs ${timeframe === tf ? 'bg-primary' : ''}`}
+              className={`h-6 sm:h-7 px-2 sm:px-3 text-[10px] sm:text-xs flex-1 sm:flex-initial ${timeframe === tf ? 'bg-primary' : ''}`}
               onClick={() => setTimeframe(tf)}
             >
               {tf}

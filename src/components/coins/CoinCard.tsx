@@ -94,9 +94,6 @@ export function CoinCard({ coin, index = 0 }: CoinCardProps) {
             </div>
           </div>
           <div className="flex flex-col gap-1 items-end">
-            {coin.is_featured && (
-              <Badge variant="outline" className="text-yellow-400 border-yellow-400/50 text-[10px] px-1.5 py-0">⭐</Badge>
-            )}
             {coin.is_trending && (
               <Badge variant="outline" className="text-orange-400 border-orange-400/50 text-[10px] px-1.5 py-0 animate-pulse">🔥</Badge>
             )}

@@ -5,11 +5,12 @@ import { Footer } from '@/components/layout/Footer';
 import { useAuth } from '@/lib/auth-context';
 import { supabase } from '@/integrations/supabase/client';
 import { CoinFormDialog } from '@/components/admin/CoinFormDialog';
+import { GoLiveDialog } from '@/components/live/GoLiveDialog';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Plus, Coins, Loader2, Phone, CreditCard } from 'lucide-react';
+import { Plus, Coins, Loader2, Phone, CreditCard, Radio } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
@@ -232,9 +233,16 @@ export default function CreateCoin() {
                       </Button>
                     )}
                     {coin.is_approved && (
-                      <Link to={`/coin/${coin.id}`}>
-                        <Button variant="outline" size="sm" className="w-full mt-1">View Coin</Button>
-                      </Link>
+                      <div className="flex gap-2 mt-1">
+                        <Link to={`/coin/${coin.id}`} className="flex-1">
+                          <Button variant="outline" size="sm" className="w-full">View</Button>
+                        </Link>
+                        <GoLiveDialog>
+                          <Button variant="destructive" size="sm" className="gap-1">
+                            <Radio className="h-3 w-3" /> Live
+                          </Button>
+                        </GoLiveDialog>
+                      </div>
                     )}
                   </CardContent>
                 </Card>

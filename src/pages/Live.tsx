@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { Navbar } from '@/components/layout/Navbar';
+import { Footer } from '@/components/layout/Footer';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -115,7 +117,8 @@ export default function Live() {
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="container mx-auto px-4 py-8 mt-16">
+      <Navbar />
+      <div className="container mx-auto px-4 py-8 pt-20 sm:pt-24">
         <div className="mb-8 text-center">
           <h1 className="text-4xl font-bold font-display gradient-text mb-2">
             Live Now 🔴
@@ -288,6 +291,7 @@ export default function Live() {
           />
         )}
       </div>
+      <Footer />
     </div>
   );
 }

@@ -364,6 +364,7 @@ export default function Auth() {
                       {isSubmitting ? <><Loader2 className="h-4 w-4 animate-spin" /> Signing in...</> : 'Sign In'}
                     </Button>
                   </form>
+                  <SocialLogin />
                 </div>
               </TabsContent>
 

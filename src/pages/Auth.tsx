@@ -16,6 +16,7 @@ import { toast } from 'sonner';
 import { PhoneVerification } from '@/components/auth/PhoneVerification';
 import { TwoFactorSetup } from '@/components/auth/TwoFactorSetup';
 import { TwoFactorVerify } from '@/components/auth/TwoFactorVerify';
+import { SocialLogin } from '@/components/auth/SocialLogin';
 
 const signInSchema = z.object({
   email: z.string().email('Please enter a valid email address'),

@@ -274,6 +274,14 @@ export default function Live() {
             ))}
           </div>
         )}
+
+        {/* Mobile Viewer */}
+        {showMobileViewer && (
+          <MobileLiveViewer
+            streams={liveStreams}
+            onClose={() => setShowMobileViewer(false)}
+          />
+        )}
       </div>
     </div>
   );

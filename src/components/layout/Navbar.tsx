@@ -108,6 +108,9 @@ export function Navbar() {
           <Link to="/launchpad" className="text-muted-foreground hover:text-foreground transition-colors text-sm">
             Launchpad
           </Link>
+          <Link to="/live" className="text-muted-foreground hover:text-foreground transition-colors text-sm">
+            Live
+          </Link>
           {user && (
             <Link to="/dashboard" className="text-muted-foreground hover:text-foreground transition-colors text-sm">
               Portfolio
@@ -235,6 +238,11 @@ export function Navbar() {
                         </Link>
                       </SheetClose>
                       <SheetClose asChild>
+                        <Link to="/live" className="flex items-center gap-3 p-3 rounded-lg hover:bg-muted transition-colors">
+                          <Radio className="h-5 w-5 text-muted-foreground" /> Live
+                        </Link>
+                      </SheetClose>
+                      <SheetClose asChild>
                         <Link to="/dashboard" className="flex items-center gap-3 p-3 rounded-lg hover:bg-muted transition-colors">
                           <LayoutDashboard className="h-5 w-5 text-muted-foreground" /> Dashboard
                         </Link>
@@ -292,6 +300,11 @@ export function Navbar() {
                     <SheetClose asChild>
                       <Link to="/launchpad" className="flex items-center gap-3 p-3 rounded-lg hover:bg-muted transition-colors">
                         <Rocket className="h-5 w-5 text-muted-foreground" /> Launchpad
+                      </Link>
+                    </SheetClose>
+                    <SheetClose asChild>
+                      <Link to="/live" className="flex items-center gap-3 p-3 rounded-lg hover:bg-muted transition-colors">
+                        <Radio className="h-5 w-5 text-muted-foreground" /> Live
                       </Link>
                     </SheetClose>
                     <SheetClose asChild>

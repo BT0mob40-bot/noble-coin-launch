@@ -4,6 +4,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
+import { useIsMobile } from '@/hooks/use-mobile';
+import { MobileLiveViewer } from '@/components/live/MobileLiveViewer';
 import { 
   Instagram, 
   Youtube, 
@@ -11,7 +13,8 @@ import {
   Twitch, 
   ExternalLink,
   Users,
-  TrendingUp
+  TrendingUp,
+  Smartphone
 } from 'lucide-react';
 
 interface LiveStream {
@@ -60,7 +63,9 @@ const PlatformIcon = ({ platform }: { platform: string }) => {
 export default function Live() {
   const [liveStreams, setLiveStreams] = useState<LiveStream[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showMobileViewer, setShowMobileViewer] = useState(false);
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
 
   useEffect(() => {
     fetchLiveStreams();
@@ -115,9 +120,15 @@ export default function Live() {
           <h1 className="text-4xl font-bold font-display gradient-text mb-2">
             Live Now 🔴
           </h1>
-          <p className="text-muted-foreground max-w-2xl mx-auto">
+          <p className="text-muted-foreground max-w-2xl mx-auto mb-6">
             Watch coin creators stream live on their favorite platforms. Connect, engage, and follow their journey in real-time.
           </p>
+          {liveStreams.length > 0 && isMobile && (
+            <Button onClick={() => setShowMobileViewer(true)} variant="hero" className="gap-2">
+              <Smartphone className="h-4 w-4" />
+              Watch Immersive
+            </Button>
+          )}
         </div>
 
         {liveStreams.length === 0 ? (
@@ -262,6 +273,19 @@ export default function Live() {
               </Card>
             ))}
           </div>
+        )}
+
+        {/* Mobile Viewer */}
+        {showMobileViewer && (
+          <MobileLiveViewer
+            streams={liveStreams.map(stream => ({
+              ...stream,
+              creator_id: 'creator',
+              coin_id: stream.coin.id,
+              coin: stream.coin
+            }))}
+            onClose={() => setShowMobileViewer(false)}
+          />
         )}
       </div>
     </div>

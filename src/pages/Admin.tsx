@@ -28,6 +28,7 @@ import { AdminAnalytics } from '@/components/admin/AdminAnalytics';
 import { NotificationLog } from '@/components/admin/NotificationLog';
 import { VerificationSettings } from '@/components/admin/VerificationSettings';
 import { LiveStreamManagement } from '@/components/admin/LiveStreamManagement';
+import { SocialAuthSettings } from '@/components/admin/SocialAuthSettings';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -85,6 +86,7 @@ const sidebarSections: SidebarSection[] = [
     label: 'Security',
     items: [
       { id: 'verification', label: 'Verification & 2FA', icon: ShieldCheck },
+      { id: 'social-auth', label: 'Social Login', icon: Shield },
     ],
   },
   {
@@ -131,6 +133,7 @@ export default function Admin() {
       case 'blocked': return <BlockedWordsManager />;
       case 'settings': return <PlatformSettings />;
       case 'verification': return <VerificationSettings />;
+      case 'social-auth': return <SocialAuthSettings />;
       default: return <AdminAnalytics />;
     }
   };

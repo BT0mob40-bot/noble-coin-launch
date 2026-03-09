@@ -28,6 +28,7 @@ import { AdminAnalytics } from '@/components/admin/AdminAnalytics';
 import { NotificationLog } from '@/components/admin/NotificationLog';
 import { VerificationSettings } from '@/components/admin/VerificationSettings';
 import { LiveStreamManagement } from '@/components/admin/LiveStreamManagement';
+import { SocialAuthSettings } from '@/components/admin/SocialAuthSettings';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';

@@ -80,7 +80,7 @@ export default function Blockchain() {
     <div className="min-h-screen bg-background">
       <Navbar />
 
-      <main className="container pt-20 sm:pt-24 pb-16 px-4 sm:px-6">
+      <main className="container pt-24 sm:pt-32 pb-16 px-4 sm:px-6">
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="mb-8 sm:mb-12 text-center">
           <div className="flex justify-center mb-4">
             <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-primary to-accent">

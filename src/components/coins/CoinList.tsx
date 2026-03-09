@@ -68,22 +68,22 @@ export function CoinList() {
   return (
     <div className="space-y-4">
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as FilterTab)}>
-        <TabsList className="bg-muted/50 border border-border flex-wrap h-auto p-1 gap-1">
-          <TabsTrigger value="all" className="flex-1 min-w-0 gap-1.5 px-3 py-2 data-[state=active]:bg-primary/20 data-[state=active]:text-primary text-xs sm:flex-initial">
-            <BarChart3 className="h-3.5 w-3.5 hidden xs:block" /> 
-            <span className="truncate">All</span>
+        <TabsList className="bg-muted/50 border border-border w-full grid grid-cols-4 h-auto p-1 gap-1">
+          <TabsTrigger value="all" className="gap-1 px-2 py-2 data-[state=active]:bg-primary/20 data-[state=active]:text-primary text-xs">
+            <BarChart3 className="h-3.5 w-3.5 hidden sm:block" /> 
+            <span>All</span>
           </TabsTrigger>
-          <TabsTrigger value="trending" className="flex-1 min-w-0 gap-1.5 px-3 py-2 data-[state=active]:bg-orange-500/20 data-[state=active]:text-orange-400 text-xs sm:flex-initial">
-            <Flame className="h-3.5 w-3.5 hidden xs:block" /> 
-            <span className="truncate">Trending</span>
+          <TabsTrigger value="trending" className="gap-1 px-2 py-2 data-[state=active]:bg-orange-500/20 data-[state=active]:text-orange-400 text-xs">
+            <Flame className="h-3.5 w-3.5 hidden sm:block" /> 
+            <span>Trending</span>
           </TabsTrigger>
-          <TabsTrigger value="latest" className="flex-1 min-w-0 gap-1.5 px-3 py-2 data-[state=active]:bg-primary/20 data-[state=active]:text-primary text-xs sm:flex-initial">
-            <Sparkles className="h-3.5 w-3.5 hidden xs:block" /> 
-            <span className="truncate">Latest</span>
+          <TabsTrigger value="latest" className="gap-1 px-2 py-2 data-[state=active]:bg-primary/20 data-[state=active]:text-primary text-xs">
+            <Sparkles className="h-3.5 w-3.5 hidden sm:block" /> 
+            <span>Latest</span>
           </TabsTrigger>
-          <TabsTrigger value="featured" className="flex-1 min-w-0 gap-1.5 px-3 py-2 data-[state=active]:bg-yellow-500/20 data-[state=active]:text-yellow-400 text-xs sm:flex-initial">
-            <Star className="h-3.5 w-3.5 hidden xs:block" /> 
-            <span className="truncate">Featured</span>
+          <TabsTrigger value="featured" className="gap-1 px-2 py-2 data-[state=active]:bg-yellow-500/20 data-[state=active]:text-yellow-400 text-xs">
+            <Star className="h-3.5 w-3.5 hidden sm:block" /> 
+            <span>Featured</span>
           </TabsTrigger>
         </TabsList>
 

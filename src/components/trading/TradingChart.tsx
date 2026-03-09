@@ -258,7 +258,7 @@ export function TradingChart({ symbol, currentPrice, volatility, coinId, isOverr
       </div>
 
       {/* Chart Stats */}
-      <div className="grid grid-cols-4 gap-4 mt-4 px-2 py-3 bg-muted/30 rounded-lg">
+      <div className="grid grid-cols-4 gap-2 sm:gap-4 mt-3 sm:mt-4 px-2 py-2 sm:py-3 bg-muted/30 rounded-lg">
         <div className="text-center">
           <p className="text-xs text-muted-foreground">High</p>
           <p className="text-sm font-medium text-success">

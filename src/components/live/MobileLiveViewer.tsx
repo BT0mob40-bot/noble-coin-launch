@@ -8,19 +8,23 @@ import { useIsMobile } from '@/hooks/use-mobile';
 interface LiveStream {
   id: string;
   title: string;
+  description: string;
   creator_id: string;
   coin_id: string;
-  description: string;
   instagram_username?: string;
   youtube_username?: string;
   tiktok_username?: string;
   twitch_username?: string;
   kick_username?: string;
-  coins?: {
+  coin?: {
+    id: string;
     name: string;
     symbol: string;
     logo_url?: string;
+    price: number;
+    holders_count: number;
   };
+  expires_at: string;
 }
 
 interface MobileLiveViewerProps {

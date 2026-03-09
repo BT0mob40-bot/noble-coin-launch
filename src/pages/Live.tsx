@@ -120,9 +120,15 @@ export default function Live() {
           <h1 className="text-4xl font-bold font-display gradient-text mb-2">
             Live Now 🔴
           </h1>
-          <p className="text-muted-foreground max-w-2xl mx-auto">
+          <p className="text-muted-foreground max-w-2xl mx-auto mb-6">
             Watch coin creators stream live on their favorite platforms. Connect, engage, and follow their journey in real-time.
           </p>
+          {liveStreams.length > 0 && isMobile && (
+            <Button onClick={() => setShowMobileViewer(true)} variant="hero" className="gap-2">
+              <Smartphone className="h-4 w-4" />
+              Watch Immersive
+            </Button>
+          )}
         </div>
 
         {liveStreams.length === 0 ? (

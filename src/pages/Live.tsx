@@ -155,7 +155,7 @@ export default function Live() {
                         ${stream.coin.symbol}
                       </p>
                     </div>
-                    <Badge variant="destructive" className="animate-pulse">
+                    <Badge variant="secondary" className="animate-pulse border-red-500 text-red-600">
                       LIVE
                     </Badge>
                   </div>

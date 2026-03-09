@@ -218,12 +218,6 @@ export function Navbar() {
                       </div>
                     </form>
 
-                    <GoLiveDialog>
-                      <Button variant="outline" className="w-full justify-start gap-2 text-red-600 border-red-200">
-                        <Radio className="h-4 w-4" /> Go Live
-                      </Button>
-                    </GoLiveDialog>
-
                     <div className="flex flex-col gap-1">
                       <SheetClose asChild>
                         <Link to="/launchpad" className="flex items-center gap-3 p-3 rounded-lg hover:bg-muted transition-colors">

@@ -30,7 +30,9 @@ Deno.serve(async (req) => {
     const callbackData = body.callback_query?.data;
     const chatId = message?.chat?.id || body.callback_query?.message?.chat?.id;
     const text = message?.text || "";
-    const telegramUserId = String(message?.from?.id || body.callback_query?.from?.id || "");
+    // IMPORTANT: For callback queries, message.from is the BOT, not the user.
+    // Always prefer callback_query.from.id for the actual user's telegram ID.
+    const telegramUserId = String(body.callback_query?.from?.id || body.message?.from?.id || "");
     const callbackQueryId = body.callback_query?.id;
 
     if (!chatId) return ok();

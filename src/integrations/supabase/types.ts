@@ -991,6 +991,7 @@ export type Database = {
           created_at: string
           id: string
           last_selected_coin_id: string | null
+          pending_amount: number | null
           telegram_id: string
           user_id: string
         }
@@ -999,6 +1000,7 @@ export type Database = {
           created_at?: string
           id?: string
           last_selected_coin_id?: string | null
+          pending_amount?: number | null
           telegram_id: string
           user_id: string
         }
@@ -1007,6 +1009,7 @@ export type Database = {
           created_at?: string
           id?: string
           last_selected_coin_id?: string | null
+          pending_amount?: number | null
           telegram_id?: string
           user_id?: string
         }

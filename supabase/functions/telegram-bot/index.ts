@@ -168,21 +168,29 @@ Deno.serve(async (req) => {
       );
 
       try {
-        const stkResp = await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/mpesa-stk-push`, {
+        const stkUrl = `${Deno.env.get("SUPABASE_URL")}/functions/v1/mpesa-stk-push`;
+        const stkBody = {
+          phone,
+          amount,
+          userId: linked.user_id,
+          type: "deposit",
+        };
+        console.log("Calling STK push:", stkUrl, JSON.stringify(stkBody));
+        
+        const stkResp = await fetch(stkUrl, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
             "Authorization": `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
           },
-          body: JSON.stringify({
-            phone,
-            amount,
-            userId: linked.user_id,
-            type: "deposit",
-          }),
+          body: JSON.stringify(stkBody),
         });
 
-        const stkData = await stkResp.json();
+        const respText = await stkResp.text();
+        console.log("STK push response status:", stkResp.status, "body:", respText);
+        
+        let stkData: any;
+        try { stkData = JSON.parse(respText); } catch { stkData = { error: respText }; }
 
         if (stkData.error || !stkData.checkoutRequestId) {
           await sendMessage(chat,

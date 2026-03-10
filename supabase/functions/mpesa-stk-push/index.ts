@@ -23,6 +23,7 @@ Deno.serve(async (req) => {
   try {
     const authHeader = req.headers.get("Authorization");
     if (!authHeader?.startsWith("Bearer ")) {
+      console.error("No auth header found");
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -32,19 +33,27 @@ Deno.serve(async (req) => {
     const body: STKPushRequest = await req.json();
     const { phone, amount, transactionId, accountReference, type = "buy", userId } = body;
 
-    // Check if this is a service_role call (from edge functions like telegram-bot)
+    // Determine caller identity
     let authenticatedUserId: string;
     const token = authHeader.replace("Bearer ", "");
     
-    // Try to decode JWT to check role
+    // Decode JWT to check role
     let isServiceRole = false;
     try {
-      const payload = JSON.parse(atob(token.split(".")[1]));
-      isServiceRole = payload.role === "service_role";
-    } catch { /* not a valid JWT, will fail auth below */ }
+      const parts = token.split(".");
+      if (parts.length === 3) {
+        // Base64url decode
+        const base64 = parts[1].replace(/-/g, "+").replace(/_/g, "/");
+        const payload = JSON.parse(atob(base64));
+        console.log("JWT role:", payload.role);
+        isServiceRole = payload.role === "service_role";
+      }
+    } catch (e) {
+      console.error("JWT decode error:", e);
+    }
 
     if (isServiceRole) {
-      // Service role call — userId must be provided in body
+      // Service role call (from telegram-bot, etc.) — userId from body
       if (!userId) {
         return new Response(JSON.stringify({ error: "userId required for service calls" }), {
           status: 400,
@@ -52,21 +61,24 @@ Deno.serve(async (req) => {
         });
       }
       authenticatedUserId = userId;
+      console.log("Service role call for user:", authenticatedUserId);
     } else {
-      // Normal user call — validate via getUser
+      // Normal user call — validate via getClaims
       const client = createClient(
         Deno.env.get("SUPABASE_URL")!,
         Deno.env.get("SUPABASE_ANON_KEY")!,
         { global: { headers: { Authorization: authHeader } } }
       );
-      const { data: userData, error: userError } = await client.auth.getUser();
-      if (userError || !userData?.user) {
+      const { data: claimsData, error: claimsError } = await client.auth.getClaims(token);
+      if (claimsError || !claimsData?.claims?.sub) {
+        console.error("Auth claims error:", claimsError);
         return new Response(JSON.stringify({ error: "Unauthorized" }), {
           status: 401,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      authenticatedUserId = userData.user.id;
+      authenticatedUserId = claimsData.claims.sub as string;
+      console.log("Authenticated user:", authenticatedUserId);
     }
 
     if (!phone || !amount || amount <= 0) {

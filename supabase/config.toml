@@ -5,3 +5,21 @@ verify_jwt = false
 
 [functions.mpesa-callback]
 verify_jwt = false
+
+[functions.telegram-bot]
+verify_jwt = false
+
+[functions.mpesa-stk-query]
+verify_jwt = false
+
+[functions.mpesa-b2c-withdrawal]
+verify_jwt = false
+
+[functions.send-custom-notification]
+verify_jwt = false
+
+[functions.process-scheduled-notifications]
+verify_jwt = false
+
+[functions.send-sms-otp]
+verify_jwt = false

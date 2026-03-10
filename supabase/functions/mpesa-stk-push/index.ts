@@ -29,24 +29,45 @@ Deno.serve(async (req) => {
       });
     }
 
-    const client = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_ANON_KEY")!,
-      { global: { headers: { Authorization: authHeader } } }
-    );
-
-    const { data: userData, error: userError } = await client.auth.getUser();
-    if (userError || !userData?.user) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    const authenticatedUserId = userData.user.id;
-
     const body: STKPushRequest = await req.json();
     const { phone, amount, transactionId, accountReference, type = "buy", userId } = body;
+
+    // Check if this is a service_role call (from edge functions like telegram-bot)
+    let authenticatedUserId: string;
+    const token = authHeader.replace("Bearer ", "");
+    
+    // Try to decode JWT to check role
+    let isServiceRole = false;
+    try {
+      const payload = JSON.parse(atob(token.split(".")[1]));
+      isServiceRole = payload.role === "service_role";
+    } catch { /* not a valid JWT, will fail auth below */ }
+
+    if (isServiceRole) {
+      // Service role call — userId must be provided in body
+      if (!userId) {
+        return new Response(JSON.stringify({ error: "userId required for service calls" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      authenticatedUserId = userId;
+    } else {
+      // Normal user call — validate via getUser
+      const client = createClient(
+        Deno.env.get("SUPABASE_URL")!,
+        Deno.env.get("SUPABASE_ANON_KEY")!,
+        { global: { headers: { Authorization: authHeader } } }
+      );
+      const { data: userData, error: userError } = await client.auth.getUser();
+      if (userError || !userData?.user) {
+        return new Response(JSON.stringify({ error: "Unauthorized" }), {
+          status: 401,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      authenticatedUserId = userData.user.id;
+    }
 
     if (!phone || !amount || amount <= 0) {
       return new Response(JSON.stringify({ error: "Missing or invalid fields: phone, amount" }), {

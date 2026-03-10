@@ -30,8 +30,6 @@ Deno.serve(async (req) => {
     const callbackData = body.callback_query?.data;
     const chatId = message?.chat?.id || body.callback_query?.message?.chat?.id;
     const text = message?.text || "";
-    // IMPORTANT: For callback queries, message.from is the BOT, not the user.
-    // Always prefer callback_query.from.id for the actual user's telegram ID.
     const telegramUserId = String(body.callback_query?.from?.id || body.message?.from?.id || "");
     const callbackQueryId = body.callback_query?.id;
 
@@ -50,7 +48,6 @@ Deno.serve(async (req) => {
       });
     };
 
-    // Answer callback query to remove loading state
     const answerCallback = async () => {
       if (callbackQueryId) {
         await fetch(`https://api.telegram.org/bot${botConfig.bot_token}/answerCallbackQuery`, {
@@ -61,7 +58,7 @@ Deno.serve(async (req) => {
       }
     };
 
-    // ── Always look up linked user by telegram_id first (fast path) ──
+    // ── Find linked user ──
     const findLinkedUser = async (tgId: string) => {
       const { data: mapping } = await supabase
         .from("telegram_users")
@@ -70,13 +67,11 @@ Deno.serve(async (req) => {
         .maybeSingle();
 
       if (mapping?.user_id) {
-        // Always ensure chat_id is current
         if (mapping.chat_id !== String(chatId)) {
           await supabase.from("telegram_users")
             .update({ chat_id: String(chatId) })
             .eq("telegram_id", tgId);
         }
-
         const { data: profile } = await supabase
           .from("profiles")
           .select("user_id, full_name, phone, email")
@@ -88,15 +83,12 @@ Deno.serve(async (req) => {
     };
 
     const saveTelegramLink = async (tgId: string, userId: string) => {
-      // Use upsert with unique telegram_id
-      const { error } = await supabase.from("telegram_users").upsert(
+      await supabase.from("telegram_users").upsert(
         { telegram_id: tgId, user_id: userId, chat_id: String(chatId) },
         { onConflict: "telegram_id" }
       );
-      if (error) console.error("Save link error:", error);
     };
 
-    // Persistent keyboard for linked users
     const linkedMenu = {
       inline_keyboard: [
         [{ text: "💰 Buy Tokens", callback_data: "buy_tokens" }, { text: "📊 Portfolio", callback_data: "portfolio" }],
@@ -113,15 +105,212 @@ Deno.serve(async (req) => {
       ],
     };
 
+    // ── Helpers ──
+    const saveLastCoin = async (tgId: string, coinId: string) => {
+      await supabase.from("telegram_users").update({ last_selected_coin_id: coinId }).eq("telegram_id", tgId);
+    };
+    const getLastCoin = async (tgId: string) => {
+      const { data } = await supabase.from("telegram_users").select("last_selected_coin_id").eq("telegram_id", tgId).maybeSingle();
+      return data?.last_selected_coin_id;
+    };
+    const savePendingAmount = async (tgId: string, amount: number | null) => {
+      await supabase.from("telegram_users").update({ pending_amount: amount }).eq("telegram_id", tgId);
+    };
+    const getPendingAmount = async (tgId: string) => {
+      const { data } = await supabase.from("telegram_users").select("pending_amount").eq("telegram_id", tgId).maybeSingle();
+      return data?.pending_amount;
+    };
+    const getMinBuyAmount = async () => {
+      const { data } = await supabase.from("site_settings").select("min_buy_amount").maybeSingle();
+      return data?.min_buy_amount || 500;
+    };
+
+    const normalizePhone = (p: string): string => {
+      let phone = p.trim().replace(/\s+/g, "").replace(/^\+/, "");
+      if (phone.startsWith("07") || phone.startsWith("01")) {
+        phone = "254" + phone.substring(1);
+      }
+      return phone;
+    };
+
+    const isPhoneNumber = (t: string): boolean => {
+      const p = t.trim().replace(/\s+/g, "").replace(/^\+/, "");
+      return /^254\d{9}$/.test(p) || /^07\d{8}$/.test(p) || /^01\d{8}$/.test(p);
+    };
+
+    // ── Process purchase (sends STK push) ──
+    async function processPurchase(chat: number, tgId: string, coinId: string, amount: number, phone: string) {
+      const linked = await findLinkedUser(tgId);
+      if (!linked) {
+        await sendMessage(chat, "❌ No linked account.", unlinkedMenu);
+        return;
+      }
+
+      const { data: coin } = await supabase.from("coins").select("name, symbol, price").eq("id", coinId).maybeSingle();
+      if (!coin) {
+        await sendMessage(chat, "❌ Token not found.");
+        return;
+      }
+
+      phone = normalizePhone(phone);
+      const tokenAmount = (amount / Number(coin.price)).toFixed(2);
+
+      // Clear pending state
+      await savePendingAmount(tgId, null);
+
+      await sendMessage(chat,
+        `⏳ <b>Processing payment...</b>\n\n` +
+        `Token: ${coin.name} (${coin.symbol})\n` +
+        `Amount: KES ${amount.toLocaleString()}\n` +
+        `You'll get: ~${tokenAmount} ${coin.symbol}\n` +
+        `M-PESA: ${phone}\n\n` +
+        `📱 Check your phone for the M-PESA prompt and enter your PIN.`
+      );
+
+      try {
+        const stkResp = await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/mpesa-stk-push`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
+          },
+          body: JSON.stringify({
+            phone,
+            amount,
+            userId: linked.user_id,
+            type: "deposit",
+          }),
+        });
+
+        const stkData = await stkResp.json();
+
+        if (stkData.error || !stkData.checkoutRequestId) {
+          await sendMessage(chat,
+            `❌ <b>Payment failed</b>\n\n${stkData.error || "Could not initiate payment"}`,
+            { inline_keyboard: [[{ text: "🔄 Try Again", callback_data: `sel_${coinId}` }], [{ text: "🏠 Main Menu", callback_data: "main_menu" }]] }
+          );
+        } else {
+          await sendMessage(chat,
+            `✅ <b>STK Push sent!</b>\n\nEnter your M-PESA PIN on your phone.\nTokens will be allocated automatically after payment confirms.`,
+            { inline_keyboard: [[{ text: "💰 Buy More", callback_data: "buy_tokens" }], [{ text: "📊 Portfolio", callback_data: "portfolio" }], [{ text: "🏠 Main Menu", callback_data: "main_menu" }]] }
+          );
+        }
+      } catch (err) {
+        console.error("STK push error:", err);
+        await sendMessage(chat, `❌ Payment service error. Please try again.`,
+          { inline_keyboard: [[{ text: "🔄 Retry", callback_data: `sel_${coinId}` }], [{ text: "🏠 Main Menu", callback_data: "main_menu" }]] }
+        );
+      }
+    }
+
+    // ── Process deposit ──
+    async function processDeposit(chat: number, tgId: string, amount: number, phone: string) {
+      const linked = await findLinkedUser(tgId);
+      if (!linked) {
+        await sendMessage(chat, "❌ No linked account.", unlinkedMenu);
+        return;
+      }
+
+      phone = normalizePhone(phone);
+      await savePendingAmount(tgId, null);
+
+      await sendMessage(chat, `⏳ <b>Sending M-PESA prompt for KES ${amount.toLocaleString()}...</b>\n\n📱 Enter your PIN when prompted.`);
+
+      try {
+        const stkResp = await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/mpesa-stk-push`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
+          },
+          body: JSON.stringify({
+            phone,
+            amount,
+            userId: linked.user_id,
+            type: "deposit",
+          }),
+        });
+
+        const stkData = await stkResp.json();
+        if (stkData.error) {
+          await sendMessage(chat, `❌ ${stkData.error}`,
+            { inline_keyboard: [[{ text: "🔄 Retry", callback_data: "deposit" }], [{ text: "🏠 Menu", callback_data: "main_menu" }]] }
+          );
+        } else {
+          await sendMessage(chat,
+            `✅ <b>STK Push sent!</b>\n\nEnter your M-PESA PIN. Your wallet will be credited automatically.`,
+            { inline_keyboard: [[{ text: "💰 Buy Tokens", callback_data: "buy_tokens" }], [{ text: "🏠 Main Menu", callback_data: "main_menu" }]] }
+          );
+        }
+      } catch (err) {
+        console.error("Deposit STK error:", err);
+        await sendMessage(chat, `❌ Payment service error.`,
+          { inline_keyboard: [[{ text: "🏠 Main Menu", callback_data: "main_menu" }]] }
+        );
+      }
+    }
+
+    // ── Confirm purchase: show phone and confirm button ──
+    async function confirmPurchase(chat: number, tgId: string, coinId: string, amount: number) {
+      const linked = await findLinkedUser(tgId);
+      if (!linked) {
+        await sendMessage(chat, "❌ Please link your account first.", unlinkedMenu);
+        return;
+      }
+
+      const { data: coin } = await supabase.from("coins").select("name, symbol, price").eq("id", coinId).maybeSingle();
+      if (!coin) {
+        await sendMessage(chat, "❌ Token not found.");
+        return;
+      }
+
+      const tokenAmount = (amount / Number(coin.price)).toFixed(2);
+
+      // Save pending state so phone input can pick it up
+      await saveLastCoin(tgId, coinId);
+      await savePendingAmount(tgId, amount);
+
+      // Always ask for M-PESA number — user can send any number
+      const phone = linked.phone;
+      if (phone && !phone.startsWith("tg_") && /^254\d{9}$/.test(phone)) {
+        await sendMessage(chat,
+          `🛒 <b>Confirm Purchase</b>\n\n` +
+          `Token: <b>${coin.name} (${coin.symbol})</b>\n` +
+          `Amount: <b>KES ${amount.toLocaleString()}</b>\n` +
+          `You'll get: ~<b>${tokenAmount} ${coin.symbol}</b>\n\n` +
+          `Which M-PESA number to use?`,
+          {
+            inline_keyboard: [
+              [{ text: `✅ Use ${phone}`, callback_data: `pay_${coinId}_${amount}_${phone}` }],
+              [{ text: "📱 Enter Different Number", callback_data: `phn_${coinId}_${amount}` }],
+              [{ text: "❌ Cancel", callback_data: "buy_tokens" }],
+            ],
+          }
+        );
+      } else {
+        await sendMessage(chat,
+          `📱 <b>Enter M-PESA Number</b>\n\n` +
+          `To buy <b>${tokenAmount} ${coin.symbol}</b> for KES ${amount.toLocaleString()}:\n\n` +
+          `Type your M-PESA number, e.g.:\n<code>0712345678</code> or <code>254712345678</code>`,
+          { inline_keyboard: [[{ text: "❌ Cancel", callback_data: "buy_tokens" }]] }
+        );
+      }
+    }
+
+    // ══════════════════════════════════════════════
+    // ══  COMMAND & CALLBACK HANDLERS            ══
+    // ══════════════════════════════════════════════
+
     // ── /start or main_menu ──
     if (text === "/start" || callbackData === "main_menu") {
       await answerCallback();
       const linked = await findLinkedUser(telegramUserId);
+      // Clear any pending state
+      await savePendingAmount(telegramUserId, null);
 
       if (linked) {
-        const name = linked.full_name || "there";
         await sendMessage(chatId,
-          `🚀 <b>Welcome back, ${name}!</b>\n\nWhat would you like to do?`,
+          `🚀 <b>Welcome back, ${linked.full_name || "there"}!</b>\n\nWhat would you like to do?`,
           linkedMenu
         );
       } else {
@@ -151,35 +340,31 @@ Deno.serve(async (req) => {
       return ok();
     }
 
-    // ── Register flow ──
+    // ── Register ──
     if (callbackData === "register") {
       await answerCallback();
-      // Check if already linked
       const existing = await findLinkedUser(telegramUserId);
       if (existing) {
-        await sendMessage(chatId,
-          `✅ You already have a linked account (${existing.full_name || existing.email})!`,
-          linkedMenu
-        );
+        await sendMessage(chatId, `✅ You already have a linked account!`, linkedMenu);
         return ok();
       }
       await sendMessage(chatId,
-        `📝 <b>Create Account</b>\n\nSend your details in this format:\n\n<code>/register YourName 254712345678 YourPassword</code>\n\nExample:\n<code>/register John 254712345678 MyPass123</code>`,
+        `📝 <b>Create Account</b>\n\nSend your details:\n\n<code>/register YourName 254712345678 YourPassword</code>`,
         { inline_keyboard: [[{ text: "🏠 Main Menu", callback_data: "main_menu" }]] }
       );
       return ok();
     }
 
     if (text.startsWith("/register ")) {
+      const existing = await findLinkedUser(telegramUserId);
+      if (existing) {
+        await sendMessage(chatId, `✅ You already have an account!`, linkedMenu);
+        return ok();
+      }
+
       const parts = text.replace("/register ", "").trim().split(/\s+/);
       if (parts.length < 3) {
         await sendMessage(chatId, "❌ Format: /register Name Phone Password");
-        return ok();
-      }
-      // Check if already linked
-      const existing = await findLinkedUser(telegramUserId);
-      if (existing) {
-        await sendMessage(chatId, `✅ You already have an account! No need to register again.`, linkedMenu);
         return ok();
       }
 
@@ -200,7 +385,7 @@ Deno.serve(async (req) => {
           { inline_keyboard: [[{ text: "🏠 Main Menu", callback_data: "main_menu" }]] }
         );
       } else if (authData.user) {
-        await supabase.from("profiles").update({ full_name: fullName, phone }).eq("user_id", authData.user.id);
+        await supabase.from("profiles").update({ full_name: fullName, phone: normalizePhone(phone) }).eq("user_id", authData.user.id);
         await saveTelegramLink(telegramUserId, authData.user.id);
         await sendMessage(chatId,
           `✅ <b>Account Created!</b>\n\nName: ${fullName}\nPhone: ${phone}\n\nYou're ready to trade!`,
@@ -210,15 +395,12 @@ Deno.serve(async (req) => {
       return ok();
     }
 
-    // ── Link account flow ──
+    // ── Link account ──
     if (callbackData === "link_account") {
       await answerCallback();
       const existing = await findLinkedUser(telegramUserId);
       if (existing) {
-        await sendMessage(chatId,
-          `✅ Your account is already linked (${existing.full_name || existing.email})!`,
-          linkedMenu
-        );
+        await sendMessage(chatId, `✅ Your account is already linked!`, linkedMenu);
         return ok();
       }
       await sendMessage(chatId,
@@ -231,7 +413,7 @@ Deno.serve(async (req) => {
     if (text.startsWith("/link ")) {
       const existing = await findLinkedUser(telegramUserId);
       if (existing) {
-        await sendMessage(chatId, `✅ Already linked! No need to link again.`, linkedMenu);
+        await sendMessage(chatId, `✅ Already linked!`, linkedMenu);
         return ok();
       }
 
@@ -248,28 +430,10 @@ Deno.serve(async (req) => {
         );
       } else {
         await saveTelegramLink(telegramUserId, signIn.user.id);
-        await sendMessage(chatId,
-          `✅ <b>Account linked successfully!</b>\n\nYou're all set to trade.`,
-          linkedMenu
-        );
+        await sendMessage(chatId, `✅ <b>Account linked successfully!</b>`, linkedMenu);
       }
       return ok();
     }
-
-    // ── Helper: save last selected coin for this telegram user ──
-    const saveLastCoin = async (tgId: string, coinId: string) => {
-      await supabase.from("telegram_users").update({ last_selected_coin_id: coinId }).eq("telegram_id", tgId);
-    };
-    const getLastCoin = async (tgId: string) => {
-      const { data } = await supabase.from("telegram_users").select("last_selected_coin_id").eq("telegram_id", tgId).maybeSingle();
-      return data?.last_selected_coin_id;
-    };
-
-    // ── Helper: fetch min buy amount from site settings ──
-    const getMinBuyAmount = async () => {
-      const { data } = await supabase.from("site_settings").select("min_buy_amount").maybeSingle();
-      return data?.min_buy_amount || 500;
-    };
 
     // ── Buy tokens: show coin list ──
     if (callbackData === "buy_tokens") {
@@ -279,6 +443,9 @@ Deno.serve(async (req) => {
         await sendMessage(chatId, "❌ Please link or create an account first.", unlinkedMenu);
         return ok();
       }
+
+      // Clear pending state
+      await savePendingAmount(telegramUserId, null);
 
       const { data: coins } = await supabase
         .from("coins")
@@ -315,13 +482,12 @@ Deno.serve(async (req) => {
         );
         return ok();
       }
-      // Save last selected coin
       await saveLastCoin(telegramUserId, coinId);
+      await savePendingAmount(telegramUserId, null);
 
       const minAmount = await getMinBuyAmount();
       const tokensFor = (kes: number) => (kes / Number(coin.price)).toFixed(2);
 
-      // Build preset buttons based on min amount
       const presets = [500, 1000, 5000].filter(a => a >= minAmount);
       if (!presets.includes(minAmount)) presets.unshift(minAmount);
       const presetButtons = presets.map(a => [
@@ -353,51 +519,6 @@ Deno.serve(async (req) => {
       return ok();
     }
 
-    // ── Handle /amount command (legacy support) ──
-    if (text.startsWith("/amount ")) {
-      const parts = text.replace("/amount ", "").trim().split(/\s+/);
-      let coinId: string | null = null;
-      let amtStr: string;
-
-      if (parts.length >= 2) {
-        // /amount coinId amount (legacy)
-        coinId = parts[0];
-        amtStr = parts[1];
-      } else {
-        // /amount 2500 (use last selected coin)
-        amtStr = parts[0];
-        coinId = await getLastCoin(telegramUserId);
-      }
-
-      if (!coinId) {
-        await sendMessage(chatId, "❌ Please select a token first.", { inline_keyboard: [[{ text: "💰 Buy Tokens", callback_data: "buy_tokens" }]] });
-        return ok();
-      }
-      const amount = parseInt(amtStr);
-      const minAmount = await getMinBuyAmount();
-      if (!amount || amount < minAmount) {
-        await sendMessage(chatId, `❌ Minimum amount is KES ${minAmount}. Please enter a valid amount.`);
-        return ok();
-      }
-      await confirmPurchase(chatId, telegramUserId, coinId, amount);
-      return ok();
-    }
-
-    // ── Handle plain number (custom amount for last selected coin) ──
-    if (/^\d+$/.test(text.trim()) && !text.startsWith("/")) {
-      const amount = parseInt(text.trim());
-      const coinId = await getLastCoin(telegramUserId);
-      if (coinId && amount > 0) {
-        const minAmount = await getMinBuyAmount();
-        if (amount < minAmount) {
-          await sendMessage(chatId, `❌ Minimum amount is KES ${minAmount}.`);
-          return ok();
-        }
-        await confirmPurchase(chatId, telegramUserId, coinId, amount);
-        return ok();
-      }
-    }
-
     // ── Preset amount selected ──
     if (callbackData?.startsWith("amt_")) {
       await answerCallback();
@@ -413,80 +534,16 @@ Deno.serve(async (req) => {
       return ok();
     }
 
-    // ── Confirm purchase: show phone and confirm button ──
-    async function confirmPurchase(chat: number, tgId: string, coinId: string, amount: number) {
-      const linked = await findLinkedUser(tgId);
-      if (!linked) {
-        await sendMessage(chat, "❌ Please link your account first.", unlinkedMenu);
-        return;
-      }
-
-      const { data: coin } = await supabase.from("coins").select("name, symbol, price").eq("id", coinId).maybeSingle();
-      if (!coin) {
-        await sendMessage(chat, "❌ Token not found.");
-        return;
-      }
-
-      const phone = linked.phone;
-      const tokenAmount = (amount / Number(coin.price)).toFixed(2);
-
-      if (phone && !phone.startsWith("tg_")) {
-        // Has phone on file — show confirmation
-        await sendMessage(chat,
-          `🛒 <b>Confirm Purchase</b>\n\n` +
-          `Token: <b>${coin.name} (${coin.symbol})</b>\n` +
-          `Amount: <b>KES ${amount.toLocaleString()}</b>\n` +
-          `You'll get: ~<b>${tokenAmount} ${coin.symbol}</b>\n` +
-          `M-PESA: <b>${phone}</b>\n\n` +
-          `Confirm payment?`,
-          {
-            inline_keyboard: [
-              [{ text: "✅ Confirm & Pay", callback_data: `pay_${coinId}_${amount}_${phone}` }],
-              [{ text: "📱 Different Number", callback_data: `phn_${coinId}_${amount}` }],
-              [{ text: "❌ Cancel", callback_data: "buy_tokens" }],
-            ],
-          }
-        );
-      } else {
-        // No phone — ask for it naturally
-        await sendMessage(chat,
-          `📱 <b>Enter your M-PESA number</b>\n\nTo buy <b>${tokenAmount} ${coin.symbol}</b> for KES ${amount}:\n\nJust type your number, e.g.:\n<code>254712345678</code>`,
-          { inline_keyboard: [[{ text: "❌ Cancel", callback_data: "buy_tokens" }]] }
-        );
-        // Store coin & amount so we can process when they send phone
-        await supabase.from("telegram_users").update({ last_selected_coin_id: coinId }).eq("telegram_id", tgId);
-      }
-    }
-
-    // ── Handle phone number input (254...) ──
-    if (/^254\d{9}$/.test(text.trim()) || /^07\d{8}$/.test(text.trim()) || /^01\d{8}$/.test(text.trim())) {
-      // This could be a phone number for a pending purchase or deposit
-      // We don't have amount stored, so just save the phone and guide them
-      const linked = await findLinkedUser(telegramUserId);
-      if (linked) {
-        let phone = text.trim();
-        // Convert 07/01 to 254
-        if (phone.startsWith("07") || phone.startsWith("01")) {
-          phone = "254" + phone.substring(1);
-        }
-        // Save phone to profile
-        await supabase.from("profiles").update({ phone }).eq("user_id", linked.user_id);
-        await sendMessage(chatId,
-          `✅ Phone number saved: <b>${phone}</b>\n\nNow select a token and amount to buy:`,
-          linkedMenu
-        );
-        return ok();
-      }
-    }
-
     // ── Phone entry for different number ──
     if (callbackData?.startsWith("phn_")) {
       await answerCallback();
       const parts = callbackData.replace("phn_", "").split("_");
       const coinId = parts[0];
-      const amount = parts[1];
+      const amount = parseInt(parts[1]);
+      await saveLastCoin(telegramUserId, coinId);
+      await savePendingAmount(telegramUserId, amount);
       await sendMessage(chatId,
-        `📱 <b>Enter M-PESA Number</b>\n\nType your number, e.g.:\n<code>254712345678</code>\n\nOr use the command:\n<code>/pay ${coinId} ${amount} 254712345678</code>`,
+        `📱 <b>Enter M-PESA Number</b>\n\nType the number to receive the STK push:\n<code>0712345678</code> or <code>254712345678</code>`,
         { inline_keyboard: [[{ text: "❌ Cancel", callback_data: "buy_tokens" }]] }
       );
       return ok();
@@ -516,78 +573,87 @@ Deno.serve(async (req) => {
         await sendMessage(chatId, "❌ Invalid amount.");
         return ok();
       }
-      // Save phone to profile for future use
-      const linked = await findLinkedUser(telegramUserId);
-      if (linked && (!linked.phone || linked.phone.startsWith("tg_"))) {
-        await supabase.from("profiles").update({ phone }).eq("user_id", linked.user_id);
-      }
       await processPurchase(chatId, telegramUserId, coinId, amount, phone);
       return ok();
     }
 
-    // ── Process purchase ──
-    async function processPurchase(chat: number, tgId: string, coinId: string, amount: number, phone: string) {
-      const linked = await findLinkedUser(tgId);
+    // ── Handle /amount command (legacy) ──
+    if (text.startsWith("/amount ")) {
+      const parts = text.replace("/amount ", "").trim().split(/\s+/);
+      let coinId: string | null = null;
+      let amtStr: string;
+
+      if (parts.length >= 2) {
+        coinId = parts[0];
+        amtStr = parts[1];
+      } else {
+        amtStr = parts[0];
+        coinId = await getLastCoin(telegramUserId);
+      }
+
+      if (!coinId) {
+        await sendMessage(chatId, "❌ Please select a token first.", { inline_keyboard: [[{ text: "💰 Buy Tokens", callback_data: "buy_tokens" }]] });
+        return ok();
+      }
+      const amount = parseInt(amtStr);
+      const minAmount = await getMinBuyAmount();
+      if (!amount || amount < minAmount) {
+        await sendMessage(chatId, `❌ Minimum amount is KES ${minAmount}.`);
+        return ok();
+      }
+      await confirmPurchase(chatId, telegramUserId, coinId, amount);
+      return ok();
+    }
+
+    // ── Handle phone number input — contextual: pending purchase or deposit ──
+    if (isPhoneNumber(text)) {
+      const linked = await findLinkedUser(telegramUserId);
       if (!linked) {
-        await sendMessage(chat, "❌ No linked account.", unlinkedMenu);
-        return;
+        await sendMessage(chatId, "❌ Please link your account first.", unlinkedMenu);
+        return ok();
       }
 
-      const { data: coin } = await supabase.from("coins").select("name, symbol, price").eq("id", coinId).maybeSingle();
-      if (!coin) {
-        await sendMessage(chat, "❌ Token not found.");
-        return;
+      const phone = normalizePhone(text);
+      const pendingAmount = await getPendingAmount(telegramUserId);
+      const lastCoinId = await getLastCoin(telegramUserId);
+
+      if (pendingAmount && pendingAmount > 0 && lastCoinId) {
+        // There's a pending purchase — process it with this phone
+        await processPurchase(chatId, telegramUserId, lastCoinId, pendingAmount, phone);
+        return ok();
       }
 
-      const tokenAmount = (amount / Number(coin.price)).toFixed(2);
-
-      await sendMessage(chat,
-        `⏳ <b>Processing payment...</b>\n\n` +
-        `Token: ${coin.name} (${coin.symbol})\n` +
-        `Amount: KES ${amount.toLocaleString()}\n` +
-        `You'll get: ~${tokenAmount} ${coin.symbol}\n` +
-        `M-PESA: ${phone}\n\n` +
-        `📱 Check your phone for the M-PESA prompt and enter your PIN.`
+      // No pending purchase — just save the phone
+      await supabase.from("profiles").update({ phone }).eq("user_id", linked.user_id);
+      await sendMessage(chatId,
+        `✅ Phone saved: <b>${phone}</b>\n\nNow select a token and amount:`,
+        linkedMenu
       );
+      return ok();
+    }
 
-      try {
-        const stkResp = await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/mpesa-stk-push`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
-          },
-          body: JSON.stringify({
-            phone,
-            amount,
-            coinId,
-            userId: linked.user_id,
-            type: "deposit",
-          }),
-        });
+    // ── Handle plain number (custom amount for last selected coin) ──
+    if (/^\d+$/.test(text.trim()) && !text.startsWith("/")) {
+      const linked = await findLinkedUser(telegramUserId);
+      if (!linked) {
+        await sendMessage(chatId, "❌ Please link your account first.", unlinkedMenu);
+        return ok();
+      }
 
-        const stkData = await stkResp.json();
-
-        if (stkData.error || !stkData.checkoutRequestId) {
-          await sendMessage(chat,
-            `❌ <b>Payment failed</b>\n\n${stkData.error || "Could not initiate payment"}`,
-            { inline_keyboard: [[{ text: "🔄 Try Again", callback_data: `sel_${coinId}` }], [{ text: "🏠 Main Menu", callback_data: "main_menu" }]] }
-          );
-        } else {
-          await sendMessage(chat,
-            `✅ <b>STK Push sent!</b>\n\nEnter your M-PESA PIN on your phone.\nTokens will be allocated automatically after payment confirms.`,
-            { inline_keyboard: [[{ text: "💰 Buy More", callback_data: "buy_tokens" }], [{ text: "📊 Portfolio", callback_data: "portfolio" }], [{ text: "🏠 Main Menu", callback_data: "main_menu" }]] }
-          );
+      const amount = parseInt(text.trim());
+      const coinId = await getLastCoin(telegramUserId);
+      if (coinId && amount > 0) {
+        const minAmount = await getMinBuyAmount();
+        if (amount < minAmount) {
+          await sendMessage(chatId, `❌ Minimum amount is KES ${minAmount}.`);
+          return ok();
         }
-      } catch (err) {
-        console.error("STK push error:", err);
-        await sendMessage(chat, `❌ Payment service error. Please try again.`,
-          { inline_keyboard: [[{ text: "🔄 Retry", callback_data: `sel_${coinId}` }], [{ text: "🏠 Main Menu", callback_data: "main_menu" }]] }
-        );
+        await confirmPurchase(chatId, telegramUserId, coinId, amount);
+        return ok();
       }
     }
 
-    // ── Deposit to wallet ──
+    // ── Deposit ──
     if (callbackData === "deposit") {
       await answerCallback();
       const linked = await findLinkedUser(telegramUserId);
@@ -596,6 +662,7 @@ Deno.serve(async (req) => {
         return ok();
       }
 
+      const minAmount = await getMinBuyAmount();
       await sendMessage(chatId,
         `💳 <b>Deposit to Wallet</b>\n\nSelect amount to deposit:`,
         {
@@ -629,12 +696,12 @@ Deno.serve(async (req) => {
         return ok();
       }
       const phone = linked.phone;
-      if (phone && !phone.startsWith("tg_")) {
+      if (phone && !phone.startsWith("tg_") && /^254\d{9}$/.test(phone)) {
         await sendMessage(chatId,
-          `💳 <b>Confirm Deposit</b>\n\nAmount: KES ${amount.toLocaleString()}\nM-PESA: ${phone}`,
+          `💳 <b>Confirm Deposit</b>\n\nAmount: KES ${amount.toLocaleString()}\n\nWhich M-PESA number?`,
           {
             inline_keyboard: [
-              [{ text: "✅ Confirm", callback_data: `depay_${amount}_${phone}` }],
+              [{ text: `✅ Use ${phone}`, callback_data: `depay_${amount}_${phone}` }],
               [{ text: "📱 Different Number", callback_data: `dephn_${amount}` }],
               [{ text: "❌ Cancel", callback_data: "deposit" }],
             ],
@@ -675,56 +742,14 @@ Deno.serve(async (req) => {
         return ok();
       }
       const amount = parseInt(parts[0]);
-      const phone = parts[1];
+      let phone = parts[1];
       if (!amount || amount < 1) {
         await sendMessage(chatId, "❌ Invalid amount.");
         return ok();
       }
+      phone = normalizePhone(phone);
       await processDeposit(chatId, telegramUserId, amount, phone);
       return ok();
-    }
-
-    async function processDeposit(chat: number, tgId: string, amount: number, phone: string) {
-      const linked = await findLinkedUser(tgId);
-      if (!linked) {
-        await sendMessage(chat, "❌ No linked account.", unlinkedMenu);
-        return;
-      }
-
-      await sendMessage(chat, `⏳ <b>Sending M-PESA prompt for KES ${amount.toLocaleString()}...</b>\n\n📱 Enter your PIN when prompted.`);
-
-      try {
-        const stkResp = await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/mpesa-stk-push`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
-          },
-          body: JSON.stringify({
-            phone,
-            amount,
-            userId: linked.user_id,
-            type: "deposit",
-          }),
-        });
-
-        const stkData = await stkResp.json();
-        if (stkData.error) {
-          await sendMessage(chat, `❌ ${stkData.error}`,
-            { inline_keyboard: [[{ text: "🔄 Retry", callback_data: "deposit" }], [{ text: "🏠 Menu", callback_data: "main_menu" }]] }
-          );
-        } else {
-          await sendMessage(chat,
-            `✅ <b>STK Push sent!</b>\n\nEnter your M-PESA PIN. Your wallet will be credited automatically.`,
-            { inline_keyboard: [[{ text: "💰 Buy Tokens", callback_data: "buy_tokens" }], [{ text: "🏠 Main Menu", callback_data: "main_menu" }]] }
-          );
-        }
-      } catch (err) {
-        console.error("Deposit STK error:", err);
-        await sendMessage(chat, `❌ Payment service error.`,
-          { inline_keyboard: [[{ text: "🏠 Main Menu", callback_data: "main_menu" }]] }
-        );
-      }
     }
 
     // ── Portfolio ──
@@ -782,11 +807,19 @@ Deno.serve(async (req) => {
       await answerCallback();
       const linked = await findLinkedUser(telegramUserId);
       if (linked) {
-        // If linked, we can reset directly
-        await sendMessage(chatId,
-          `🔑 <b>Reset Password</b>\n\nSend your registered email:\n\n<code>/forgot your@email.com</code>`,
-          { inline_keyboard: [[{ text: "🏠 Main Menu", callback_data: "main_menu" }]] }
-        );
+        // Linked user — we can reset directly, generate temp password
+        const tempPassword = Math.random().toString(36).slice(-8) + "A1!";
+        const { error: updateError } = await supabase.auth.admin.updateUserById(linked.user_id, { password: tempPassword });
+        if (updateError) {
+          await sendMessage(chatId, `❌ Failed: ${updateError.message}`,
+            { inline_keyboard: [[{ text: "🏠 Main Menu", callback_data: "main_menu" }]] }
+          );
+        } else {
+          await sendMessage(chatId,
+            `✅ <b>New Temporary Password</b>\n\n<code>${tempPassword}</code>\n\n⚠️ Change this after logging in on the website.`,
+            linkedMenu
+          );
+        }
       } else {
         await sendMessage(chatId,
           `🔑 <b>Reset Password</b>\n\nSend your email and phone to verify:\n\n<code>/forgot your@email.com 254712345678</code>`,
@@ -807,35 +840,39 @@ Deno.serve(async (req) => {
       const phone = parts[1];
       const linked = await findLinkedUser(telegramUserId);
 
-      let profile;
       if (linked) {
-        // Linked user — verify by email only
-        const { data } = await supabase.from("profiles").select("user_id, email, phone").eq("user_id", linked.user_id).maybeSingle();
-        if (!data || (data.email !== email && `tg_${telegramUserId}@telegram.user` !== email)) {
-          await sendMessage(chatId, "❌ Email doesn't match your linked account.",
+        // Already linked — just reset password directly
+        const tempPassword = Math.random().toString(36).slice(-8) + "A1!";
+        const { error: updateError } = await supabase.auth.admin.updateUserById(linked.user_id, { password: tempPassword });
+        if (updateError) {
+          await sendMessage(chatId, `❌ Failed: ${updateError.message}`,
             { inline_keyboard: [[{ text: "🏠 Main Menu", callback_data: "main_menu" }]] }
           );
-          return ok();
-        }
-        profile = data;
-      } else {
-        // Not linked — verify email + phone
-        if (!phone) {
-          await sendMessage(chatId, "❌ Please include your phone: /forgot email phone");
-          return ok();
-        }
-        const { data } = await supabase.from("profiles").select("user_id, email, phone").eq("email", email).maybeSingle();
-        if (!data || data.phone !== phone) {
-          await sendMessage(chatId, "❌ Email and phone don't match our records.",
-            { inline_keyboard: [[{ text: "🏠 Main Menu", callback_data: "main_menu" }]] }
+        } else {
+          await sendMessage(chatId,
+            `✅ <b>Temporary Password</b>\n\n<code>${tempPassword}</code>\n\n⚠️ Change this after logging in.`,
+            linkedMenu
           );
-          return ok();
         }
-        profile = data;
-        // Auto-link since they verified
-        await saveTelegramLink(telegramUserId, profile.user_id);
+        return ok();
       }
 
+      // Not linked — verify email + phone
+      if (!phone) {
+        await sendMessage(chatId, "❌ Please include your phone: /forgot email phone");
+        return ok();
+      }
+      const normalizedPhone = normalizePhone(phone);
+      const { data: profile } = await supabase.from("profiles").select("user_id, email, phone").eq("email", email).maybeSingle();
+      if (!profile || (profile.phone !== normalizedPhone && profile.phone !== phone)) {
+        await sendMessage(chatId, "❌ Email and phone don't match our records.",
+          { inline_keyboard: [[{ text: "🏠 Main Menu", callback_data: "main_menu" }]] }
+        );
+        return ok();
+      }
+
+      // Auto-link
+      await saveTelegramLink(telegramUserId, profile.user_id);
       const tempPassword = Math.random().toString(36).slice(-8) + "A1!";
       const { error: updateError } = await supabase.auth.admin.updateUserById(profile.user_id, { password: tempPassword });
       if (updateError) {
@@ -844,14 +881,14 @@ Deno.serve(async (req) => {
         );
       } else {
         await sendMessage(chatId,
-          `✅ <b>Temporary Password</b>\n\n<code>${tempPassword}</code>\n\n⚠️ Change this after logging in on the website.`,
+          `✅ <b>Account linked & password reset!</b>\n\n<code>${tempPassword}</code>\n\n⚠️ Change this after logging in.`,
           linkedMenu
         );
       }
       return ok();
     }
 
-    // ── Fallback: unrecognized message ──
+    // ── Fallback ──
     const linked = await findLinkedUser(telegramUserId);
     await sendMessage(chatId,
       `🤔 I didn't understand that.\n\nUse the menu below:`,

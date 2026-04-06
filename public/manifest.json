@@ -1,0 +1,27 @@
+{
+  "name": "Sarafu - Crypto Launchpad",
+  "short_name": "Sarafu",
+  "description": "Trade crypto tokens with M-PESA. The first crypto launchpad designed for Africa.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0a0a0f",
+  "theme_color": "#00d4ff",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "https://storage.googleapis.com/gpt-engineer-file-uploads/PunDlKU5SGTRcANrcxIX8dohHoY2/uploads/1770390453292-ChatGPT_Image_Feb_6__2026__06_01_46_PM__2_-removebg-preview.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "https://storage.googleapis.com/gpt-engineer-file-uploads/PunDlKU5SGTRcANrcxIX8dohHoY2/uploads/1770390453292-ChatGPT_Image_Feb_6__2026__06_01_46_PM__2_-removebg-preview.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["finance", "crypto"],
+  "screenshots": [],
+  "prefer_related_applications": false
+}

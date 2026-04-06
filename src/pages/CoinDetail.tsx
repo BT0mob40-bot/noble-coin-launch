@@ -385,8 +385,8 @@ export default function CoinDetail() {
           </motion.div>
         )}
 
-        {/* Mobile Buy Button */}
-        <div className="lg:hidden fixed bottom-0 left-0 right-0 z-40 p-3 bg-background/90 backdrop-blur-lg border-t border-border/50">
+        {/* Mobile Buy Button - above bottom nav */}
+        <div className="lg:hidden fixed bottom-16 left-0 right-0 z-40 p-3 bg-background/90 backdrop-blur-lg border-t border-border/50">
           <Button variant="hero" size="lg" className="w-full gap-2 shadow-xl h-11" onClick={scrollToTrading}>
             <ArrowDown className="h-4 w-4" /> Buy {coin.symbol}
           </Button>

@@ -7,6 +7,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/lib/auth-context";
 import { SiteSettingsProvider } from "@/lib/site-settings-context";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
+import { MobileBottomNav } from "@/components/layout/MobileBottomNav";
 import { Loader2 } from "lucide-react";
 
 // Lazy-load all pages for code splitting
@@ -73,6 +74,7 @@ const App = () => (
                 <Route path="/admin" element={<ProtectedRoute requireAdmin><Admin /></ProtectedRoute>} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
+              <MobileBottomNav />
             </Suspense>
           </BrowserRouter>
         </TooltipProvider>

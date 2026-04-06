@@ -261,3 +261,16 @@
     animation: gradient-shift 3s ease infinite;
   }
 }
+
+/* Safe area for mobile bottom nav */
+.safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* Add padding to main content on mobile for bottom nav */
+@media (max-width: 767px) {
+  main {
+    padding-bottom: 5rem !important;
+  }
+}
+

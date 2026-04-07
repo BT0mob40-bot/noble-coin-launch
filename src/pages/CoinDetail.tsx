@@ -88,6 +88,8 @@ export default function CoinDetail() {
   const [processing, setProcessing] = useState(false);
   const [mobileTab, setMobileTab] = useState<'chart' | 'orderbook' | 'trades'>('chart');
   const [pendingBuyAmount, setPendingBuyAmount] = useState(0);
+  const { sendLocalNotification } = usePushNotifications(user?.id);
+  const { checkAlerts } = usePriceAlerts();
 
   // STK Polling hook - replaces manual polling
   useStkPolling({

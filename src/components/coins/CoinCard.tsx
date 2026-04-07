@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { TrendingUp, Users, DollarSign, Droplet, Flame, ArrowRight, ArrowUpRight, ArrowDownRight, Star } from 'lucide-react';
 import { Button } from '@/components/ui/button';

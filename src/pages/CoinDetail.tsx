@@ -332,8 +332,10 @@ export default function CoinDetail() {
       if (toWallet) {
         await supabase.from('wallets').update({ fiat_balance: userFiatBalance + netValue }).eq('user_id', user.id);
         toast.success(`Sold! KES ${netValue.toLocaleString()} added to wallet.`);
+        sendLocalNotification('💰 Sell Confirmed', `Sold ${amount.toLocaleString()} ${coin.symbol} for KES ${netValue.toLocaleString()}`);
       } else {
         toast.success('Sell order placed!');
+        sendLocalNotification('📤 Sell Order', `Sell order for ${amount.toLocaleString()} ${coin.symbol} placed`);
       }
 
       if (coin.creator_id && coin.creator_id !== user.id && settings.creator_commission_percentage) {

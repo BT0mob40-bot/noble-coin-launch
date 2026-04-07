@@ -249,6 +249,7 @@ export default function CoinDetail() {
         }
 
         toast.success('Purchase successful!');
+        sendLocalNotification('✅ Trade Confirmed', `Bought ${amount.toLocaleString()} ${coin.symbol} for KES ${totalValue.toLocaleString()}`);
         fetchUserData();
         fetchData();
       } else {

@@ -147,7 +147,19 @@ export default function CoinDetail() {
     const channel = supabase
       .channel(`coin-${id}`)
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'coins', filter: `id=eq.${id}` },
-        (payload) => { setCoin(payload.new as CoinData); })
+        (payload) => {
+          const updated = payload.new as CoinData;
+          setCoin(updated);
+          // Check price alerts
+          const triggered = checkAlerts(updated.id, updated.price);
+          triggered.forEach(alert => {
+            sendLocalNotification(
+              `🔔 ${alert.coinSymbol} Price Alert`,
+              `${alert.coinSymbol} is now ${alert.direction === 'above' ? 'above' : 'below'} KES ${alert.targetPrice} — Current: KES ${updated.price.toFixed(6)}`
+            );
+            toast.info(`${alert.coinSymbol} hit KES ${alert.targetPrice}!`);
+          });
+        })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [id]);

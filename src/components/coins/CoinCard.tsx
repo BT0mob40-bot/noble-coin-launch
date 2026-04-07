@@ -53,6 +53,7 @@ function formatPrice(price: number): string {
 
 export function CoinCard({ coin, index = 0 }: CoinCardProps) {
   const navigate = useNavigate();
+  const fallbackAvatar = useMemo(() => svgToDataUri(generateCoinSVG(coin.name, coin.symbol)), [coin.name, coin.symbol]);
   
   // Use override values when enabled
   const change = coin.use_price_change_24h_override && coin.price_change_24h_override != null

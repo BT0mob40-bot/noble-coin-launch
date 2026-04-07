@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { TrendingUp, Users, DollarSign, Droplet, Flame, ArrowRight, ArrowUpRight, ArrowDownRight, Star } from 'lucide-react';
+import { generateCoinSVG, svgToDataUri } from '@/lib/coin-avatar-generator';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useNavigate } from 'react-router-dom';

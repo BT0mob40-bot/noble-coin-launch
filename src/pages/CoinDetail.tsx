@@ -384,13 +384,21 @@ export default function CoinDetail() {
             <span className="hidden sm:inline">Back to Launchpad</span>
             <span className="sm:hidden">Back</span>
           </Link>
-          {priceMultiplier > 1 && (
-            <motion.div initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
-              className="flex items-center gap-1 px-2 py-1 rounded-full bg-success/10 border border-success/30">
-              <TrendingUp className="h-3 w-3 text-success" />
-              <span className="font-bold text-success text-xs">{priceMultiplier.toFixed(2)}x</span>
-            </motion.div>
-          )}
+          <div className="flex items-center gap-2">
+            {priceMultiplier > 1 && (
+              <motion.div initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
+                className="flex items-center gap-1 px-2 py-1 rounded-full bg-success/10 border border-success/30">
+                <TrendingUp className="h-3 w-3 text-success" />
+                <span className="font-bold text-success text-xs">{priceMultiplier.toFixed(2)}x</span>
+              </motion.div>
+            )}
+            <PriceAlertDialog
+              coinId={coin.id}
+              coinName={coin.name}
+              coinSymbol={coin.symbol}
+              currentPrice={coin.price}
+            />
+          </div>
         </div>
 
         {coin.trading_paused && (

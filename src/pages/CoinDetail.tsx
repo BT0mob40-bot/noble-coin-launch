@@ -19,6 +19,8 @@ import { useStkPolling } from '@/hooks/use-stk-polling';
 import { ArrowLeft, Loader2, AlertCircle, ArrowDown, TrendingUp } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { toast } from 'sonner';
+import { PriceAlertDialog } from '@/components/trading/PriceAlertDialog';
+import { usePushNotifications, usePriceAlerts } from '@/hooks/use-push-notifications';
 
 interface CoinData {
   id: string;

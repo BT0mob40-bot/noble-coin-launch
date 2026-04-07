@@ -19,6 +19,8 @@ import { useStkPolling } from '@/hooks/use-stk-polling';
 import { ArrowLeft, Loader2, AlertCircle, ArrowDown, TrendingUp } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { toast } from 'sonner';
+import { PriceAlertDialog } from '@/components/trading/PriceAlertDialog';
+import { usePushNotifications, usePriceAlerts } from '@/hooks/use-push-notifications';
 
 interface CoinData {
   id: string;
@@ -86,6 +88,8 @@ export default function CoinDetail() {
   const [processing, setProcessing] = useState(false);
   const [mobileTab, setMobileTab] = useState<'chart' | 'orderbook' | 'trades'>('chart');
   const [pendingBuyAmount, setPendingBuyAmount] = useState(0);
+  const { sendLocalNotification } = usePushNotifications(user?.id);
+  const { checkAlerts } = usePriceAlerts();
 
   // STK Polling hook - replaces manual polling
   useStkPolling({
@@ -143,7 +147,19 @@ export default function CoinDetail() {
     const channel = supabase
       .channel(`coin-${id}`)
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'coins', filter: `id=eq.${id}` },
-        (payload) => { setCoin(payload.new as CoinData); })
+        (payload) => {
+          const updated = payload.new as CoinData;
+          setCoin(updated);
+          // Check price alerts
+          const triggered = checkAlerts(updated.id, updated.price);
+          triggered.forEach(alert => {
+            sendLocalNotification(
+              `🔔 ${alert.coinSymbol} Price Alert`,
+              `${alert.coinSymbol} is now ${alert.direction === 'above' ? 'above' : 'below'} KES ${alert.targetPrice} — Current: KES ${updated.price.toFixed(6)}`
+            );
+            toast.info(`${alert.coinSymbol} hit KES ${alert.targetPrice}!`);
+          });
+        })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [id]);
@@ -233,6 +249,7 @@ export default function CoinDetail() {
         }
 
         toast.success('Purchase successful!');
+        sendLocalNotification('✅ Trade Confirmed', `Bought ${amount.toLocaleString()} ${coin.symbol} for KES ${totalValue.toLocaleString()}`);
         fetchUserData();
         fetchData();
       } else {
@@ -315,8 +332,10 @@ export default function CoinDetail() {
       if (toWallet) {
         await supabase.from('wallets').update({ fiat_balance: userFiatBalance + netValue }).eq('user_id', user.id);
         toast.success(`Sold! KES ${netValue.toLocaleString()} added to wallet.`);
+        sendLocalNotification('💰 Sell Confirmed', `Sold ${amount.toLocaleString()} ${coin.symbol} for KES ${netValue.toLocaleString()}`);
       } else {
         toast.success('Sell order placed!');
+        sendLocalNotification('📤 Sell Order', `Sell order for ${amount.toLocaleString()} ${coin.symbol} placed`);
       }
 
       if (coin.creator_id && coin.creator_id !== user.id && settings.creator_commission_percentage) {
@@ -368,13 +387,21 @@ export default function CoinDetail() {
             <span className="hidden sm:inline">Back to Launchpad</span>
             <span className="sm:hidden">Back</span>
           </Link>
-          {priceMultiplier > 1 && (
-            <motion.div initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
-              className="flex items-center gap-1 px-2 py-1 rounded-full bg-success/10 border border-success/30">
-              <TrendingUp className="h-3 w-3 text-success" />
-              <span className="font-bold text-success text-xs">{priceMultiplier.toFixed(2)}x</span>
-            </motion.div>
-          )}
+          <div className="flex items-center gap-2">
+            {priceMultiplier > 1 && (
+              <motion.div initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
+                className="flex items-center gap-1 px-2 py-1 rounded-full bg-success/10 border border-success/30">
+                <TrendingUp className="h-3 w-3 text-success" />
+                <span className="font-bold text-success text-xs">{priceMultiplier.toFixed(2)}x</span>
+              </motion.div>
+            )}
+            <PriceAlertDialog
+              coinId={coin.id}
+              coinName={coin.name}
+              coinSymbol={coin.symbol}
+              currentPrice={coin.price}
+            />
+          </div>
         </div>
 
         {coin.trading_paused && (

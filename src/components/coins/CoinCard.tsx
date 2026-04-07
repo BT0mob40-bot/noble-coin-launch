@@ -1,5 +1,7 @@
+import { useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { TrendingUp, Users, DollarSign, Droplet, Flame, ArrowRight, ArrowUpRight, ArrowDownRight, Star } from 'lucide-react';
+import { generateCoinSVG, svgToDataUri } from '@/lib/coin-avatar-generator';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useNavigate } from 'react-router-dom';
@@ -51,6 +53,7 @@ function formatPrice(price: number): string {
 
 export function CoinCard({ coin, index = 0 }: CoinCardProps) {
   const navigate = useNavigate();
+  const fallbackAvatar = useMemo(() => svgToDataUri(generateCoinSVG(coin.name, coin.symbol)), [coin.name, coin.symbol]);
   
   // Use override values when enabled
   const change = coin.use_price_change_24h_override && coin.price_change_24h_override != null
@@ -84,9 +87,7 @@ export function CoinCard({ coin, index = 0 }: CoinCardProps) {
             {coin.logo_url ? (
               <img src={coin.logo_url} alt={coin.name} className="h-10 w-10 rounded-xl object-cover ring-2 ring-border group-hover:ring-primary/50 transition-all" />
             ) : (
-              <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center ring-2 ring-border group-hover:ring-primary/50 transition-all">
-                <span className="text-sm font-bold text-primary">{coin.symbol.charAt(0)}</span>
-              </div>
+              <img src={fallbackAvatar} alt={coin.name} className="h-10 w-10 rounded-xl ring-2 ring-border group-hover:ring-primary/50 transition-all" />
             )}
             <div>
               <h3 className="font-semibold text-sm group-hover:text-primary transition-colors">{coin.symbol}</h3>

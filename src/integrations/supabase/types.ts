@@ -735,6 +735,7 @@ export type Database = {
           cta_title: string | null
           deposit_fee_percentage: number
           discord_url: string | null
+          email_provider: string
           facebook_url: string | null
           feature_1_description: string | null
           feature_1_title: string | null
@@ -784,6 +785,7 @@ export type Database = {
           cta_title?: string | null
           deposit_fee_percentage?: number
           discord_url?: string | null
+          email_provider?: string
           facebook_url?: string | null
           feature_1_description?: string | null
           feature_1_title?: string | null
@@ -833,6 +835,7 @@ export type Database = {
           cta_title?: string | null
           deposit_fee_percentage?: number
           discord_url?: string | null
+          email_provider?: string
           facebook_url?: string | null
           feature_1_description?: string | null
           feature_1_title?: string | null

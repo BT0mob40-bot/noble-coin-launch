@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
-import { ShieldCheck, Mail, Phone, Key, Loader2, Save, AlertTriangle } from 'lucide-react';
+import { ShieldCheck, Mail, Phone, Key, Loader2, Save, AlertTriangle, Shield } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface VerificationConfig {
@@ -12,6 +12,7 @@ interface VerificationConfig {
   require_phone_verification: boolean;
   require_2fa: boolean;
   allow_2fa_optional: boolean;
+  email_provider: string;
 }
 
 export function VerificationSettings() {
@@ -20,12 +21,13 @@ export function VerificationSettings() {
     require_phone_verification: false,
     require_2fa: false,
     allow_2fa_optional: true,
+    email_provider: 'smtp',
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    supabase.from('site_settings').select('require_email_verification, require_phone_verification, require_2fa, allow_2fa_optional').maybeSingle()
+    supabase.from('site_settings').select('require_email_verification, require_phone_verification, require_2fa, allow_2fa_optional, email_provider').maybeSingle()
       .then(({ data }) => {
         if (data) setConfig(data as any);
         setLoading(false);
@@ -39,7 +41,7 @@ export function VerificationSettings() {
       require_phone_verification: config.require_phone_verification,
       require_2fa: config.require_2fa,
       allow_2fa_optional: config.allow_2fa_optional,
-    } as any).neq('id', '00000000-0000-0000-0000-000000000000'); // update all rows
+    } as any).neq('id', '00000000-0000-0000-0000-000000000000');
     
     if (error) toast.error('Failed to save');
     else toast.success('Verification settings saved!');
@@ -55,6 +57,14 @@ export function VerificationSettings() {
         <CardDescription className="text-xs">Control which verification steps users must complete</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4 p-4 pt-0">
+        {/* Current email provider info */}
+        <div className="flex items-center gap-2 p-2 rounded-lg bg-primary/5 border border-primary/20">
+          <Shield className="h-3.5 w-3.5 text-primary" />
+          <span className="text-[10px] text-muted-foreground">
+            Email provider: <strong className="text-foreground">{config.email_provider === 'lovable' ? 'Built-in (Lovable)' : 'Custom SMTP'}</strong> — Change in Integrations → Email / SMTP
+          </span>
+        </div>
+
         {/* Email Verification */}
         <div className="flex items-start gap-3 p-3 rounded-lg bg-muted/30 border border-border/50">
           <div className="p-2 rounded-lg bg-primary/10 mt-0.5">
@@ -65,7 +75,7 @@ export function VerificationSettings() {
               <Label className="text-sm font-medium">Email Verification</Label>
               <Switch checked={config.require_email_verification} onCheckedChange={v => setConfig({...config, require_email_verification: v})} />
             </div>
-            <p className="text-[10px] text-muted-foreground mt-0.5">Users must verify email before signing in. Handled by the authentication system.</p>
+            <p className="text-[10px] text-muted-foreground mt-0.5">Users must verify email before signing in.</p>
           </div>
         </div>
 
@@ -79,7 +89,7 @@ export function VerificationSettings() {
               <Label className="text-sm font-medium">Phone OTP Verification</Label>
               <Switch checked={config.require_phone_verification} onCheckedChange={v => setConfig({...config, require_phone_verification: v})} />
             </div>
-            <p className="text-[10px] text-muted-foreground mt-0.5">Users must verify phone number via SMS OTP after login. Requires SMS integration.</p>
+            <p className="text-[10px] text-muted-foreground mt-0.5">Users must verify phone number via SMS OTP after login.</p>
             {config.require_phone_verification && (
               <div className="mt-2 flex items-center gap-1.5 text-[10px] text-warning">
                 <AlertTriangle className="h-3 w-3" />
@@ -99,7 +109,7 @@ export function VerificationSettings() {
               <Label className="text-sm font-medium">Require 2FA (TOTP)</Label>
               <Switch checked={config.require_2fa} onCheckedChange={v => setConfig({...config, require_2fa: v})} />
             </div>
-            <p className="text-[10px] text-muted-foreground mt-0.5">Force all users to set up two-factor authentication. Uses Google Authenticator / Authy.</p>
+            <p className="text-[10px] text-muted-foreground mt-0.5">Force all users to set up two-factor authentication.</p>
           </div>
         </div>
 

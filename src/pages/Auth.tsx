@@ -124,10 +124,34 @@ export default function Auth() {
     if (!forgotEmail) { toast.error('Enter your email'); return; }
     setForgotLoading(true);
     try {
-      const { error } = await supabase.auth.resetPasswordForEmail(forgotEmail, {
-        redirectTo: `${window.location.origin}/reset-password`,
-      });
-      if (error) throw error;
+      // Check email provider preference
+      const { data: siteData } = await supabase.from('site_settings').select('email_provider').maybeSingle();
+      const provider = (siteData as any)?.email_provider || 'smtp';
+
+      if (provider === 'smtp') {
+        // Try SMTP first - generate reset via Supabase then send styled email via SMTP
+        const { error } = await supabase.auth.resetPasswordForEmail(forgotEmail, {
+          redirectTo: `${window.location.origin}/reset-password`,
+        });
+        if (error) throw error;
+        // Also send branded SMTP email
+        try {
+          await supabase.functions.invoke('smtp-email', {
+            body: {
+              type: 'password_reset',
+              email: forgotEmail,
+              reset_link: `${window.location.origin}/reset-password`,
+              origin: window.location.origin,
+            },
+          });
+        } catch { /* SMTP is best-effort, Supabase email is primary */ }
+      } else {
+        // Use default Lovable/Supabase emails
+        const { error } = await supabase.auth.resetPasswordForEmail(forgotEmail, {
+          redirectTo: `${window.location.origin}/reset-password`,
+        });
+        if (error) throw error;
+      }
       toast.success('Password reset link sent to your email!');
       setShowForgotPassword(false);
       setForgotEmail('');

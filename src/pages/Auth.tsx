@@ -139,9 +139,14 @@ export default function Auth() {
         });
 
         if (error) throw error;
-        if ((data as any)?.error) throw new Error((data as any).error);
-        if ((data as any)?.provider !== 'smtp') {
-          throw new Error('Custom SMTP is selected but the email was not sent through SMTP.');
+        const result = data as any;
+        if (result?.error) throw new Error(result.error);
+        // If the function says use lovable/default, fall through to built-in
+        if (result?.provider === 'lovable') {
+          const { error: resetErr } = await supabase.auth.resetPasswordForEmail(forgotEmail, {
+            redirectTo: `${window.location.origin}/reset-password`,
+          });
+          if (resetErr) throw resetErr;
         }
       } else {
         // Use default Lovable/Supabase emails

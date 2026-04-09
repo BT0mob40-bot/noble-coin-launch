@@ -13,8 +13,10 @@ import {
 } from '@/components/ui/dialog';
 import {
   Coins, Plus, Trash2, Loader2, Search, Star, TrendingUp,
-  CheckCircle, AlertCircle, Flame, Users, Pause, Play, Eye, EyeOff, Edit2, Copy, BarChart3
+  CheckCircle, AlertCircle, Flame, Users, Pause, Play, Eye, EyeOff, Edit2, Copy, BarChart3,
+  Upload, Wand2, ImageIcon
 } from 'lucide-react';
+import { generateCoinSVG, svgToDataUri } from '@/lib/coin-avatar-generator';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { CoinFormDialog } from './CoinFormDialog';
@@ -62,7 +64,9 @@ export function CoinManagement({ userId, isSuperAdmin }: CoinManagementProps) {
   const [coins, setCoins] = useState<Coin[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreateCoin, setShowCreateCoin] = useState(false);
+  const [showAvatarDialog, setShowAvatarDialog] = useState(false);
   const [showBurnDialog, setShowBurnDialog] = useState(false);
+  const [avatarUploading, setAvatarUploading] = useState(false);
   const [showHoldersDialog, setShowHoldersDialog] = useState(false);
   const [showApproveDialog, setShowApproveDialog] = useState(false);
   const [showOverrideDialog, setShowOverrideDialog] = useState(false);
@@ -225,6 +229,54 @@ export function CoinManagement({ userId, isSuperAdmin }: CoinManagementProps) {
     toast.success('Contract address copied!');
   };
 
+  const handleGenerateAvatar = async (coin: Coin) => {
+    setAvatarUploading(true);
+    try {
+      const svg = generateCoinSVG(coin.name, coin.symbol);
+      const blob = new Blob([svg], { type: 'image/svg+xml' });
+      const fileName = `${coin.symbol.toLowerCase()}-${Date.now()}.svg`;
+      const { error: uploadErr } = await supabase.storage.from('coin-logos').upload(fileName, blob, { contentType: 'image/svg+xml', upsert: true });
+      if (uploadErr) throw uploadErr;
+      const { data: { publicUrl } } = supabase.storage.from('coin-logos').getPublicUrl(fileName);
+      await supabase.from('coins').update({ logo_url: publicUrl } as any).eq('id', coin.id);
+      toast.success('Avatar generated!');
+      fetchCoins();
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to generate avatar');
+    } finally {
+      setAvatarUploading(false);
+    }
+  };
+
+  const handleUploadAvatar = async (coin: Coin, file: File) => {
+    setAvatarUploading(true);
+    try {
+      const ext = file.name.split('.').pop() || 'png';
+      const fileName = `${coin.symbol.toLowerCase()}-${Date.now()}.${ext}`;
+      const { error: uploadErr } = await supabase.storage.from('coin-logos').upload(fileName, file, { contentType: file.type, upsert: true });
+      if (uploadErr) throw uploadErr;
+      const { data: { publicUrl } } = supabase.storage.from('coin-logos').getPublicUrl(fileName);
+      await supabase.from('coins').update({ logo_url: publicUrl } as any).eq('id', coin.id);
+      toast.success('Avatar uploaded!');
+      fetchCoins();
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to upload avatar');
+    } finally {
+      setAvatarUploading(false);
+    }
+  };
+
+  const handleRemoveAvatar = async (coin: Coin) => {
+    if (!confirm('Remove this coin\'s avatar?')) return;
+    try {
+      await supabase.from('coins').update({ logo_url: null } as any).eq('id', coin.id);
+      toast.success('Avatar removed!');
+      fetchCoins();
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to remove avatar');
+    }
+  };
+
   const filteredCoins = coins.filter(c =>
     c.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     c.symbol.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -337,6 +389,9 @@ export function CoinManagement({ userId, isSuperAdmin }: CoinManagementProps) {
                           )}
                           {isSuperAdmin && (
                             <>
+                              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setSelectedCoin(coin); setShowAvatarDialog(true); }} title="Change Avatar">
+                                <ImageIcon className="h-3.5 w-3.5" />
+                              </Button>
                               <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openOverrideDialog(coin)} title="Override Values"><BarChart3 className="h-3.5 w-3.5" /></Button>
                               <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleUpdateCoin(coin.id, { is_featured: !coin.is_featured })} title="Toggle Featured">
                                 <Star className={`h-3.5 w-3.5 ${coin.is_featured ? 'fill-yellow-400 text-yellow-400' : ''}`} />
@@ -517,6 +572,57 @@ export function CoinManagement({ userId, isSuperAdmin }: CoinManagementProps) {
             <div className="flex gap-2">
               <Button variant="outline" className="flex-1" onClick={() => setShowOverrideDialog(false)}>Cancel</Button>
               <Button variant="hero" className="flex-1" onClick={handleSaveOverrides}>Save Overrides</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Avatar Dialog */}
+      <Dialog open={showAvatarDialog} onOpenChange={setShowAvatarDialog}>
+        <DialogContent className="glass-card max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2"><ImageIcon className="h-5 w-5 text-primary" /> Coin Avatar - {selectedCoin?.symbol}</DialogTitle>
+            <DialogDescription>Upload an image, auto-generate an SVG avatar, or remove the current one.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            {/* Current avatar preview */}
+            <div className="flex justify-center">
+              <div className="h-20 w-20 rounded-xl bg-muted/30 flex items-center justify-center overflow-hidden border border-border">
+                {selectedCoin?.logo_url ? (
+                  <img src={selectedCoin.logo_url} alt={selectedCoin.name} className="h-full w-full object-cover" />
+                ) : (
+                  <span className="text-2xl font-bold text-muted-foreground">{selectedCoin?.symbol?.charAt(0)}</span>
+                )}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 gap-2">
+              {/* Upload */}
+              <label className="cursor-pointer">
+                <Button variant="outline" className="w-full gap-2" disabled={avatarUploading} asChild>
+                  <span><Upload className="h-4 w-4" /> Upload Image</span>
+                </Button>
+                <input type="file" accept="image/*" className="hidden" onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file && selectedCoin) handleUploadAvatar(selectedCoin, file);
+                }} />
+              </label>
+
+              {/* Generate */}
+              <Button variant="outline" className="gap-2" disabled={avatarUploading} onClick={() => {
+                if (selectedCoin) handleGenerateAvatar(selectedCoin);
+              }}>
+                <Wand2 className="h-4 w-4" /> Auto-Generate SVG
+              </Button>
+
+              {/* Remove */}
+              {selectedCoin?.logo_url && (
+                <Button variant="destructive" className="gap-2" onClick={() => {
+                  if (selectedCoin) { handleRemoveAvatar(selectedCoin); setShowAvatarDialog(false); }
+                }}>
+                  <Trash2 className="h-4 w-4" /> Remove Avatar
+                </Button>
+              )}
             </div>
           </div>
         </DialogContent>

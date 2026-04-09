@@ -65,6 +65,7 @@ export function CoinManagement({ userId, isSuperAdmin }: CoinManagementProps) {
   const [loading, setLoading] = useState(true);
   const [showCreateCoin, setShowCreateCoin] = useState(false);
   const [showAvatarDialog, setShowAvatarDialog] = useState(false);
+  const [showBurnDialog, setShowBurnDialog] = useState(false);
   const [avatarUploading, setAvatarUploading] = useState(false);
   const [showHoldersDialog, setShowHoldersDialog] = useState(false);
   const [showApproveDialog, setShowApproveDialog] = useState(false);

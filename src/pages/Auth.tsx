@@ -129,22 +129,20 @@ export default function Auth() {
       const provider = (siteData as any)?.email_provider || 'smtp';
 
       if (provider === 'smtp') {
-        // Try SMTP first - generate reset via Supabase then send styled email via SMTP
-        const { error } = await supabase.auth.resetPasswordForEmail(forgotEmail, {
-          redirectTo: `${window.location.origin}/reset-password`,
+        const { data, error } = await supabase.functions.invoke('smtp-email', {
+          body: {
+            type: 'password_reset',
+            email: forgotEmail,
+            redirect_to: `${window.location.origin}/reset-password`,
+            origin: window.location.origin,
+          },
         });
+
         if (error) throw error;
-        // Also send branded SMTP email
-        try {
-          await supabase.functions.invoke('smtp-email', {
-            body: {
-              type: 'password_reset',
-              email: forgotEmail,
-              reset_link: `${window.location.origin}/reset-password`,
-              origin: window.location.origin,
-            },
-          });
-        } catch { /* SMTP is best-effort, Supabase email is primary */ }
+        if ((data as any)?.error) throw new Error((data as any).error);
+        if ((data as any)?.provider !== 'smtp') {
+          throw new Error('Custom SMTP is selected but the email was not sent through SMTP.');
+        }
       } else {
         // Use default Lovable/Supabase emails
         const { error } = await supabase.auth.resetPasswordForEmail(forgotEmail, {

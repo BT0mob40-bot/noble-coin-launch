@@ -389,6 +389,9 @@ export function CoinManagement({ userId, isSuperAdmin }: CoinManagementProps) {
                           )}
                           {isSuperAdmin && (
                             <>
+                              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setSelectedCoin(coin); setShowAvatarDialog(true); }} title="Change Avatar">
+                                <ImageIcon className="h-3.5 w-3.5" />
+                              </Button>
                               <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openOverrideDialog(coin)} title="Override Values"><BarChart3 className="h-3.5 w-3.5" /></Button>
                               <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleUpdateCoin(coin.id, { is_featured: !coin.is_featured })} title="Toggle Featured">
                                 <Star className={`h-3.5 w-3.5 ${coin.is_featured ? 'fill-yellow-400 text-yellow-400' : ''}`} />

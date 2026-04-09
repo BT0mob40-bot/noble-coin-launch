@@ -229,6 +229,54 @@ export function CoinManagement({ userId, isSuperAdmin }: CoinManagementProps) {
     toast.success('Contract address copied!');
   };
 
+  const handleGenerateAvatar = async (coin: Coin) => {
+    setAvatarUploading(true);
+    try {
+      const svg = generateCoinSVG(coin.name, coin.symbol);
+      const blob = new Blob([svg], { type: 'image/svg+xml' });
+      const fileName = `${coin.symbol.toLowerCase()}-${Date.now()}.svg`;
+      const { error: uploadErr } = await supabase.storage.from('coin-logos').upload(fileName, blob, { contentType: 'image/svg+xml', upsert: true });
+      if (uploadErr) throw uploadErr;
+      const { data: { publicUrl } } = supabase.storage.from('coin-logos').getPublicUrl(fileName);
+      await supabase.from('coins').update({ logo_url: publicUrl } as any).eq('id', coin.id);
+      toast.success('Avatar generated!');
+      fetchCoins();
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to generate avatar');
+    } finally {
+      setAvatarUploading(false);
+    }
+  };
+
+  const handleUploadAvatar = async (coin: Coin, file: File) => {
+    setAvatarUploading(true);
+    try {
+      const ext = file.name.split('.').pop() || 'png';
+      const fileName = `${coin.symbol.toLowerCase()}-${Date.now()}.${ext}`;
+      const { error: uploadErr } = await supabase.storage.from('coin-logos').upload(fileName, file, { contentType: file.type, upsert: true });
+      if (uploadErr) throw uploadErr;
+      const { data: { publicUrl } } = supabase.storage.from('coin-logos').getPublicUrl(fileName);
+      await supabase.from('coins').update({ logo_url: publicUrl } as any).eq('id', coin.id);
+      toast.success('Avatar uploaded!');
+      fetchCoins();
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to upload avatar');
+    } finally {
+      setAvatarUploading(false);
+    }
+  };
+
+  const handleRemoveAvatar = async (coin: Coin) => {
+    if (!confirm('Remove this coin\'s avatar?')) return;
+    try {
+      await supabase.from('coins').update({ logo_url: null } as any).eq('id', coin.id);
+      toast.success('Avatar removed!');
+      fetchCoins();
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to remove avatar');
+    }
+  };
+
   const filteredCoins = coins.filter(c =>
     c.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     c.symbol.toLowerCase().includes(searchTerm.toLowerCase()) ||

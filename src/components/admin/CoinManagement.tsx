@@ -576,6 +576,57 @@ export function CoinManagement({ userId, isSuperAdmin }: CoinManagementProps) {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Avatar Dialog */}
+      <Dialog open={showAvatarDialog} onOpenChange={setShowAvatarDialog}>
+        <DialogContent className="glass-card max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2"><ImageIcon className="h-5 w-5 text-primary" /> Coin Avatar - {selectedCoin?.symbol}</DialogTitle>
+            <DialogDescription>Upload an image, auto-generate an SVG avatar, or remove the current one.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            {/* Current avatar preview */}
+            <div className="flex justify-center">
+              <div className="h-20 w-20 rounded-xl bg-muted/30 flex items-center justify-center overflow-hidden border border-border">
+                {selectedCoin?.logo_url ? (
+                  <img src={selectedCoin.logo_url} alt={selectedCoin.name} className="h-full w-full object-cover" />
+                ) : (
+                  <span className="text-2xl font-bold text-muted-foreground">{selectedCoin?.symbol?.charAt(0)}</span>
+                )}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 gap-2">
+              {/* Upload */}
+              <label className="cursor-pointer">
+                <Button variant="outline" className="w-full gap-2" disabled={avatarUploading} asChild>
+                  <span><Upload className="h-4 w-4" /> Upload Image</span>
+                </Button>
+                <input type="file" accept="image/*" className="hidden" onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file && selectedCoin) handleUploadAvatar(selectedCoin, file);
+                }} />
+              </label>
+
+              {/* Generate */}
+              <Button variant="outline" className="gap-2" disabled={avatarUploading} onClick={() => {
+                if (selectedCoin) handleGenerateAvatar(selectedCoin);
+              }}>
+                <Wand2 className="h-4 w-4" /> Auto-Generate SVG
+              </Button>
+
+              {/* Remove */}
+              {selectedCoin?.logo_url && (
+                <Button variant="destructive" className="gap-2" onClick={() => {
+                  if (selectedCoin) { handleRemoveAvatar(selectedCoin); setShowAvatarDialog(false); }
+                }}>
+                  <Trash2 className="h-4 w-4" /> Remove Avatar
+                </Button>
+              )}
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

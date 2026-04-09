@@ -13,8 +13,10 @@ import {
 } from '@/components/ui/dialog';
 import {
   Coins, Plus, Trash2, Loader2, Search, Star, TrendingUp,
-  CheckCircle, AlertCircle, Flame, Users, Pause, Play, Eye, EyeOff, Edit2, Copy, BarChart3
+  CheckCircle, AlertCircle, Flame, Users, Pause, Play, Eye, EyeOff, Edit2, Copy, BarChart3,
+  Upload, Wand2, ImageIcon
 } from 'lucide-react';
+import { generateCoinSVG, svgToDataUri } from '@/lib/coin-avatar-generator';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { CoinFormDialog } from './CoinFormDialog';

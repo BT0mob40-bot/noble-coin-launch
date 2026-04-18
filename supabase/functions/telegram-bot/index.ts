@@ -823,7 +823,25 @@ Deno.serve(async (req) => {
       await answerCallback();
       const linked = await findLinkedUser(telegramUserId);
       if (linked) {
-        // Linked user — we can reset directly, generate temp password
+        // Look up email for this user
+        const { data: prof } = await supabase.from("profiles").select("email").eq("user_id", linked.user_id).maybeSingle();
+        const userEmail = prof?.email;
+        let emailSent = false;
+        if (userEmail) {
+          try {
+            const { data: emailRes } = await supabase.functions.invoke("smtp-email", {
+              body: {
+                type: "password_reset",
+                email: userEmail,
+                redirect_to: `${Deno.env.get("SUPABASE_URL")?.replace(".supabase.co", "")}/reset-password`,
+                origin: botConfig.webhook_url ? new URL(botConfig.webhook_url).origin : "https://app.example.com",
+              },
+            });
+            emailSent = (emailRes as any)?.ok !== false;
+          } catch (e) { console.error("SMTP reset email error:", e); }
+        }
+
+        // Always also issue temp password as fallback
         const tempPassword = Math.random().toString(36).slice(-8) + "A1!";
         const { error: updateError } = await supabase.auth.admin.updateUserById(linked.user_id, { password: tempPassword });
         if (updateError) {
@@ -831,10 +849,10 @@ Deno.serve(async (req) => {
             { inline_keyboard: [[{ text: "🏠 Main Menu", callback_data: "main_menu" }]] }
           );
         } else {
-          await sendMessage(chatId,
-            `✅ <b>New Temporary Password</b>\n\n<code>${tempPassword}</code>\n\n⚠️ Change this after logging in on the website.`,
-            linkedMenu
-          );
+          const msg = emailSent
+            ? `✅ <b>Password Reset</b>\n\n📧 A reset link was emailed to <code>${userEmail}</code>.\n\nOr use this temp password to log in:\n<code>${tempPassword}</code>\n\n⚠️ Change it after logging in.`
+            : `✅ <b>New Temporary Password</b>\n\n<code>${tempPassword}</code>\n\n⚠️ Change this after logging in on the website.`;
+          await sendMessage(chatId, msg, linkedMenu);
         }
       } else {
         await sendMessage(chatId,

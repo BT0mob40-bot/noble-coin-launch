@@ -11,6 +11,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { User, Phone, Mail, Key, MessageCircle, Loader2, Check, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
+import { TwoFactorManager } from '@/components/auth/TwoFactorManager';
 
 export default function Profile() {
   const { user } = useAuth();
@@ -149,6 +150,9 @@ export default function Profile() {
               </Button>
             </CardContent>
           </Card>
+
+          {/* Two-Factor Authentication */}
+          {user && <TwoFactorManager userId={user.id} email={user.email!} />}
 
           {/* Change Password */}
           <Card className="glass-card mb-4">

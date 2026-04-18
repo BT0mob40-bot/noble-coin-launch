@@ -212,16 +212,34 @@ Deno.serve(async (req) => {
 
     switch (type) {
       case "password_reset": {
-        const redirectTarget = redirect_to || `${baseOrigin}/reset-password`;
-        const { data: linkData, error: linkErr } = await adminClient.auth.admin.generateLink({
-          type: "recovery",
-          email,
-          options: { redirectTo: redirectTarget },
-        });
-        if (linkErr) {
-          return jsonResponse({ ok: false, error: "Failed to generate reset link: " + linkErr.message });
+        // Look up the user (don't leak existence — but we still need user_id)
+        const { data: userList, error: userErr } = await adminClient.auth.admin.listUsers({ page: 1, perPage: 1000 });
+        if (userErr) {
+          return jsonResponse({ ok: false, error: "User lookup failed: " + userErr.message });
         }
-        const resetLink = linkData?.properties?.action_link || redirectTarget;
+        const matchedUser = userList?.users?.find((u: any) => (u.email || "").toLowerCase() === String(email).toLowerCase());
+        if (!matchedUser) {
+          // Don't reveal whether email exists; pretend success
+          return jsonResponse({ ok: true, success: true, provider: "smtp", note: "If account exists, email sent." });
+        }
+
+        // Generate cryptographically strong custom token
+        const tokenBytes = new Uint8Array(32);
+        crypto.getRandomValues(tokenBytes);
+        const customToken = Array.from(tokenBytes).map(b => b.toString(16).padStart(2, "0")).join("");
+
+        const { error: insertErr } = await adminClient.from("password_reset_tokens").insert({
+          user_id: matchedUser.id,
+          email,
+          token: customToken,
+          origin: baseOrigin,
+        });
+        if (insertErr) {
+          return jsonResponse({ ok: false, error: "Token store failed: " + insertErr.message });
+        }
+
+        // Build link to CURRENT origin — fully dynamic per domain
+        const resetLink = `${baseOrigin}/reset-password?token=${customToken}&email=${encodeURIComponent(email)}`;
         subject = `Reset your ${siteName} password`;
         html = tplPasswordReset(siteName, resetLink, domain);
         break;

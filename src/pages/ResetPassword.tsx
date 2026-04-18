@@ -23,7 +23,16 @@ export default function ResetPassword() {
   const [showConfirm, setShowConfirm] = useState(false);
   const [strength, setStrength] = useState(0);
 
+  const [searchParams] = useSearchParams();
+  const customToken = searchParams.get('token');
+
   useEffect(() => {
+    // Custom SMTP token-based reset (works on ANY domain)
+    if (customToken) {
+      setIsRecovery(true);
+      return;
+    }
+    // Fallback: Supabase recovery hash flow (built-in Lovable emails)
     const hash = window.location.hash;
     if (hash.includes('type=recovery')) {
       setIsRecovery(true);
@@ -36,7 +45,7 @@ export default function ResetPassword() {
         }
       });
     }
-  }, [navigate]);
+  }, [navigate, customToken]);
 
   const checkStrength = (pwd: string) => {
     let s = 0;
@@ -68,8 +77,19 @@ export default function ResetPassword() {
 
     setLoading(true);
     try {
-      const { error } = await supabase.auth.updateUser({ password });
-      if (error) throw error;
+      if (customToken) {
+        // Custom SMTP token flow — works on any domain
+        const { data, error } = await supabase.functions.invoke('reset-password-confirm', {
+          body: { token: customToken, password },
+        });
+        if (error) throw new Error(error.message || 'Reset failed');
+        const result = data as any;
+        if (result?.ok === false) throw new Error(result.error || 'Reset failed');
+      } else {
+        // Built-in Supabase recovery
+        const { error } = await supabase.auth.updateUser({ password });
+        if (error) throw error;
+      }
       setSuccess(true);
       toast.success('Password updated successfully!');
       setTimeout(() => navigate('/auth'), 2500);

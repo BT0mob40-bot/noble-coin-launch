@@ -138,10 +138,11 @@ export default function Auth() {
           },
         });
 
-        if (error) throw error;
+        // Edge function now always returns 200 with { ok, error } — surface real error
+        if (error) throw new Error(error.message || 'Failed to invoke email function');
         const result = data as any;
-        if (result?.error) throw new Error(result.error);
-        // If the function says use lovable/default, fall through to built-in
+        if (result?.ok === false) throw new Error(result.error || 'SMTP send failed');
+        // Fall through to Lovable built-in if provider says so
         if (result?.provider === 'lovable') {
           const { error: resetErr } = await supabase.auth.resetPasswordForEmail(forgotEmail, {
             redirectTo: `${window.location.origin}/reset-password`,

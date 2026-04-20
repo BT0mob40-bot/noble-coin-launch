@@ -3,7 +3,9 @@
   "short_name": "Sarafu",
   "description": "Trade crypto tokens with M-PESA. The first crypto launchpad designed for Africa.",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
   "background_color": "#0a0a0f",
   "theme_color": "#00d4ff",
   "orientation": "portrait-primary",
@@ -19,6 +21,26 @@
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Launchpad",
+      "short_name": "Launchpad",
+      "url": "/launchpad",
+      "icons": [{ "src": "https://storage.googleapis.com/gpt-engineer-file-uploads/PunDlKU5SGTRcANrcxIX8dohHoY2/uploads/1770390453292-ChatGPT_Image_Feb_6__2026__06_01_46_PM__2_-removebg-preview.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Dashboard",
+      "short_name": "Dashboard",
+      "url": "/dashboard",
+      "icons": [{ "src": "https://storage.googleapis.com/gpt-engineer-file-uploads/PunDlKU5SGTRcANrcxIX8dohHoY2/uploads/1770390453292-ChatGPT_Image_Feb_6__2026__06_01_46_PM__2_-removebg-preview.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Live",
+      "short_name": "Live",
+      "url": "/live",
+      "icons": [{ "src": "https://storage.googleapis.com/gpt-engineer-file-uploads/PunDlKU5SGTRcANrcxIX8dohHoY2/uploads/1770390453292-ChatGPT_Image_Feb_6__2026__06_01_46_PM__2_-removebg-preview.png", "sizes": "192x192" }]
     }
   ],
   "categories": ["finance", "crypto"],

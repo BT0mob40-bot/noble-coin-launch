@@ -31,10 +31,11 @@ const ErrorPage = lazy(() => import("./pages/Error"));
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 1000 * 60 * 2, // 2 min stale
-      gcTime: 1000 * 60 * 10, // 10 min cache
+      staleTime: 1000 * 60 * 5, // 5 min stale — fewer refetches under load
+      gcTime: 1000 * 60 * 30, // 30 min cache
       refetchOnWindowFocus: false,
-      retry: 2,
+      refetchOnReconnect: false,
+      retry: 1,
     },
   },
 });

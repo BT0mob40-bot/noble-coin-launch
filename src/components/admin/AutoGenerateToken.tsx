@@ -79,7 +79,8 @@ interface AutoGenerateTokenProps {
 }
 
 export function AutoGenerateToken({ userId, onSuccess }: AutoGenerateTokenProps) {
-  const [price, setPrice] = useState('');
+  const [priceMin, setPriceMin] = useState('');
+  const [priceMax, setPriceMax] = useState('');
   const [count, setCount] = useState('1');
   const [isTrending, setIsTrending] = useState(false);
   const [isFeatured, setIsFeatured] = useState(false);
@@ -106,9 +107,11 @@ export function AutoGenerateToken({ userId, onSuccess }: AutoGenerateTokenProps)
   };
 
   const handleGenerate = async () => {
-    const priceNum = parseFloat(price);
+    const minNum = parseFloat(priceMin);
+    const maxNum = parseFloat(priceMax) || minNum;
     const countNum = parseInt(count) || 1;
-    if (!priceNum || priceNum <= 0) { toast.error('Enter a valid price'); return; }
+    if (!minNum || minNum <= 0) { toast.error('Enter a valid minimum price'); return; }
+    if (maxNum < minNum) { toast.error('Max price must be ≥ min price'); return; }
     if (countNum < 1 || countNum > 50) { toast.error('Generate 1-50 tokens at a time'); return; }
 
     setGenerating(true);
@@ -123,6 +126,8 @@ export function AutoGenerateToken({ userId, onSuccess }: AutoGenerateTokenProps)
 
       for (let i = 0; i < countNum; i++) {
         const { name, symbol } = generateName();
+        // Random price within admin-defined range — gives organic variety to the batch
+        const priceNum = parseFloat((minNum + Math.random() * (maxNum - minNum)).toFixed(6));
         const totalSupply = supplyTier === 'random'
           ? SUPPLY_TIERS[Math.floor(Math.random() * SUPPLY_TIERS.length)].value
           : parseInt(supplyTier);
@@ -191,9 +196,11 @@ export function AutoGenerateToken({ userId, onSuccess }: AutoGenerateTokenProps)
       setProgress(100);
 
       if (created > 0) {
-        toast.success(`🚀 Generated ${created} token${created > 1 ? 's' : ''} at KES ${priceNum}`);
+        const range = minNum === maxNum ? `KES ${minNum}` : `KES ${minNum}–${maxNum}`;
+        toast.success(`🚀 Generated ${created} token${created > 1 ? 's' : ''} (${range})`);
         onSuccess();
-        setPrice('');
+        setPriceMin('');
+        setPriceMax('');
         setPreview(null);
       } else {
         toast.error('Could not generate tokens (names may already exist)');
@@ -215,10 +222,14 @@ export function AutoGenerateToken({ userId, onSuccess }: AutoGenerateTokenProps)
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-3 gap-3">
           <div className="space-y-1.5">
-            <Label className="text-xs">Initial Price (KES)</Label>
-            <Input type="number" placeholder="0.001" value={price} onChange={(e) => setPrice(e.target.value)} step="0.001" />
+            <Label className="text-xs">Min Price (KES)</Label>
+            <Input type="number" placeholder="0.001" value={priceMin} onChange={(e) => setPriceMin(e.target.value)} step="0.001" />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs">Max Price (KES)</Label>
+            <Input type="number" placeholder="0.05" value={priceMax} onChange={(e) => setPriceMax(e.target.value)} step="0.001" />
           </div>
           <div className="space-y-1.5">
             <Label className="text-xs">How Many (1-50)</Label>
@@ -290,12 +301,12 @@ export function AutoGenerateToken({ userId, onSuccess }: AutoGenerateTokenProps)
           </div>
         )}
 
-        <Button onClick={handleGenerate} disabled={generating || !price} className="w-full gap-2" variant="hero">
+        <Button onClick={handleGenerate} disabled={generating || !priceMin} className="w-full gap-2" variant="hero">
           {generating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wand2 className="h-4 w-4" />}
           {generating ? 'Generating...' : `Generate ${parseInt(count) > 1 ? parseInt(count) + ' Tokens' : 'Token'}`}
         </Button>
         <p className="text-[10px] text-muted-foreground">
-          Parallel generation: unique avatars, names, symbols, social links & market data. Up to 50 tokens at once.
+          Each token gets a random price within your range — gives the batch organic variety. Parallel avatar generation up to 50 at once.
         </p>
       </CardContent>
     </Card>

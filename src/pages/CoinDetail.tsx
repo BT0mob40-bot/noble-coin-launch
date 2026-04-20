@@ -210,43 +210,16 @@ export default function CoinDetail() {
       if (useWallet) {
         if (totalWithFee > userFiatBalance) { toast.error('Insufficient wallet balance'); setProcessing(false); return; }
 
-        const { data: transaction, error: txError } = await supabase
-          .from('transactions')
-          .insert({ user_id: user.id, coin_id: coin.id, type: 'buy', amount, price_per_coin: coin.price, total_value: totalValue, status: 'completed' })
-          .select().single();
-        if (txError) throw txError;
-
-        await supabase.from('wallets').update({ fiat_balance: userFiatBalance - totalWithFee }).eq('user_id', user.id);
-        await supabase.from('commission_transactions').insert({ transaction_id: transaction.id, amount: fee, commission_rate: settings.fee_percentage });
-
-        const { data: existingHolding } = await supabase
-          .from('holdings').select('id, amount, average_buy_price')
-          .eq('user_id', user.id).eq('coin_id', coin.id).maybeSingle();
-
-        if (existingHolding) {
-          const newAmount = existingHolding.amount + amount;
-          const newAvgPrice = ((existingHolding.amount * existingHolding.average_buy_price) + (amount * coin.price)) / newAmount;
-          await supabase.from('holdings').update({ amount: newAmount, average_buy_price: newAvgPrice }).eq('id', existingHolding.id);
-        } else {
-          await supabase.from('holdings').insert({ user_id: user.id, coin_id: coin.id, amount, average_buy_price: coin.price });
-        }
-
-        await supabase.from('coins').update({
-          circulating_supply: coin.circulating_supply + amount,
-          holders_count: existingHolding ? coin.holders_count : coin.holders_count + 1,
-          liquidity: (coin.liquidity || 0) + totalValue,
-        }).eq('id', coin.id);
-
-        // Record price history for real charts
-        await supabase.from('price_history').insert({
-          coin_id: coin.id, price: coin.price, volume: totalValue, trade_type: 'buy',
+        // Atomic single-RPC trade — fast & race-safe
+        const { error: rpcErr } = await (supabase.rpc as any)('execute_trade', {
+          _user_id: user.id,
+          _coin_id: coin.id,
+          _trade_type: 'buy',
+          _amount: amount,
+          _use_wallet: true,
+          _to_wallet: false,
         });
-
-        if (coin.creator_id && coin.creator_id !== user.id && settings.creator_commission_percentage) {
-          const creatorEarning = totalValue * (settings.creator_commission_percentage / 100);
-          const { data: cw } = await supabase.from('wallets').select('fiat_balance').eq('user_id', coin.creator_id).single();
-          if (cw) await supabase.from('wallets').update({ fiat_balance: cw.fiat_balance + creatorEarning }).eq('user_id', coin.creator_id);
-        }
+        if (rpcErr) throw rpcErr;
 
         toast.success('Purchase successful!');
         sendLocalNotification('✅ Trade Confirmed', `Bought ${amount.toLocaleString()} ${coin.symbol} for KES ${totalValue.toLocaleString()}`);
@@ -303,45 +276,22 @@ export default function CoinDetail() {
       const fee = totalValue * (settings.fee_percentage / 100);
       const netValue = totalValue - fee;
 
-      const { data: transaction, error } = await supabase
-        .from('transactions')
-        .insert({ user_id: user.id, coin_id: coin.id, type: 'sell', amount, price_per_coin: coin.price, total_value: totalValue, status: 'completed' })
-        .select().single();
-      if (error) throw error;
-
-      await supabase.from('commission_transactions').insert({ transaction_id: transaction.id, amount: fee, commission_rate: settings.fee_percentage });
-
-      const newAmount = userHolding - amount;
-      if (newAmount <= 0) {
-        await supabase.from('holdings').delete().eq('user_id', user.id).eq('coin_id', coin.id);
-      } else {
-        await supabase.from('holdings').update({ amount: newAmount }).eq('user_id', user.id).eq('coin_id', coin.id);
-      }
-
-      await supabase.from('coins').update({
-        circulating_supply: Math.max(0, coin.circulating_supply - amount),
-        holders_count: newAmount <= 0 ? Math.max(0, coin.holders_count - 1) : coin.holders_count,
-        liquidity: Math.max(0, (coin.liquidity || 0) - totalValue),
-      }).eq('id', coin.id);
-
-      // Record price history for real charts
-      await supabase.from('price_history').insert({
-        coin_id: coin.id, price: coin.price, volume: totalValue, trade_type: 'sell',
+      const { error: rpcErr } = await (supabase.rpc as any)('execute_trade', {
+        _user_id: user.id,
+        _coin_id: coin.id,
+        _trade_type: 'sell',
+        _amount: amount,
+        _use_wallet: false,
+        _to_wallet: toWallet,
       });
+      if (rpcErr) throw rpcErr;
 
       if (toWallet) {
-        await supabase.from('wallets').update({ fiat_balance: userFiatBalance + netValue }).eq('user_id', user.id);
         toast.success(`Sold! KES ${netValue.toLocaleString()} added to wallet.`);
         sendLocalNotification('💰 Sell Confirmed', `Sold ${amount.toLocaleString()} ${coin.symbol} for KES ${netValue.toLocaleString()}`);
       } else {
         toast.success('Sell order placed!');
         sendLocalNotification('📤 Sell Order', `Sell order for ${amount.toLocaleString()} ${coin.symbol} placed`);
-      }
-
-      if (coin.creator_id && coin.creator_id !== user.id && settings.creator_commission_percentage) {
-        const creatorEarning = totalValue * (settings.creator_commission_percentage / 100);
-        const { data: cw } = await supabase.from('wallets').select('fiat_balance').eq('user_id', coin.creator_id).single();
-        if (cw) await supabase.from('wallets').update({ fiat_balance: cw.fiat_balance + creatorEarning }).eq('user_id', coin.creator_id);
       }
 
       fetchUserData();

@@ -1246,6 +1246,17 @@ export type Database = {
         }
         Returns: number
       }
+      execute_trade: {
+        Args: {
+          _amount: number
+          _coin_id: string
+          _to_wallet: boolean
+          _trade_type: string
+          _use_wallet: boolean
+          _user_id: string
+        }
+        Returns: Json
+      }
       expire_live_streams: { Args: never; Returns: undefined }
       generate_referral_code: { Args: never; Returns: string }
       get_base_url: { Args: never; Returns: string }

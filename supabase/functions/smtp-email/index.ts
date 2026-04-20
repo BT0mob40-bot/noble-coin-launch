@@ -57,6 +57,18 @@ function tplWelcome(siteName: string, userName: string, domain: string) {
   return shell("Welcome", "linear-gradient(135deg,#3b82f6,#6366f1)", body, siteName, domain);
 }
 
+function tplSignupConfirm(siteName: string, link: string, domain: string) {
+  const body = `
+    <p style="color:#374151;font-size:15px;line-height:1.6;margin:0 0 16px;">Welcome to <strong>${siteName}</strong>!</p>
+    <p style="color:#374151;font-size:15px;line-height:1.6;margin:0 0 24px;">Confirm your email address to activate your account:</p>
+    <table width="100%"><tr><td align="center" style="padding:8px 0 24px;">
+      <a href="${link}" style="display:inline-block;background:linear-gradient(135deg,#3b82f6,#6366f1);color:#fff;text-decoration:none;padding:14px 36px;border-radius:10px;font-size:15px;font-weight:600;">Confirm Email</a>
+    </td></tr></table>
+    <p style="color:#6b7280;font-size:13px;margin:0 0 12px;">This link expires in 24 hours.</p>
+    <p style="color:#9ca3af;font-size:11px;word-break:break-all;">Or copy: <a href="${link}" style="color:#3b82f6;">${link}</a></p>`;
+  return shell("Confirm your email", "linear-gradient(135deg,#3b82f6,#6366f1)", body, siteName, domain);
+}
+
 function tplDeposit(siteName: string, amount: string, domain: string) {
   const body = `
     <p style="color:#374151;font-size:15px;margin:0 0 16px;">Your deposit was successful!</p>
@@ -165,7 +177,7 @@ Deno.serve(async (req) => {
     const adminClient = createClient(supabaseUrl, serviceKey);
 
     const body = await req.json().catch(() => ({}));
-    const { type, email, code, redirect_to, origin, user_name, amount, subject: subjOverride, message } = body;
+    const { type, email, code, redirect_to, origin, user_name, amount, subject: subjOverride, message, password } = body;
 
     if (!email || !type) {
       return jsonResponse({ ok: false, error: "email and type are required" });
@@ -256,6 +268,40 @@ Deno.serve(async (req) => {
         subject = `Deposit confirmed — ${siteName}`;
         html = tplDeposit(siteName, String(amount ?? "0"), domain);
         break;
+      case "signup_confirm": {
+        // Generate the official Supabase email-confirmation link, but deliver it via OUR working SMTP.
+        // Works whether the user already exists (unconfirmed) or not (we create them inline).
+        const redirectTo = redirect_to || `${baseOrigin || ""}/`;
+        let linkData: any = null;
+        let linkErr: any = null;
+
+        // Try as new signup first (only works if user doesn't exist yet)
+        if (password) {
+          const r = await adminClient.auth.admin.generateLink({
+            type: "signup",
+            email,
+            password,
+            options: { redirectTo },
+          });
+          linkData = r.data; linkErr = r.error;
+        }
+        // Fallback: user already created → generate confirmation link via invite/magiclink type
+        if (!linkData?.properties?.action_link) {
+          const r = await adminClient.auth.admin.generateLink({
+            type: "magiclink",
+            email,
+            options: { redirectTo },
+          });
+          linkData = r.data; linkErr = r.error;
+        }
+        if (!linkData?.properties?.action_link) {
+          return jsonResponse({ ok: false, error: "Could not generate confirmation link: " + (linkErr?.message || "unknown") });
+        }
+        const confirmLink = linkData.properties.action_link;
+        subject = `Confirm your email — ${siteName}`;
+        html = tplSignupConfirm(siteName, confirmLink, domain);
+        break;
+      }
       case "generic":
         subject = subjOverride || `Notification from ${siteName}`;
         html = tplGeneric(siteName, subject, message || "", domain);

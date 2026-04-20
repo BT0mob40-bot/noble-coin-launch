@@ -1246,6 +1246,14 @@ export type Database = {
         }
         Returns: number
       }
+      complete_mpesa_buy: {
+        Args: { _mpesa_receipt: string; _transaction_id: string }
+        Returns: Json
+      }
+      complete_mpesa_deposit: {
+        Args: { _mpesa_receipt: string; _payment_request_id: string }
+        Returns: Json
+      }
       execute_trade: {
         Args: {
           _amount: number

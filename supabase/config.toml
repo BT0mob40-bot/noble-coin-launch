@@ -27,6 +27,9 @@ verify_jwt = false
 [functions.organic-price-drift]
 verify_jwt = false
 
+[functions.daily-cleanup]
+verify_jwt = false
+
 [functions.reset-password-confirm]
 verify_jwt = false
 

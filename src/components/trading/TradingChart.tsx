@@ -66,11 +66,18 @@ export function TradingChart({ symbol, currentPrice, volatility, coinId, isOverr
 
     if (error || !data || data.length < 2) return null;
 
+    // Hide drift candles on short timeframes so trader-driven moves stand out
+    const hideDrift = timeframe === '1M' || timeframe === '5M';
+    const filtered = hideDrift
+      ? data.filter((r: any) => r.trade_type !== 'drift')
+      : data;
+    if (filtered.length < 2) return null;
+
     // Bucket data into time intervals
     const intervalMs = TIMEFRAME_MINUTES[timeframe] * 60 * 1000;
     const buckets = new Map<number, { prices: number[]; volume: number }>();
 
-    data.forEach((row) => {
+    filtered.forEach((row) => {
       const ts = new Date(row.created_at).getTime();
       const bucket = Math.floor(ts / intervalMs) * intervalMs;
       if (!buckets.has(bucket)) buckets.set(bucket, { prices: [], volume: 0 });

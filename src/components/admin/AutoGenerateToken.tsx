@@ -196,9 +196,11 @@ export function AutoGenerateToken({ userId, onSuccess }: AutoGenerateTokenProps)
       setProgress(100);
 
       if (created > 0) {
-        toast.success(`🚀 Generated ${created} token${created > 1 ? 's' : ''} at KES ${priceNum}`);
+        const range = minNum === maxNum ? `KES ${minNum}` : `KES ${minNum}–${maxNum}`;
+        toast.success(`🚀 Generated ${created} token${created > 1 ? 's' : ''} (${range})`);
         onSuccess();
-        setPrice('');
+        setPriceMin('');
+        setPriceMax('');
         setPreview(null);
       } else {
         toast.error('Could not generate tokens (names may already exist)');
@@ -220,10 +222,14 @@ export function AutoGenerateToken({ userId, onSuccess }: AutoGenerateTokenProps)
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-3 gap-3">
           <div className="space-y-1.5">
-            <Label className="text-xs">Initial Price (KES)</Label>
-            <Input type="number" placeholder="0.001" value={price} onChange={(e) => setPrice(e.target.value)} step="0.001" />
+            <Label className="text-xs">Min Price (KES)</Label>
+            <Input type="number" placeholder="0.001" value={priceMin} onChange={(e) => setPriceMin(e.target.value)} step="0.001" />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs">Max Price (KES)</Label>
+            <Input type="number" placeholder="0.05" value={priceMax} onChange={(e) => setPriceMax(e.target.value)} step="0.001" />
           </div>
           <div className="space-y-1.5">
             <Label className="text-xs">How Many (1-50)</Label>

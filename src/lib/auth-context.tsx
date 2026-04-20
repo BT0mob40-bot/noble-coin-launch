@@ -77,16 +77,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signUp = async (email: string, password: string) => {
     const redirectUrl = `${window.location.origin}/`;
-    
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        emailRedirectTo: redirectUrl
-      }
+
+    // Use our own SMTP for the confirmation email.
+    // The function tries signup-link first (creates the user inline if new),
+    // then falls back to magiclink for already-created accounts.
+    const { data, error: smtpError } = await supabase.functions.invoke('smtp-email', {
+      body: {
+        type: 'signup_confirm',
+        email,
+        password,
+        origin: window.location.origin,
+        redirect_to: redirectUrl,
+      },
     });
-    
-    return { error: error as Error | null };
+
+    if (smtpError || (data && data.ok === false)) {
+      const msg = (data && data.error) || smtpError?.message || 'Failed to send confirmation email';
+      return { error: new Error(msg) };
+    }
+
+    return { error: null };
   };
 
   const signIn = async (email: string, password: string) => {

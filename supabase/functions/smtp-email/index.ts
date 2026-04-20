@@ -177,7 +177,7 @@ Deno.serve(async (req) => {
     const adminClient = createClient(supabaseUrl, serviceKey);
 
     const body = await req.json().catch(() => ({}));
-    const { type, email, code, redirect_to, origin, user_name, amount, subject: subjOverride, message } = body;
+    const { type, email, code, redirect_to, origin, user_name, amount, subject: subjOverride, message, password } = body;
 
     if (!email || !type) {
       return jsonResponse({ ok: false, error: "email and type are required" });

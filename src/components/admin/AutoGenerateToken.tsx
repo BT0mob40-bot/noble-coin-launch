@@ -79,7 +79,8 @@ interface AutoGenerateTokenProps {
 }
 
 export function AutoGenerateToken({ userId, onSuccess }: AutoGenerateTokenProps) {
-  const [price, setPrice] = useState('');
+  const [priceMin, setPriceMin] = useState('');
+  const [priceMax, setPriceMax] = useState('');
   const [count, setCount] = useState('1');
   const [isTrending, setIsTrending] = useState(false);
   const [isFeatured, setIsFeatured] = useState(false);
@@ -106,9 +107,11 @@ export function AutoGenerateToken({ userId, onSuccess }: AutoGenerateTokenProps)
   };
 
   const handleGenerate = async () => {
-    const priceNum = parseFloat(price);
+    const minNum = parseFloat(priceMin);
+    const maxNum = parseFloat(priceMax) || minNum;
     const countNum = parseInt(count) || 1;
-    if (!priceNum || priceNum <= 0) { toast.error('Enter a valid price'); return; }
+    if (!minNum || minNum <= 0) { toast.error('Enter a valid minimum price'); return; }
+    if (maxNum < minNum) { toast.error('Max price must be ≥ min price'); return; }
     if (countNum < 1 || countNum > 50) { toast.error('Generate 1-50 tokens at a time'); return; }
 
     setGenerating(true);
@@ -123,6 +126,8 @@ export function AutoGenerateToken({ userId, onSuccess }: AutoGenerateTokenProps)
 
       for (let i = 0; i < countNum; i++) {
         const { name, symbol } = generateName();
+        // Random price within admin-defined range — gives organic variety to the batch
+        const priceNum = parseFloat((minNum + Math.random() * (maxNum - minNum)).toFixed(6));
         const totalSupply = supplyTier === 'random'
           ? SUPPLY_TIERS[Math.floor(Math.random() * SUPPLY_TIERS.length)].value
           : parseInt(supplyTier);

@@ -268,6 +268,40 @@ Deno.serve(async (req) => {
         subject = `Deposit confirmed — ${siteName}`;
         html = tplDeposit(siteName, String(amount ?? "0"), domain);
         break;
+      case "signup_confirm": {
+        // Generate the official Supabase email-confirmation link, but deliver it via OUR working SMTP.
+        // Works whether the user already exists (unconfirmed) or not (we create them inline).
+        const redirectTo = redirect_to || `${baseOrigin || ""}/`;
+        let linkData: any = null;
+        let linkErr: any = null;
+
+        // Try as new signup first (only works if user doesn't exist yet)
+        if (password) {
+          const r = await adminClient.auth.admin.generateLink({
+            type: "signup",
+            email,
+            password,
+            options: { redirectTo },
+          });
+          linkData = r.data; linkErr = r.error;
+        }
+        // Fallback: user already created → generate confirmation link via invite/magiclink type
+        if (!linkData?.properties?.action_link) {
+          const r = await adminClient.auth.admin.generateLink({
+            type: "magiclink",
+            email,
+            options: { redirectTo },
+          });
+          linkData = r.data; linkErr = r.error;
+        }
+        if (!linkData?.properties?.action_link) {
+          return jsonResponse({ ok: false, error: "Could not generate confirmation link: " + (linkErr?.message || "unknown") });
+        }
+        const confirmLink = linkData.properties.action_link;
+        subject = `Confirm your email — ${siteName}`;
+        html = tplSignupConfirm(siteName, confirmLink, domain);
+        break;
+      }
       case "generic":
         subject = subjOverride || `Notification from ${siteName}`;
         html = tplGeneric(siteName, subject, message || "", domain);

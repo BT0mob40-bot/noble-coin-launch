@@ -301,12 +301,12 @@ export function AutoGenerateToken({ userId, onSuccess }: AutoGenerateTokenProps)
           </div>
         )}
 
-        <Button onClick={handleGenerate} disabled={generating || !price} className="w-full gap-2" variant="hero">
+        <Button onClick={handleGenerate} disabled={generating || !priceMin} className="w-full gap-2" variant="hero">
           {generating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wand2 className="h-4 w-4" />}
           {generating ? 'Generating...' : `Generate ${parseInt(count) > 1 ? parseInt(count) + ' Tokens' : 'Token'}`}
         </Button>
         <p className="text-[10px] text-muted-foreground">
-          Parallel generation: unique avatars, names, symbols, social links & market data. Up to 50 tokens at once.
+          Each token gets a random price within your range — gives the batch organic variety. Parallel avatar generation up to 50 at once.
         </p>
       </CardContent>
     </Card>

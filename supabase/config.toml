@@ -23,3 +23,12 @@ verify_jwt = false
 
 [functions.send-sms-otp]
 verify_jwt = false
+
+[functions.organic-price-drift]
+verify_jwt = false
+
+[functions.reset-password-confirm]
+verify_jwt = false
+
+[functions.smtp-email]
+verify_jwt = false

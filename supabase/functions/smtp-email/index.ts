@@ -57,6 +57,18 @@ function tplWelcome(siteName: string, userName: string, domain: string) {
   return shell("Welcome", "linear-gradient(135deg,#3b82f6,#6366f1)", body, siteName, domain);
 }
 
+function tplSignupConfirm(siteName: string, link: string, domain: string) {
+  const body = `
+    <p style="color:#374151;font-size:15px;line-height:1.6;margin:0 0 16px;">Welcome to <strong>${siteName}</strong>!</p>
+    <p style="color:#374151;font-size:15px;line-height:1.6;margin:0 0 24px;">Confirm your email address to activate your account:</p>
+    <table width="100%"><tr><td align="center" style="padding:8px 0 24px;">
+      <a href="${link}" style="display:inline-block;background:linear-gradient(135deg,#3b82f6,#6366f1);color:#fff;text-decoration:none;padding:14px 36px;border-radius:10px;font-size:15px;font-weight:600;">Confirm Email</a>
+    </td></tr></table>
+    <p style="color:#6b7280;font-size:13px;margin:0 0 12px;">This link expires in 24 hours.</p>
+    <p style="color:#9ca3af;font-size:11px;word-break:break-all;">Or copy: <a href="${link}" style="color:#3b82f6;">${link}</a></p>`;
+  return shell("Confirm your email", "linear-gradient(135deg,#3b82f6,#6366f1)", body, siteName, domain);
+}
+
 function tplDeposit(siteName: string, amount: string, domain: string) {
   const body = `
     <p style="color:#374151;font-size:15px;margin:0 0 16px;">Your deposit was successful!</p>

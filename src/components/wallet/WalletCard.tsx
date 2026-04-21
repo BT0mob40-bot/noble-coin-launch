@@ -30,10 +30,12 @@ export function WalletCard({ fiatBalance, userId, onBalanceChange }: WalletCardP
   const [withdrawalFeePct, setWithdrawalFeePct] = useState(0);
   const [elapsed, setElapsed] = useState(0);
   const [checkoutRequestId, setCheckoutRequestId] = useState<string | null>(null);
+  const [paymentRequestId, setPaymentRequestId] = useState<string | null>(null);
 
   // STK Polling for deposits
   useStkPolling({
     checkoutRequestId,
+    paymentRequestId,
     enabled: depositStatus === 'processing' && !!checkoutRequestId,
     onComplete: useCallback(() => {
       setDepositStatus('success');
@@ -75,12 +77,31 @@ export function WalletCard({ fiatBalance, userId, onBalanceChange }: WalletCardP
       if (formattedPhone.startsWith('0')) formattedPhone = '254' + formattedPhone.substring(1);
       else if (!formattedPhone.startsWith('254')) formattedPhone = '254' + formattedPhone;
 
+      const { data: paymentRequest, error: paymentRequestError } = await supabase
+        .from('payment_requests')
+        .insert({
+          user_id: userId,
+          type: 'deposit',
+          amount: Math.round(depositAmount),
+          phone: formattedPhone,
+          status: 'pending',
+        })
+        .select('id')
+        .single();
+
+      if (paymentRequestError || !paymentRequest?.id) {
+        throw paymentRequestError || new Error('Failed to create deposit request');
+      }
+
+      setPaymentRequestId(paymentRequest.id);
+
       const { data, error } = await supabase.functions.invoke('mpesa-stk-push', {
-        body: { phone: formattedPhone, amount: Math.round(depositAmount), type: 'deposit', userId, accountReference: `DEPOSIT-${userId.slice(0, 8)}` },
+        body: { phone: formattedPhone, amount: Math.round(depositAmount), type: 'deposit', userId, paymentRequestId: paymentRequest.id, accountReference: `DEPOSIT-${userId.slice(0, 8)}` },
       });
 
       if (error || (data && !data.success)) {
         console.error('Deposit STK error:', error || data?.error);
+        await supabase.from('payment_requests').update({ status: 'failed', result_desc: data?.error || error?.message || 'STK push failed' }).eq('id', paymentRequest.id);
         setDepositStatus('failed');
         return;
       }
@@ -128,7 +149,7 @@ export function WalletCard({ fiatBalance, userId, onBalanceChange }: WalletCardP
   };
 
   const closeDeposit = () => {
-    setShowDeposit(false); setDepositStatus('form'); setAmount(''); setPhone(''); setElapsed(0); setCheckoutRequestId(null);
+    setShowDeposit(false); setDepositStatus('form'); setAmount(''); setPhone(''); setElapsed(0); setCheckoutRequestId(null); setPaymentRequestId(null);
   };
 
   return (
@@ -217,7 +238,7 @@ export function WalletCard({ fiatBalance, userId, onBalanceChange }: WalletCardP
                 </motion.div>
                 <p className="text-base font-bold text-success">Deposit Successful!</p>
                 <p className="text-xs text-muted-foreground">Funds added to your wallet</p>
-                <Button variant="hero" size="sm" onClick={closeDeposit}>Done</Button>
+                  <Button variant="hero" size="sm" onClick={closeDeposit}>Done</Button>
               </motion.div>
             )}
             {depositStatus === 'failed' && (
@@ -229,7 +250,7 @@ export function WalletCard({ fiatBalance, userId, onBalanceChange }: WalletCardP
                 <p className="text-xs text-muted-foreground">Transaction cancelled or failed</p>
                 <div className="flex gap-2">
                   <Button variant="outline" size="sm" onClick={closeDeposit}>Close</Button>
-                  <Button variant="hero" size="sm" onClick={() => { setDepositStatus('form'); setCheckoutRequestId(null); }}>Try Again</Button>
+                  <Button variant="hero" size="sm" onClick={() => { setDepositStatus('form'); setCheckoutRequestId(null); setPaymentRequestId(null); }}>Try Again</Button>
                 </div>
               </motion.div>
             )}
@@ -242,7 +263,7 @@ export function WalletCard({ fiatBalance, userId, onBalanceChange }: WalletCardP
                 <p className="text-xs text-muted-foreground">Payment wasn't completed in time</p>
                 <div className="flex gap-2">
                   <Button variant="outline" size="sm" onClick={closeDeposit}>Close</Button>
-                  <Button variant="hero" size="sm" onClick={() => { setDepositStatus('form'); setCheckoutRequestId(null); }}>Try Again</Button>
+                  <Button variant="hero" size="sm" onClick={() => { setDepositStatus('form'); setCheckoutRequestId(null); setPaymentRequestId(null); }}>Try Again</Button>
                 </div>
               </motion.div>
             )}

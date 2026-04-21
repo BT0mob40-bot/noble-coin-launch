@@ -5,6 +5,8 @@ type PollStatus = 'pending' | 'completed' | 'failed' | 'timeout';
 
 interface UseStkPollingOptions {
   checkoutRequestId: string | null;
+  transactionId?: string | null;
+  paymentRequestId?: string | null;
   enabled: boolean;
   onComplete: () => void;
   onFailed: (desc?: string) => void;
@@ -15,6 +17,8 @@ interface UseStkPollingOptions {
 
 export function useStkPolling({
   checkoutRequestId,
+  transactionId,
+  paymentRequestId,
   enabled,
   onComplete,
   onFailed,
@@ -50,7 +54,7 @@ export function useStkPolling({
 
       try {
         const { data, error } = await supabase.functions.invoke('mpesa-stk-query', {
-          body: { checkoutRequestId },
+          body: { checkoutRequestId, transactionId, paymentRequestId },
         });
 
         if (!activeRef.current) return;
@@ -85,7 +89,7 @@ export function useStkPolling({
     timerRef.current = setTimeout(poll, 5000);
 
     return cleanup;
-  }, [enabled, checkoutRequestId, onComplete, onFailed, onTimeout, maxAttempts, intervalMs, cleanup]);
+  }, [enabled, checkoutRequestId, transactionId, paymentRequestId, onComplete, onFailed, onTimeout, maxAttempts, intervalMs, cleanup]);
 
   return { stop: cleanup };
 }

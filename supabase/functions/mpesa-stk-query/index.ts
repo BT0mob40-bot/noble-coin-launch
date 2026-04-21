@@ -34,9 +34,9 @@ Deno.serve(async (req) => {
       });
     }
 
-    const { checkoutRequestId } = await req.json();
-    if (!checkoutRequestId) {
-      return new Response(JSON.stringify({ error: "Missing checkoutRequestId" }), {
+    const { checkoutRequestId, transactionId, paymentRequestId } = await req.json();
+    if (!checkoutRequestId && !transactionId && !paymentRequestId) {
+      return new Response(JSON.stringify({ error: "Missing checkoutRequestId or record reference" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -48,11 +48,12 @@ Deno.serve(async (req) => {
     );
 
     // First check if we already have a result in our DB
-    const { data: tx } = await adminClient
-      .from("transactions")
-      .select("status")
-      .eq("mpesa_receipt", checkoutRequestId)
-      .maybeSingle();
+    const txLookup = transactionId
+      ? adminClient.from("transactions").select("id,status,mpesa_receipt").eq("id", transactionId).maybeSingle()
+      : adminClient.from("transactions").select("id,status,mpesa_receipt").eq("mpesa_receipt", checkoutRequestId).maybeSingle();
+    const { data: tx } = await txLookup;
+
+    const effectiveCheckoutRequestId = checkoutRequestId || tx?.mpesa_receipt;
 
     if (tx?.status === "completed") {
       return new Response(JSON.stringify({ status: "completed", resultCode: 0 }), {
@@ -65,11 +66,16 @@ Deno.serve(async (req) => {
       });
     }
 
-    const { data: pr } = await adminClient
-      .from("payment_requests")
-      .select("*")
-      .eq("checkout_request_id", checkoutRequestId)
-      .maybeSingle();
+    const prLookup = paymentRequestId
+      ? adminClient.from("payment_requests").select("*").eq("id", paymentRequestId).maybeSingle()
+      : adminClient.from("payment_requests").select("*").eq("checkout_request_id", effectiveCheckoutRequestId).maybeSingle();
+    const { data: pr } = await prLookup;
+    if (!effectiveCheckoutRequestId) {
+      return new Response(JSON.stringify({ status: "pending", message: "Awaiting checkout reference" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
 
     if (pr?.status === "completed") {
       return new Response(JSON.stringify({ status: "completed", resultCode: 0 }), {
@@ -124,7 +130,7 @@ Deno.serve(async (req) => {
         BusinessShortCode: mpesaConfig.paybill_number,
         Password: password,
         Timestamp: timestamp,
-        CheckoutRequestID: checkoutRequestId,
+         CheckoutRequestID: effectiveCheckoutRequestId,
       }),
     });
 
@@ -142,11 +148,11 @@ Deno.serve(async (req) => {
     // 0 = success, 1032 = cancelled by user, 1037 = DS timeout, 1 = insufficient balance
     if (resultCode === 0) {
       // Atomic allocation via RPC — idempotent, safe if callback also fires
-      const tx2 = await adminClient.from("transactions").select("id").eq("mpesa_receipt", checkoutRequestId).maybeSingle();
-      if (tx2.data?.id) {
+      const transactionToComplete = tx?.id ? { data: { id: tx.id } } : await adminClient.from("transactions").select("id").eq("mpesa_receipt", effectiveCheckoutRequestId).maybeSingle();
+      if (transactionToComplete.data?.id) {
         const { error: rpcErr } = await adminClient.rpc("complete_mpesa_buy", {
-          _transaction_id: tx2.data.id,
-          _mpesa_receipt: checkoutRequestId,
+          _transaction_id: transactionToComplete.data.id,
+          _mpesa_receipt: effectiveCheckoutRequestId,
         });
         if (rpcErr) console.error("complete_mpesa_buy from query:", rpcErr);
       }
@@ -154,7 +160,7 @@ Deno.serve(async (req) => {
       if (pr) {
         const { error: rpcErr2 } = await adminClient.rpc("complete_mpesa_deposit", {
           _payment_request_id: pr.id,
-          _mpesa_receipt: checkoutRequestId,
+          _mpesa_receipt: effectiveCheckoutRequestId,
         });
         if (rpcErr2) console.error("complete_mpesa_deposit from query:", rpcErr2);
       }
@@ -171,10 +177,10 @@ Deno.serve(async (req) => {
       // Any non-zero result code = failed/cancelled/timeout
       // Update DB status for fast subsequent checks
       if (tx) {
-        await adminClient.from("transactions").update({ status: "failed" }).eq("mpesa_receipt", checkoutRequestId);
+        await adminClient.from("transactions").update({ status: "failed", mpesa_receipt: effectiveCheckoutRequestId }).eq("id", tx.id);
       }
       if (pr) {
-        await adminClient.from("payment_requests").update({ status: "failed", result_desc: queryResult.ResultDesc || "Failed" }).eq("checkout_request_id", checkoutRequestId);
+        await adminClient.from("payment_requests").update({ status: "failed", result_desc: queryResult.ResultDesc || "Failed", mpesa_receipt: effectiveCheckoutRequestId }).eq("id", pr.id);
       }
 
       return new Response(JSON.stringify({

@@ -10,6 +10,7 @@ interface STKPushRequest {
   phone: string;
   amount: number;
   transactionId?: string;
+  paymentRequestId?: string;
   accountReference?: string;
   type?: "buy" | "deposit" | "coin_creation";
   userId?: string;
@@ -31,7 +32,7 @@ Deno.serve(async (req) => {
     }
 
     const body: STKPushRequest = await req.json();
-    const { phone, amount, transactionId, accountReference, type = "buy", userId } = body;
+    const { phone, amount, transactionId, paymentRequestId, accountReference, type = "buy", userId } = body;
 
     // Determine caller identity
     let authenticatedUserId: string;
@@ -216,16 +217,26 @@ Deno.serve(async (req) => {
     }
 
     if (type === "deposit" || type === "coin_creation") {
-      await adminClient.from("payment_requests").insert({
-        user_id: userId || authenticatedUserId,
-        coin_id: type === "coin_creation" ? transactionId || null : null,
-        type,
-        amount: Math.round(amount),
-        phone: formattedPhone,
-        checkout_request_id: checkoutRequestId,
-        merchant_request_id: merchantRequestId,
-        status: "stk_sent",
-      });
+      if (paymentRequestId) {
+        await adminClient.from("payment_requests").update({
+          coin_id: type === "coin_creation" ? transactionId || null : null,
+          checkout_request_id: checkoutRequestId,
+          merchant_request_id: merchantRequestId,
+          phone: formattedPhone,
+          status: "stk_sent",
+        }).eq("id", paymentRequestId).eq("user_id", userId || authenticatedUserId);
+      } else {
+        await adminClient.from("payment_requests").insert({
+          user_id: userId || authenticatedUserId,
+          coin_id: type === "coin_creation" ? transactionId || null : null,
+          type,
+          amount: Math.round(amount),
+          phone: formattedPhone,
+          checkout_request_id: checkoutRequestId,
+          merchant_request_id: merchantRequestId,
+          status: "stk_sent",
+        });
+      }
     }
 
     return new Response(

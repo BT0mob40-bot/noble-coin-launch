@@ -35,11 +35,39 @@ Deno.serve(async (req) => {
       }
     }
 
-    const { data: transaction } = await supabase
+    let { data: transaction } = await supabase
       .from("transactions").select("id,status").eq("mpesa_receipt", CheckoutRequestID).maybeSingle();
 
-    const { data: paymentRequest } = await supabase
+    let { data: paymentRequest } = await supabase
       .from("payment_requests").select("id,status").eq("checkout_request_id", CheckoutRequestID).maybeSingle();
+
+    if (!transaction) {
+      const txFallback = await supabase
+        .from("transactions")
+        .select("id,status")
+        .eq("status", "pending")
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (txFallback.data?.id) {
+        transaction = txFallback.data;
+        await supabase.from("transactions").update({ mpesa_receipt: CheckoutRequestID }).eq("id", txFallback.data.id);
+      }
+    }
+
+    if (!paymentRequest) {
+      const prFallback = await supabase
+        .from("payment_requests")
+        .select("id,status")
+        .eq("status", "stk_sent")
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (prFallback.data?.id) {
+        paymentRequest = prFallback.data;
+        await supabase.from("payment_requests").update({ checkout_request_id: CheckoutRequestID }).eq("id", prFallback.data.id);
+      }
+    }
 
     if (ResultCode !== 0) {
       if (transaction) await supabase.from("transactions").update({ status: "failed" }).eq("id", transaction.id);

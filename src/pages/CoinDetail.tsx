@@ -80,6 +80,7 @@ export default function CoinDetail() {
   const [paymentStatus, setPaymentStatus] = useState<PaymentStatus>('waiting');
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [checkoutRequestId, setCheckoutRequestId] = useState<string | null>(null);
+  const [pendingTransactionId, setPendingTransactionId] = useState<string | null>(null);
   const [userHolding, setUserHolding] = useState<number>(0);
   const [userFiatBalance, setUserFiatBalance] = useState<number>(0);
   const [settings, setSettings] = useState<SiteSettings>({
@@ -94,6 +95,7 @@ export default function CoinDetail() {
   // STK Polling hook - replaces manual polling
   useStkPolling({
     checkoutRequestId,
+    transactionId: pendingTransactionId,
     enabled: showPaymentModal && paymentStatus === 'waiting' && !!checkoutRequestId,
     onComplete: useCallback(() => {
       setPaymentStatus('success');
@@ -236,6 +238,7 @@ export default function CoinDetail() {
           .select().single();
         if (txError) throw txError;
 
+        setPendingTransactionId(transaction.id);
         setPendingBuyAmount(amount);
         setPaymentStatus('waiting');
         setShowPaymentModal(true);
@@ -245,6 +248,7 @@ export default function CoinDetail() {
         });
 
         if (stkError || (stkData && !stkData.success)) {
+          await supabase.from('transactions').update({ status: 'failed' }).eq('id', transaction.id);
           setPaymentStatus('failed');
           return;
         }
@@ -446,12 +450,12 @@ export default function CoinDetail() {
         open={showPaymentModal}
         onOpenChange={(v) => {
           setShowPaymentModal(v);
-          if (!v) { setPaymentStatus('waiting'); setCheckoutRequestId(null); }
+          if (!v) { setPaymentStatus('waiting'); setCheckoutRequestId(null); setPendingTransactionId(null); }
         }}
         status={paymentStatus}
         coinSymbol={coin.symbol}
         amount={pendingBuyAmount * coin.price}
-        onRetry={() => { setPaymentStatus('waiting'); setShowPaymentModal(false); setCheckoutRequestId(null); }}
+        onRetry={() => { setPaymentStatus('waiting'); setShowPaymentModal(false); setCheckoutRequestId(null); setPendingTransactionId(null); }}
       />
     </div>
   );

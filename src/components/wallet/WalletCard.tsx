@@ -150,6 +150,16 @@ export function WalletCard({ fiatBalance, userId, onBalanceChange }: WalletCardP
       } as any);
       if (reqError) throw reqError;
 
+      // Fire-and-forget withdrawal-requested email
+      try {
+        const { data: profile } = await supabase.from('profiles').select('email').eq('user_id', userId).maybeSingle();
+        if (profile?.email) {
+          supabase.functions.invoke('smtp-email', {
+            body: { type: 'withdrawal_requested', email: profile.email, amount: withdrawAmount, phone, origin: window.location.origin },
+          }).catch(() => {});
+        }
+      } catch {}
+
       toast.success('Withdrawal request submitted for admin approval.');
       setShowWithdraw(false);
       setAmount(''); setPhone('');

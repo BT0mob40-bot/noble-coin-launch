@@ -241,7 +241,7 @@ export default function Auth() {
     }
   };
 
-  // After sign in, update profile if we have stored signup data
+  // After sign in, update profile if we have stored signup data + retry referral
   useEffect(() => {
     if (user) {
       const stored = localStorage.getItem('signup_profile_data');
@@ -250,6 +250,9 @@ export default function Auth() {
         supabase.from('profiles').update({ full_name: fullName, phone } as any).eq('user_id', user.id).then(() => {
           localStorage.removeItem('signup_profile_data');
         });
+      }
+      // Always retry referral on login if a code is still pending and not yet processed
+      if (getReferralCode() && !sessionStorage.getItem(`ref_processed_${user.id}`)) {
         processReferral(user.id);
       }
     }

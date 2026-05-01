@@ -128,6 +128,16 @@ export function WithdrawalManagement() {
 
       if (withdrawalErr) throw withdrawalErr;
 
+      // Notify user via email (fire-and-forget)
+      try {
+        const { data: profile } = await supabase.from('profiles').select('email').eq('user_id', row.user_id).maybeSingle();
+        if (profile?.email) {
+          supabase.functions.invoke('smtp-email', {
+            body: { type: 'withdrawal_rejected', email: profile.email, amount: row.amount, reason: note, origin: window.location.origin },
+          }).catch(() => {});
+        }
+      } catch {}
+
       toast.success('Withdrawal rejected and funds refunded');
       fetchRows();
     } catch (error: any) {

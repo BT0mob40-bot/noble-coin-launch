@@ -32,15 +32,27 @@ export function WalletCard({ fiatBalance, userId, onBalanceChange }: WalletCardP
   const [checkoutRequestId, setCheckoutRequestId] = useState<string | null>(null);
   const [paymentRequestId, setPaymentRequestId] = useState<string | null>(null);
 
+  // Track last deposit amount/phone for email notification
+  const [lastDepositAmount, setLastDepositAmount] = useState<number>(0);
+
   // STK Polling for deposits
   useStkPolling({
     checkoutRequestId,
     paymentRequestId,
     enabled: depositStatus === 'processing' && !!checkoutRequestId,
-    onComplete: useCallback(() => {
+    onComplete: useCallback(async () => {
       setDepositStatus('success');
       onBalanceChange();
-    }, [onBalanceChange]),
+      // Fire-and-forget deposit confirmation email
+      try {
+        const { data: profile } = await supabase.from('profiles').select('email').eq('user_id', userId).maybeSingle();
+        if (profile?.email && lastDepositAmount > 0) {
+          supabase.functions.invoke('smtp-email', {
+            body: { type: 'deposit', email: profile.email, amount: lastDepositAmount, origin: window.location.origin },
+          }).catch(() => {});
+        }
+      } catch {}
+    }, [onBalanceChange, userId, lastDepositAmount]),
     onFailed: useCallback(() => {
       setDepositStatus('failed');
     }, []),

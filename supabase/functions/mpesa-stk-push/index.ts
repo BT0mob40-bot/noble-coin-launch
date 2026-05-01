@@ -141,27 +141,16 @@ Deno.serve(async (req) => {
       ? "https://sandbox.safaricom.co.ke"
       : "https://api.safaricom.co.ke";
 
-    const auth = btoa(`${mpesaConfig.consumer_key}:${mpesaConfig.consumer_secret}`);
-
-    const tokenResponse = await fetch(
-      `${baseUrl}/oauth/v1/generate?grant_type=client_credentials`,
-      {
-        method: "GET",
-        headers: { Authorization: `Basic ${auth}` },
-      }
-    );
-
-    if (!tokenResponse.ok) {
-      const tokenError = await tokenResponse.text();
-      console.error("OAuth token error:", tokenError);
+    let accessToken: string;
+    try {
+      accessToken = await getMpesaAccessToken(baseUrl, mpesaConfig.consumer_key, mpesaConfig.consumer_secret);
+    } catch (e) {
+      console.error("OAuth token error:", e);
       return new Response(JSON.stringify({ error: "Failed to authenticate with M-PESA" }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
-
-    const tokenData = await tokenResponse.json();
-    const accessToken = tokenData.access_token;
 
     const timestamp = new Date().toISOString().replace(/[-:T]/g, "").slice(0, 14);
     const password = btoa(`${mpesaConfig.paybill_number}${mpesaConfig.passkey}${timestamp}`);

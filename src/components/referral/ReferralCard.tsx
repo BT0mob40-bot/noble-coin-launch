@@ -145,18 +145,23 @@ export function ReferralCard({ userId }: ReferralCardProps) {
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-3 gap-2">
           <div className="text-center p-2 sm:p-3 rounded-lg bg-muted/30">
             <Users className="h-4 w-4 text-primary mx-auto mb-1" />
-            <p className="text-lg sm:text-2xl font-bold font-mono">{stats.totalReferrals}</p>
-            <p className="text-[10px] sm:text-xs text-muted-foreground">Referrals</p>
+            <p className="text-base sm:text-2xl font-bold font-mono">{stats.totalReferrals}</p>
+            <p className="text-[9px] sm:text-xs text-muted-foreground">Signed Up</p>
+          </div>
+          <div className="text-center p-2 sm:p-3 rounded-lg bg-muted/30">
+            <Check className="h-4 w-4 text-warning mx-auto mb-1" />
+            <p className="text-base sm:text-2xl font-bold text-warning font-mono">{stats.creditedReferrals}</p>
+            <p className="text-[9px] sm:text-xs text-muted-foreground">Credited</p>
           </div>
           <div className="text-center p-2 sm:p-3 rounded-lg bg-muted/30">
             <TrendingUp className="h-4 w-4 text-success mx-auto mb-1" />
-            <p className="text-lg sm:text-2xl font-bold text-success font-mono">
-              {stats.totalEarnings.toLocaleString()}
+            <p className="text-base sm:text-2xl font-bold text-success font-mono">
+              {stats.totalEarnings.toLocaleString(undefined, { maximumFractionDigits: 0 })}
             </p>
-            <p className="text-[10px] sm:text-xs text-muted-foreground">KES Earned</p>
+            <p className="text-[9px] sm:text-xs text-muted-foreground">KES Earned</p>
           </div>
         </div>
 

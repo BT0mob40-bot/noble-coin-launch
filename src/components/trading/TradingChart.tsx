@@ -98,9 +98,12 @@ export function TradingChart({ symbol, currentPrice, volatility, coinId, isOverr
     let cancelled = false;
 
     const loadData = async () => {
+      // Non-overridden coins: ALWAYS market-driven. If history is sparse, seed
+      // a single anchor point at currentPrice and let realtime ticks build it.
       if (!isOverridden && coinId) {
         const realData = await fetchRealPriceHistory();
-        if (!cancelled && realData && realData.length >= 2) {
+        if (cancelled) return;
+        if (realData && realData.length >= 2) {
           setChartData(realData);
           setRealDataLoaded(true);
           const first = realData[0].price;
@@ -108,9 +111,21 @@ export function TradingChart({ symbol, currentPrice, volatility, coinId, isOverr
           setPriceChange(((last - first) / first) * 100);
           return;
         }
+        // Sparse history — seed with a flat market anchor (no synthetic noise)
+        const now = new Date();
+        const seed = Array.from({ length: 2 }, (_, i) => ({
+          time: new Date(now.getTime() - (1 - i) * TIMEFRAME_MINUTES[timeframe] * 60 * 1000)
+            .toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
+          price: currentPrice,
+          volume: 0,
+        }));
+        setChartData(seed);
+        setRealDataLoaded(true);
+        setPriceChange(0);
+        return;
       }
 
-      // Fallback to simulated
+      // Overridden coins only: simulated fallback
       if (!cancelled) {
         const data = generateSimulatedData();
         setChartData(data);

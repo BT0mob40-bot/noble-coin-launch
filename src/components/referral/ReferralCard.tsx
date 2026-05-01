@@ -120,9 +120,16 @@ export function ReferralCard({ userId }: ReferralCardProps) {
   return (
     <Card className="glass-card">
       <CardHeader className="pb-3 p-3 sm:p-6 sm:pb-3">
-        <CardTitle className="flex items-center gap-2 text-sm sm:text-lg">
-          <Gift className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
-          Referral Program
+        <CardTitle className="flex items-center justify-between gap-2 text-sm sm:text-lg">
+          <div className="flex items-center gap-2">
+            <Gift className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
+            Referral Program
+          </div>
+          {liveTick && (
+            <Badge variant="outline" className="border-success/40 text-success text-[9px] sm:text-[10px] gap-1 animate-pulse">
+              <Activity className="h-2.5 w-2.5" /> Live
+            </Badge>
+          )}
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4 p-3 pt-0 sm:p-6 sm:pt-0">

@@ -299,6 +299,18 @@ Deno.serve(async (req) => {
         subject = `Deposit confirmed — ${siteName}`;
         html = tplDeposit(siteName, String(amount ?? "0"), domain);
         break;
+      case "withdrawal_requested":
+        subject = `Withdrawal requested — ${siteName}`;
+        html = tplWithdrawalRequested(siteName, String(amount ?? "0"), String(phone ?? ""), domain);
+        break;
+      case "withdrawal_approved":
+        subject = `Withdrawal sent to M-PESA — ${siteName}`;
+        html = tplWithdrawalApproved(siteName, String(amount ?? "0"), String(phone ?? ""), domain);
+        break;
+      case "withdrawal_rejected":
+        subject = `Withdrawal rejected — ${siteName}`;
+        html = tplWithdrawalRejected(siteName, String(amount ?? "0"), String(reason || "Not specified"), domain);
+        break;
       case "signup_confirm": {
         // Generate the official Supabase email-confirmation link, but deliver it via OUR working SMTP.
         // Works whether the user already exists (unconfirmed) or not (we create them inline).

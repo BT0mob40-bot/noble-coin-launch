@@ -1,19 +1,21 @@
 import { Link, useLocation } from 'react-router-dom';
-import { Home, Rocket, LayoutDashboard, User, Plus } from 'lucide-react';
+import { Home, Rocket, LayoutDashboard, User, Plus, Radio } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
 import { cn } from '@/lib/utils';
 
+// Logged-in: Portfolio first, then Launchpad, Create (center FAB), Live, Profile
 const navItems = [
-  { path: '/', icon: Home, label: 'Home', auth: false },
+  { path: '/dashboard', icon: LayoutDashboard, label: 'Portfolio', auth: true },
   { path: '/launchpad', icon: Rocket, label: 'Launchpad', auth: false },
   { path: '/create-coin', icon: Plus, label: 'Create', auth: true },
-  { path: '/dashboard', icon: LayoutDashboard, label: 'Portfolio', auth: true },
+  { path: '/live', icon: Radio, label: 'Live', auth: true },
   { path: '/profile', icon: User, label: 'Profile', auth: true },
 ];
 
 const guestItems = [
   { path: '/', icon: Home, label: 'Home' },
   { path: '/launchpad', icon: Rocket, label: 'Launchpad' },
+  { path: '/live', icon: Radio, label: 'Live' },
   { path: '/auth', icon: User, label: 'Sign In' },
 ];
 

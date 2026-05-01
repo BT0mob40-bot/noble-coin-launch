@@ -1,8 +1,6 @@
 import { useEffect, useRef, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
-type PollStatus = 'pending' | 'completed' | 'failed' | 'timeout';
-
 interface UseStkPollingOptions {
   checkoutRequestId: string | null;
   transactionId?: string | null;
@@ -15,6 +13,19 @@ interface UseStkPollingOptions {
   intervalMs?: number;
 }
 
+// Daraja result codes that DEFINITIVELY mean the user/account stopped the payment.
+// We must NOT mark "failed" on transient codes (1037 timeout, 500.001.1001 still processing,
+// network errors) — those should keep polling until the real callback or max attempts.
+const DEFINITIVE_FAILURE_CODES = new Set([
+  1032, // Cancelled by user (entered wrong PIN cancel)
+  1,    // Insufficient funds
+  2001, // Wrong PIN
+  1001, // Unable to lock subscriber
+  1019, // Transaction expired (different from 1037)
+  1025, // Generic failure
+  9999, // Generic failure
+]);
+
 export function useStkPolling({
   checkoutRequestId,
   transactionId,
@@ -23,10 +34,11 @@ export function useStkPolling({
   onComplete,
   onFailed,
   onTimeout,
-  maxAttempts = 24,
+  maxAttempts = 36, // 36 * 5s = 3 minutes
   intervalMs = 5000,
 }: UseStkPollingOptions) {
   const attemptsRef = useRef(0);
+  const consecutiveFailRef = useRef(0);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const activeRef = useRef(false);
 
@@ -37,16 +49,18 @@ export function useStkPolling({
       timerRef.current = null;
     }
     attemptsRef.current = 0;
+    consecutiveFailRef.current = 0;
   }, []);
 
   useEffect(() => {
-    if (!enabled || !checkoutRequestId) {
+    if (!enabled || (!checkoutRequestId && !transactionId && !paymentRequestId)) {
       cleanup();
       return;
     }
 
     activeRef.current = true;
     attemptsRef.current = 0;
+    consecutiveFailRef.current = 0;
 
     const poll = async () => {
       if (!activeRef.current) return;
@@ -60,18 +74,33 @@ export function useStkPolling({
         if (!activeRef.current) return;
 
         if (error) {
-          console.error('STK query error:', error);
+          // transient — keep polling
+          console.warn('STK query transient error:', error);
         } else if (data?.status === 'completed') {
           cleanup();
           onComplete();
           return;
         } else if (data?.status === 'failed') {
-          cleanup();
-          onFailed(data.resultDesc);
-          return;
+          const code = Number(data.resultCode);
+          // Only treat as failure on definitive codes. Otherwise wait for callback.
+          if (DEFINITIVE_FAILURE_CODES.has(code)) {
+            cleanup();
+            onFailed(data.resultDesc);
+            return;
+          }
+          // Transient/ambiguous — bump counter; only fail after 3 consecutive ambiguous failures
+          consecutiveFailRef.current++;
+          if (consecutiveFailRef.current >= 6) {
+            cleanup();
+            onFailed(data.resultDesc);
+            return;
+          }
+        } else {
+          // pending — reset consecutive fail
+          consecutiveFailRef.current = 0;
         }
       } catch (err) {
-        console.error('STK poll error:', err);
+        console.warn('STK poll exception:', err);
       }
 
       if (!activeRef.current) return;
@@ -85,8 +114,8 @@ export function useStkPolling({
       timerRef.current = setTimeout(poll, intervalMs);
     };
 
-    // Start first poll after initial delay
-    timerRef.current = setTimeout(poll, 5000);
+    // Initial delay so STK push has time to deliver
+    timerRef.current = setTimeout(poll, 6000);
 
     return cleanup;
   }, [enabled, checkoutRequestId, transactionId, paymentRequestId, onComplete, onFailed, onTimeout, maxAttempts, intervalMs, cleanup]);

@@ -188,8 +188,8 @@ export function WalletCard({ fiatBalance, userId, onBalanceChange }: WalletCardP
               {depositStatus === 'form' && 'Fund your wallet using M-PESA'}
               {depositStatus === 'processing' && 'Waiting for M-PESA confirmation...'}
               {depositStatus === 'success' && 'Deposit successful!'}
-              {depositStatus === 'failed' && 'Deposit failed or cancelled'}
-              {depositStatus === 'timeout' && 'Request timed out'}
+              {depositStatus === 'failed' && 'Deposit cancelled or rejected by M-PESA'}
+              {depositStatus === 'timeout' && 'No response yet — if you completed the payment, your wallet will update shortly'}
             </DialogDescription>
           </DialogHeader>
           <AnimatePresence mode="wait">

@@ -110,14 +110,52 @@ export default function Auth() {
   const processReferral = async (newUserId: string) => {
     const refCode = getReferralCode();
     if (!refCode) return;
-    try {
-      const { data: referrerProfile } = await supabase.from('profiles').select('user_id').eq('referral_code', refCode).maybeSingle();
-      if (referrerProfile && referrerProfile.user_id !== newUserId) {
-        await supabase.from('referrals').insert({ referrer_id: referrerProfile.user_id, referred_id: newUserId });
-        await supabase.from('profiles').update({ referred_by: refCode } as any).eq('user_id', newUserId);
-        clearReferralCode();
+
+    // Retry up to 3 times — covers race with handle_new_user trigger creating profile
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        const { data: referrerProfile } = await supabase
+          .from('profiles')
+          .select('user_id')
+          .eq('referral_code', refCode)
+          .maybeSingle();
+
+        if (!referrerProfile || referrerProfile.user_id === newUserId) {
+          clearReferralCode();
+          return;
+        }
+
+        // Idempotent: only insert if no existing referral row
+        const { data: existing } = await supabase
+          .from('referrals')
+          .select('id')
+          .eq('referred_id', newUserId)
+          .maybeSingle();
+
+        if (!existing) {
+          await supabase.from('referrals').insert({
+            referrer_id: referrerProfile.user_id,
+            referred_id: newUserId,
+          });
+        }
+
+        const { error: profileErr } = await supabase
+          .from('profiles')
+          .update({ referred_by: refCode } as any)
+          .eq('user_id', newUserId);
+
+        if (!profileErr) {
+          clearReferralCode();
+          // Cache success so we don't retry on next login
+          sessionStorage.setItem(`ref_processed_${newUserId}`, '1');
+          return;
+        }
+      } catch (error) {
+        console.warn(`Referral attempt ${attempt + 1} failed:`, error);
       }
-    } catch (error) { console.error('Error processing referral:', error); }
+      // Backoff before retry — let the handle_new_user trigger finish
+      await new Promise((r) => setTimeout(r, 800 * (attempt + 1)));
+    }
   };
 
   const handleForgotPassword = async () => {
@@ -203,7 +241,7 @@ export default function Auth() {
     }
   };
 
-  // After sign in, update profile if we have stored signup data
+  // After sign in, update profile if we have stored signup data + retry referral
   useEffect(() => {
     if (user) {
       const stored = localStorage.getItem('signup_profile_data');
@@ -212,6 +250,9 @@ export default function Auth() {
         supabase.from('profiles').update({ full_name: fullName, phone } as any).eq('user_id', user.id).then(() => {
           localStorage.removeItem('signup_profile_data');
         });
+      }
+      // Always retry referral on login if a code is still pending and not yet processed
+      if (getReferralCode() && !sessionStorage.getItem(`ref_processed_${user.id}`)) {
         processReferral(user.id);
       }
     }

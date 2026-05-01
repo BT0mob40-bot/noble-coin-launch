@@ -59,7 +59,8 @@ Deno.serve(async (req) => {
       const prFallback = await supabase
         .from("payment_requests")
         .select("id,status")
-        .eq("status", "stk_sent")
+        .in("status", ["pending", "stk_sent"])
+        .is("checkout_request_id", null)
         .order("created_at", { ascending: false })
         .limit(1)
         .maybeSingle();

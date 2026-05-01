@@ -114,8 +114,8 @@ export function useStkPolling({
       timerRef.current = setTimeout(poll, intervalMs);
     };
 
-    // Initial delay so STK push has time to deliver
-    timerRef.current = setTimeout(poll, 6000);
+    // Initial delay so STK push has time to deliver (reduced for snappier UX)
+    timerRef.current = setTimeout(poll, 2500);
 
     return cleanup;
   }, [enabled, checkoutRequestId, transactionId, paymentRequestId, onComplete, onFailed, onTimeout, maxAttempts, intervalMs, cleanup]);

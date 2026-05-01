@@ -76,6 +76,16 @@ export function WithdrawalManagement() {
         throw new Error(data?.error || error?.message || 'B2C failed');
       }
 
+      // Notify user via email (fire-and-forget)
+      try {
+        const { data: profile } = await supabase.from('profiles').select('email').eq('user_id', row.user_id).maybeSingle();
+        if (profile?.email) {
+          supabase.functions.invoke('smtp-email', {
+            body: { type: 'withdrawal_approved', email: profile.email, amount: row.net_amount, phone: row.phone, origin: window.location.origin },
+          }).catch(() => {});
+        }
+      } catch {}
+
       toast.success('Withdrawal approved and sent to M-PESA');
       await fetchRows();
     } catch (error: any) {
@@ -117,6 +127,16 @@ export function WithdrawalManagement() {
         .eq('status', 'pending');
 
       if (withdrawalErr) throw withdrawalErr;
+
+      // Notify user via email (fire-and-forget)
+      try {
+        const { data: profile } = await supabase.from('profiles').select('email').eq('user_id', row.user_id).maybeSingle();
+        if (profile?.email) {
+          supabase.functions.invoke('smtp-email', {
+            body: { type: 'withdrawal_rejected', email: profile.email, amount: row.amount, reason: note, origin: window.location.origin },
+          }).catch(() => {});
+        }
+      } catch {}
 
       toast.success('Withdrawal rejected and funds refunded');
       fetchRows();

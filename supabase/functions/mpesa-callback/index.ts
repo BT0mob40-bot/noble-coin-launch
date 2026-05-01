@@ -96,7 +96,26 @@ Deno.serve(async (req) => {
         _mpesa_receipt: mpesaReceiptNumber || CheckoutRequestID,
       });
       if (error) console.error("complete_mpesa_deposit error:", error);
-      else console.log("complete_mpesa_deposit:", data);
+      else {
+        console.log("complete_mpesa_deposit:", data);
+        // Fire-and-forget deposit confirmation email
+        try {
+          const { data: pr } = await supabase
+            .from("payment_requests")
+            .select("user_id, amount, type")
+            .eq("id", paymentRequest.id)
+            .maybeSingle();
+          if (pr && pr.type === "deposit") {
+            const { data: profile } = await supabase
+              .from("profiles").select("email").eq("user_id", pr.user_id).maybeSingle();
+            if (profile?.email) {
+              supabase.functions.invoke("smtp-email", {
+                body: { type: "deposit", email: profile.email, amount: pr.amount },
+              }).catch(() => {});
+            }
+          }
+        } catch (_) {}
+      }
     }
 
     return acceptedResponse;

@@ -1,8 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Users, Copy, Check, Gift, TrendingUp, Wallet, Share2 } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { Users, Copy, Check, Gift, TrendingUp, Wallet, Share2, Activity } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -13,6 +14,7 @@ interface ReferralCardProps {
 interface ReferralStats {
   referralCode: string;
   totalReferrals: number;
+  creditedReferrals: number;
   totalEarnings: number;
 }
 
@@ -20,44 +22,38 @@ export function ReferralCard({ userId }: ReferralCardProps) {
   const [stats, setStats] = useState<ReferralStats>({
     referralCode: '',
     totalReferrals: 0,
+    creditedReferrals: 0,
     totalEarnings: 0,
   });
   const [copied, setCopied] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [liveTick, setLiveTick] = useState(false);
 
-  useEffect(() => {
-    fetchReferralData();
-  }, [userId]);
-
-  const fetchReferralData = async () => {
-    setLoading(true);
+  const fetchReferralData = useCallback(async () => {
     try {
-      // Get profile referral code
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('referral_code')
-        .eq('user_id', userId)
-        .maybeSingle();
+      const [{ data: profile }, { data: refs }] = await Promise.all([
+        supabase.from('profiles').select('referral_code').eq('user_id', userId).maybeSingle(),
+        supabase.from('referrals').select('id, referred_id').eq('referrer_id', userId),
+      ]);
 
-      // Get referral count
-      const { count: referralCount } = await supabase
-        .from('referrals')
-        .select('id', { count: 'exact', head: true })
-        .eq('referrer_id', userId);
+      const referralIds = (refs || []).map(r => r.id);
+      let totalEarnings = 0;
+      let creditedReferrals = 0;
 
-      // Get total earnings from referral commissions
-      const { data: commissions } = await supabase
-        .from('referral_commissions')
-        .select('amount, referral_id')
-        .in('referral_id', 
-          (await supabase.from('referrals').select('id').eq('referrer_id', userId)).data?.map(r => r.id) || []
-        );
-
-      const totalEarnings = commissions?.reduce((sum, c) => sum + c.amount, 0) || 0;
+      if (referralIds.length > 0) {
+        const { data: commissions } = await supabase
+          .from('referral_commissions')
+          .select('amount, referral_id')
+          .in('referral_id', referralIds);
+        totalEarnings = commissions?.reduce((sum, c) => sum + Number(c.amount || 0), 0) || 0;
+        const creditedSet = new Set((commissions || []).map(c => c.referral_id));
+        creditedReferrals = creditedSet.size;
+      }
 
       setStats({
         referralCode: profile?.referral_code || userId.slice(0, 8).toUpperCase(),
-        totalReferrals: referralCount || 0,
+        totalReferrals: refs?.length || 0,
+        creditedReferrals,
         totalEarnings,
       });
     } catch (error) {
@@ -66,7 +62,34 @@ export function ReferralCard({ userId }: ReferralCardProps) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [userId]);
+
+  useEffect(() => {
+    fetchReferralData();
+
+    // Real-time subscriptions
+    const channel = supabase
+      .channel(`referrals-${userId}`)
+      .on('postgres_changes', {
+        event: '*', schema: 'public', table: 'referrals',
+        filter: `referrer_id=eq.${userId}`,
+      }, () => {
+        setLiveTick(true);
+        setTimeout(() => setLiveTick(false), 1500);
+        fetchReferralData();
+      })
+      .on('postgres_changes', {
+        event: 'INSERT', schema: 'public', table: 'referral_commissions',
+      }, () => {
+        // refresh — commission inserts may belong to our referrals
+        setLiveTick(true);
+        setTimeout(() => setLiveTick(false), 1500);
+        fetchReferralData();
+      })
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [userId, fetchReferralData]);
 
   const referralLink = stats.referralCode 
     ? `${window.location.origin}/auth?ref=${stats.referralCode}`
@@ -97,9 +120,16 @@ export function ReferralCard({ userId }: ReferralCardProps) {
   return (
     <Card className="glass-card">
       <CardHeader className="pb-3 p-3 sm:p-6 sm:pb-3">
-        <CardTitle className="flex items-center gap-2 text-sm sm:text-lg">
-          <Gift className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
-          Referral Program
+        <CardTitle className="flex items-center justify-between gap-2 text-sm sm:text-lg">
+          <div className="flex items-center gap-2">
+            <Gift className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
+            Referral Program
+          </div>
+          {liveTick && (
+            <Badge variant="outline" className="border-success/40 text-success text-[9px] sm:text-[10px] gap-1 animate-pulse">
+              <Activity className="h-2.5 w-2.5" /> Live
+            </Badge>
+          )}
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4 p-3 pt-0 sm:p-6 sm:pt-0">
@@ -115,18 +145,23 @@ export function ReferralCard({ userId }: ReferralCardProps) {
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-3 gap-2">
           <div className="text-center p-2 sm:p-3 rounded-lg bg-muted/30">
             <Users className="h-4 w-4 text-primary mx-auto mb-1" />
-            <p className="text-lg sm:text-2xl font-bold font-mono">{stats.totalReferrals}</p>
-            <p className="text-[10px] sm:text-xs text-muted-foreground">Referrals</p>
+            <p className="text-base sm:text-2xl font-bold font-mono">{stats.totalReferrals}</p>
+            <p className="text-[9px] sm:text-xs text-muted-foreground">Signed Up</p>
+          </div>
+          <div className="text-center p-2 sm:p-3 rounded-lg bg-muted/30">
+            <Check className="h-4 w-4 text-warning mx-auto mb-1" />
+            <p className="text-base sm:text-2xl font-bold text-warning font-mono">{stats.creditedReferrals}</p>
+            <p className="text-[9px] sm:text-xs text-muted-foreground">Credited</p>
           </div>
           <div className="text-center p-2 sm:p-3 rounded-lg bg-muted/30">
             <TrendingUp className="h-4 w-4 text-success mx-auto mb-1" />
-            <p className="text-lg sm:text-2xl font-bold text-success font-mono">
-              {stats.totalEarnings.toLocaleString()}
+            <p className="text-base sm:text-2xl font-bold text-success font-mono">
+              {stats.totalEarnings.toLocaleString(undefined, { maximumFractionDigits: 0 })}
             </p>
-            <p className="text-[10px] sm:text-xs text-muted-foreground">KES Earned</p>
+            <p className="text-[9px] sm:text-xs text-muted-foreground">KES Earned</p>
           </div>
         </div>
 

@@ -6,6 +6,26 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+// In-memory OAuth token cache (Daraja tokens last ~3600s; we cache for 50 min)
+let cachedToken: { token: string; expiresAt: number; key: string } | null = null;
+
+async function getMpesaAccessToken(baseUrl: string, consumerKey: string, consumerSecret: string): Promise<string> {
+  const cacheKey = `${baseUrl}:${consumerKey}`;
+  const now = Date.now();
+  if (cachedToken && cachedToken.key === cacheKey && cachedToken.expiresAt > now) {
+    return cachedToken.token;
+  }
+  const auth = btoa(`${consumerKey}:${consumerSecret}`);
+  const res = await fetch(`${baseUrl}/oauth/v1/generate?grant_type=client_credentials`, {
+    method: "GET",
+    headers: { Authorization: `Basic ${auth}` },
+  });
+  if (!res.ok) throw new Error(`OAuth ${res.status}: ${await res.text()}`);
+  const data = await res.json();
+  cachedToken = { token: data.access_token, expiresAt: now + 50 * 60 * 1000, key: cacheKey };
+  return data.access_token;
+}
+
 interface STKPushRequest {
   phone: string;
   amount: number;
@@ -121,27 +141,16 @@ Deno.serve(async (req) => {
       ? "https://sandbox.safaricom.co.ke"
       : "https://api.safaricom.co.ke";
 
-    const auth = btoa(`${mpesaConfig.consumer_key}:${mpesaConfig.consumer_secret}`);
-
-    const tokenResponse = await fetch(
-      `${baseUrl}/oauth/v1/generate?grant_type=client_credentials`,
-      {
-        method: "GET",
-        headers: { Authorization: `Basic ${auth}` },
-      }
-    );
-
-    if (!tokenResponse.ok) {
-      const tokenError = await tokenResponse.text();
-      console.error("OAuth token error:", tokenError);
+    let accessToken: string;
+    try {
+      accessToken = await getMpesaAccessToken(baseUrl, mpesaConfig.consumer_key, mpesaConfig.consumer_secret);
+    } catch (e) {
+      console.error("OAuth token error:", e);
       return new Response(JSON.stringify({ error: "Failed to authenticate with M-PESA" }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
-
-    const tokenData = await tokenResponse.json();
-    const accessToken = tokenData.access_token;
 
     const timestamp = new Date().toISOString().replace(/[-:T]/g, "").slice(0, 14);
     const password = btoa(`${mpesaConfig.paybill_number}${mpesaConfig.passkey}${timestamp}`);

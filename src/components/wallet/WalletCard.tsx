@@ -32,15 +32,27 @@ export function WalletCard({ fiatBalance, userId, onBalanceChange }: WalletCardP
   const [checkoutRequestId, setCheckoutRequestId] = useState<string | null>(null);
   const [paymentRequestId, setPaymentRequestId] = useState<string | null>(null);
 
+  // Track last deposit amount/phone for email notification
+  const [lastDepositAmount, setLastDepositAmount] = useState<number>(0);
+
   // STK Polling for deposits
   useStkPolling({
     checkoutRequestId,
     paymentRequestId,
     enabled: depositStatus === 'processing' && !!checkoutRequestId,
-    onComplete: useCallback(() => {
+    onComplete: useCallback(async () => {
       setDepositStatus('success');
       onBalanceChange();
-    }, [onBalanceChange]),
+      // Fire-and-forget deposit confirmation email
+      try {
+        const { data: profile } = await supabase.from('profiles').select('email').eq('user_id', userId).maybeSingle();
+        if (profile?.email && lastDepositAmount > 0) {
+          supabase.functions.invoke('smtp-email', {
+            body: { type: 'deposit', email: profile.email, amount: lastDepositAmount, origin: window.location.origin },
+          }).catch(() => {});
+        }
+      } catch {}
+    }, [onBalanceChange, userId, lastDepositAmount]),
     onFailed: useCallback(() => {
       setDepositStatus('failed');
     }, []),
@@ -72,6 +84,7 @@ export function WalletCard({ fiatBalance, userId, onBalanceChange }: WalletCardP
     if (depositAmount < minDeposit) { toast.error(`Minimum deposit is KES ${minDeposit}`); return; }
 
     setDepositStatus('processing');
+    setLastDepositAmount(Math.round(depositAmount));
     try {
       let formattedPhone = phone.replace(/\s+/g, '').replace(/^\+/, '');
       if (formattedPhone.startsWith('0')) formattedPhone = '254' + formattedPhone.substring(1);
@@ -136,6 +149,16 @@ export function WalletCard({ fiatBalance, userId, onBalanceChange }: WalletCardP
         user_id: userId, phone, amount: withdrawAmount, fee_amount: feeAmount, net_amount: netAmount, status: 'pending',
       } as any);
       if (reqError) throw reqError;
+
+      // Fire-and-forget withdrawal-requested email
+      try {
+        const { data: profile } = await supabase.from('profiles').select('email').eq('user_id', userId).maybeSingle();
+        if (profile?.email) {
+          supabase.functions.invoke('smtp-email', {
+            body: { type: 'withdrawal_requested', email: profile.email, amount: withdrawAmount, phone, origin: window.location.origin },
+          }).catch(() => {});
+        }
+      } catch {}
 
       toast.success('Withdrawal request submitted for admin approval.');
       setShowWithdraw(false);

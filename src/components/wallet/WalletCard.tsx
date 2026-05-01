@@ -84,6 +84,7 @@ export function WalletCard({ fiatBalance, userId, onBalanceChange }: WalletCardP
     if (depositAmount < minDeposit) { toast.error(`Minimum deposit is KES ${minDeposit}`); return; }
 
     setDepositStatus('processing');
+    setLastDepositAmount(Math.round(depositAmount));
     try {
       let formattedPhone = phone.replace(/\s+/g, '').replace(/^\+/, '');
       if (formattedPhone.startsWith('0')) formattedPhone = '254' + formattedPhone.substring(1);

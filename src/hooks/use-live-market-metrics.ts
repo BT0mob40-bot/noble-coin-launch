@@ -6,7 +6,7 @@ export interface LiveMarketMetrics {
   volume24h: number;           // sum of trade volumes
   liquidityKes: number;        // last-hour rolling notional turnover (proxy)
   volatilityPct: number;       // stdev / mean * 100 over last 24h
-  holders: number;             // distinct holders from user_holdings
+  holders: number;             // distinct holders from holdings
   loaded: boolean;
 }
 
@@ -15,7 +15,7 @@ const ZERO: LiveMarketMetrics = {
 };
 
 /**
- * Computes 100% market-driven metrics from price_history + user_holdings.
+ * Computes 100% market-driven metrics from price_history + holdings.
  * Excludes 'drift' rows so trader activity defines the metric.
  */
 export function useLiveMarketMetrics(coinId: string | undefined, currentPrice: number, enabled: boolean) {
@@ -35,7 +35,7 @@ export function useLiveMarketMetrics(coinId: string | undefined, currentPrice: n
         .order('created_at', { ascending: true })
         .limit(2000),
       supabase
-        .from('user_holdings')
+        .from('holdings')
         .select('user_id', { count: 'exact', head: true })
         .eq('coin_id', coinId)
         .gt('amount', 0),
@@ -81,7 +81,7 @@ export function useLiveMarketMetrics(coinId: string | undefined, currentPrice: n
     let cancelled = false;
     (async () => {
       const { count } = await supabase
-        .from('user_holdings')
+        .from('holdings')
         .select('*', { count: 'exact', head: true })
         .eq('coin_id', coinId)
         .gt('amount', 0);
@@ -101,7 +101,7 @@ export function useLiveMarketMetrics(coinId: string | undefined, currentPrice: n
         filter: `coin_id=eq.${coinId}`,
       }, () => { recompute(); })
       .on('postgres_changes', {
-        event: '*', schema: 'public', table: 'user_holdings',
+        event: '*', schema: 'public', table: 'holdings',
         filter: `coin_id=eq.${coinId}`,
       }, () => { recompute(); })
       .subscribe();

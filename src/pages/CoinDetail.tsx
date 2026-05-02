@@ -21,6 +21,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { toast } from 'sonner';
 import { PriceAlertDialog } from '@/components/trading/PriceAlertDialog';
 import { usePushNotifications, usePriceAlerts } from '@/hooks/use-push-notifications';
+import { useLiveMarketMetrics } from '@/hooks/use-live-market-metrics';
 
 interface CoinData {
   id: string;
@@ -113,21 +114,27 @@ export default function CoinDetail() {
 
   const priceMultiplier = coin && coin.initial_price > 0 ? coin.price / coin.initial_price : 1;
 
-  // Display values with overrides
+  // Live market-driven metrics (used when no admin override)
+  const live = useLiveMarketMetrics(coin?.id, coin?.price || 0, !!coin?.id);
+
   const displayMarketCap = coin?.use_market_cap_override && coin.market_cap_override != null
-    ? coin.market_cap_override : coin?.market_cap;
+    ? coin.market_cap_override
+    : (coin ? coin.price * (coin.circulating_supply || 0) : 0);
   const displayLiquidity = coin?.use_liquidity_override && coin.liquidity_override != null
-    ? coin.liquidity_override : coin?.liquidity;
+    ? coin.liquidity_override
+    : (live.loaded ? live.liquidityKes : coin?.liquidity ?? 0);
   const displayHolders = coin?.use_holders_override && coin.holders_override != null
-    ? coin.holders_override : coin?.holders_count;
+    ? coin.holders_override
+    : (live.loaded ? live.holders : coin?.holders_count ?? 0);
   const displayPriceChange = coin?.use_price_change_24h_override && coin?.price_change_24h_override != null
-    ? coin.price_change_24h_override : coin?.price_change_24h || 0;
+    ? coin.price_change_24h_override
+    : (live.loaded ? live.priceChange24h : coin?.price_change_24h || 0);
   const displayVolatility = coin?.use_volatility_override && coin?.volatility_override != null
-    ? coin.volatility_override : coin?.volatility;
+    ? coin.volatility_override
+    : (live.loaded ? live.volatilityPct : coin?.volatility ?? 0);
   const displayCirculating = coin?.use_circulating_supply_override && coin?.circulating_supply_override != null
     ? coin.circulating_supply_override : coin?.circulating_supply;
 
-  // Determine if this coin has ANY override active (for chart/trade simulation)
   const isAnyOverridden = !!(
     coin?.use_market_cap_override || coin?.use_liquidity_override || coin?.use_holders_override ||
     coin?.use_price_change_24h_override || coin?.use_volatility_override || coin?.use_circulating_supply_override

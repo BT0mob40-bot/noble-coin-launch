@@ -6,8 +6,9 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-// In-memory OAuth token cache (Daraja tokens last ~3600s; we cache for 50 min)
+// In-memory caches (per warm instance) to slash latency
 let cachedToken: { token: string; expiresAt: number; key: string } | null = null;
+let cachedConfig: { data: any; expiresAt: number } | null = null;
 
 async function getMpesaAccessToken(baseUrl: string, consumerKey: string, consumerSecret: string): Promise<string> {
   const cacheKey = `${baseUrl}:${consumerKey}`;
@@ -24,6 +25,15 @@ async function getMpesaAccessToken(baseUrl: string, consumerKey: string, consume
   const data = await res.json();
   cachedToken = { token: data.access_token, expiresAt: now + 50 * 60 * 1000, key: cacheKey };
   return data.access_token;
+}
+
+async function getMpesaConfig(adminClient: any) {
+  const now = Date.now();
+  if (cachedConfig && cachedConfig.expiresAt > now) return cachedConfig.data;
+  const { data, error } = await adminClient.from("mpesa_config").select("*").maybeSingle();
+  if (error || !data) throw new Error("M-PESA not configured");
+  cachedConfig = { data, expiresAt: now + 5 * 60 * 1000 }; // 5 min cache
+  return data;
 }
 
 interface STKPushRequest {
@@ -118,12 +128,10 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    const { data: mpesaConfig, error: configError } = await adminClient
-      .from("mpesa_config")
-      .select("*")
-      .maybeSingle();
-
-    if (configError || !mpesaConfig) {
+    let mpesaConfig: any;
+    try {
+      mpesaConfig = await getMpesaConfig(adminClient);
+    } catch {
       return new Response(JSON.stringify({ error: "M-PESA not configured. Contact admin." }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -217,36 +225,41 @@ Deno.serve(async (req) => {
     const checkoutRequestId = stkResult.CheckoutRequestID as string;
     const merchantRequestId = stkResult.MerchantRequestID as string;
 
-    if (type === "buy" && transactionId) {
-      await adminClient
-        .from("transactions")
-        .update({ mpesa_receipt: checkoutRequestId, status: "stk_sent" })
-        .eq("id", transactionId)
-        .eq("user_id", authenticatedUserId);
-    }
-
-    if (type === "deposit" || type === "coin_creation") {
-      if (paymentRequestId) {
-        await adminClient.from("payment_requests").update({
-          coin_id: type === "coin_creation" ? transactionId || null : null,
-          checkout_request_id: checkoutRequestId,
-          merchant_request_id: merchantRequestId,
-          phone: formattedPhone,
-          status: "stk_sent",
-        }).eq("id", paymentRequestId).eq("user_id", userId || authenticatedUserId);
-      } else {
-        await adminClient.from("payment_requests").insert({
-          user_id: userId || authenticatedUserId,
-          coin_id: type === "coin_creation" ? transactionId || null : null,
-          type,
-          amount: Math.round(amount),
-          phone: formattedPhone,
-          checkout_request_id: checkoutRequestId,
-          merchant_request_id: merchantRequestId,
-          status: "stk_sent",
-        });
+    // Fire-and-forget DB writes — don't block response to user
+    const dbWrites = (async () => {
+      if (type === "buy" && transactionId) {
+        await adminClient
+          .from("transactions")
+          .update({ mpesa_receipt: checkoutRequestId, status: "stk_sent" })
+          .eq("id", transactionId)
+          .eq("user_id", authenticatedUserId);
       }
-    }
+      if (type === "deposit" || type === "coin_creation") {
+        if (paymentRequestId) {
+          await adminClient.from("payment_requests").update({
+            coin_id: type === "coin_creation" ? transactionId || null : null,
+            checkout_request_id: checkoutRequestId,
+            merchant_request_id: merchantRequestId,
+            phone: formattedPhone,
+            status: "stk_sent",
+          }).eq("id", paymentRequestId).eq("user_id", userId || authenticatedUserId);
+        } else {
+          await adminClient.from("payment_requests").insert({
+            user_id: userId || authenticatedUserId,
+            coin_id: type === "coin_creation" ? transactionId || null : null,
+            type,
+            amount: Math.round(amount),
+            phone: formattedPhone,
+            checkout_request_id: checkoutRequestId,
+            merchant_request_id: merchantRequestId,
+            status: "stk_sent",
+          });
+        }
+      }
+    })().catch((e) => console.error("Post-STK DB write failed:", e));
+
+    // Use EdgeRuntime.waitUntil if available so the runtime keeps the task alive
+    try { (globalThis as any).EdgeRuntime?.waitUntil?.(dbWrites); } catch {}
 
     return new Response(
       JSON.stringify({

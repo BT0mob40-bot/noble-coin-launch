@@ -61,7 +61,6 @@ export function useStkPolling({
     }
     attemptsRef.current = 0;
     consecutiveFailRef.current = 0;
-    completedRef.current = false;
   }, []);
 
   useEffect(() => {

@@ -1096,6 +1096,7 @@ export type Database = {
           coin_id: string
           created_at: string
           id: string
+          merchant_request_id: string | null
           mpesa_receipt: string | null
           phone: string | null
           price_per_coin: number
@@ -1110,6 +1111,7 @@ export type Database = {
           coin_id: string
           created_at?: string
           id?: string
+          merchant_request_id?: string | null
           mpesa_receipt?: string | null
           phone?: string | null
           price_per_coin: number
@@ -1124,6 +1126,7 @@ export type Database = {
           coin_id?: string
           created_at?: string
           id?: string
+          merchant_request_id?: string | null
           mpesa_receipt?: string | null
           phone?: string | null
           price_per_coin?: number

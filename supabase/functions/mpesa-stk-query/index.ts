@@ -6,6 +6,33 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+let cachedToken: { token: string; expiresAt: number; key: string } | null = null;
+let cachedConfig: { data: any; expiresAt: number } | null = null;
+
+const TRANSIENT_RESULT_CODES = new Set([1037]);
+
+async function getMpesaConfig(adminClient: any) {
+  const now = Date.now();
+  if (cachedConfig && cachedConfig.expiresAt > now) return cachedConfig.data;
+  const { data } = await adminClient.from("mpesa_config").select("*").maybeSingle();
+  cachedConfig = data ? { data, expiresAt: now + 5 * 60 * 1000 } : null;
+  return data;
+}
+
+async function getAccessToken(baseUrl: string, consumerKey: string, consumerSecret: string) {
+  const key = `${baseUrl}:${consumerKey}`;
+  const now = Date.now();
+  if (cachedToken && cachedToken.key === key && cachedToken.expiresAt > now) return cachedToken.token;
+  const auth = btoa(`${consumerKey}:${consumerSecret}`);
+  const tokenRes = await fetch(`${baseUrl}/oauth/v1/generate?grant_type=client_credentials`, {
+    headers: { Authorization: `Basic ${auth}` },
+  });
+  if (!tokenRes.ok) throw new Error(`Token error ${tokenRes.status}`);
+  const { access_token } = await tokenRes.json();
+  cachedToken = { token: access_token, expiresAt: now + 50 * 60 * 1000, key };
+  return access_token;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -89,10 +116,7 @@ Deno.serve(async (req) => {
     }
 
     // Query Daraja STK Query API
-    const { data: mpesaConfig } = await adminClient
-      .from("mpesa_config")
-      .select("*")
-      .maybeSingle();
+    const mpesaConfig = await getMpesaConfig(adminClient);
 
     if (!mpesaConfig?.consumer_key || !mpesaConfig?.consumer_secret || !mpesaConfig?.passkey) {
       return new Response(JSON.stringify({ status: "pending", message: "Awaiting callback" }), {
@@ -104,19 +128,7 @@ Deno.serve(async (req) => {
       ? "https://sandbox.safaricom.co.ke"
       : "https://api.safaricom.co.ke";
 
-    const auth = btoa(`${mpesaConfig.consumer_key}:${mpesaConfig.consumer_secret}`);
-    const tokenRes = await fetch(
-      `${baseUrl}/oauth/v1/generate?grant_type=client_credentials`,
-      { headers: { Authorization: `Basic ${auth}` } }
-    );
-
-    if (!tokenRes.ok) {
-      return new Response(JSON.stringify({ status: "pending", message: "Token error" }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    const { access_token } = await tokenRes.json();
+    const access_token = await getAccessToken(baseUrl, mpesaConfig.consumer_key, mpesaConfig.consumer_secret);
     const timestamp = new Date().toISOString().replace(/[-:T]/g, "").slice(0, 14);
     const password = btoa(`${mpesaConfig.paybill_number}${mpesaConfig.passkey}${timestamp}`);
 
@@ -168,7 +180,7 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ status: "completed", resultCode: 0, resultDesc: queryResult.ResultDesc }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
-    } else if (isNaN(resultCode) || queryResult.errorCode === "500.001.1001") {
+    } else if (isNaN(resultCode) || queryResult.errorCode === "500.001.1001" || TRANSIENT_RESULT_CODES.has(resultCode)) {
       // Transaction still processing
       return new Response(JSON.stringify({ status: "pending", message: "Still processing" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },

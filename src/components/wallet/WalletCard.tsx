@@ -39,7 +39,7 @@ export function WalletCard({ fiatBalance, userId, onBalanceChange }: WalletCardP
   useStkPolling({
     checkoutRequestId,
     paymentRequestId,
-    enabled: depositStatus === 'processing' && !!checkoutRequestId,
+    enabled: depositStatus === 'processing' && (!!checkoutRequestId || !!paymentRequestId),
     onComplete: useCallback(async () => {
       setDepositStatus('success');
       onBalanceChange();
@@ -48,7 +48,7 @@ export function WalletCard({ fiatBalance, userId, onBalanceChange }: WalletCardP
         const { data: profile } = await supabase.from('profiles').select('email').eq('user_id', userId).maybeSingle();
         if (profile?.email && lastDepositAmount > 0) {
           supabase.functions.invoke('smtp-email', {
-            body: { type: 'deposit', email: profile.email, amount: lastDepositAmount, origin: window.location.origin },
+            body: { type: 'deposit', email: profile.email, amount: lastDepositAmount, reference: checkoutRequestId, status: 'Completed', origin: window.location.origin },
           }).catch(() => {});
         }
       } catch {}
@@ -155,7 +155,7 @@ export function WalletCard({ fiatBalance, userId, onBalanceChange }: WalletCardP
         const { data: profile } = await supabase.from('profiles').select('email').eq('user_id', userId).maybeSingle();
         if (profile?.email) {
           supabase.functions.invoke('smtp-email', {
-            body: { type: 'withdrawal_requested', email: profile.email, amount: withdrawAmount, phone, origin: window.location.origin },
+            body: { type: 'withdrawal_requested', email: profile.email, amount: withdrawAmount, phone, reference: 'Pending approval', status: 'Pending', origin: window.location.origin },
           }).catch(() => {});
         }
       } catch {}

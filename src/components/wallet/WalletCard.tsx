@@ -52,7 +52,7 @@ export function WalletCard({ fiatBalance, userId, onBalanceChange }: WalletCardP
           }).catch(() => {});
         }
       } catch {}
-    }, [onBalanceChange, userId, lastDepositAmount]),
+    }, [onBalanceChange, userId, lastDepositAmount, checkoutRequestId]),
     onFailed: useCallback(() => {
       setDepositStatus('failed');
     }, []),

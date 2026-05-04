@@ -26,6 +26,16 @@ const DEFINITIVE_FAILURE_CODES = new Set([
   9999, // Generic failure
 ]);
 
+const getNextDelay = (attempt: number, base: number) => {
+  if (attempt <= 4) return Math.min(1200, base);
+  if (attempt <= 10) return Math.min(2500, Math.max(1500, base));
+  if (attempt <= 20) return Math.min(5000, Math.max(2500, base));
+  return Math.min(8000, Math.max(5000, base));
+};
+
+const isCompletedStatus = (status?: string | null) => status === 'completed';
+const isFinalFailureStatus = (status?: string | null) => status === 'failed' || status === 'cancelled' || status === 'rejected';
+
 export function useStkPolling({
   checkoutRequestId,
   transactionId,
@@ -41,6 +51,7 @@ export function useStkPolling({
   const consecutiveFailRef = useRef(0);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const activeRef = useRef(false);
+  const completedRef = useRef(false);
 
   const cleanup = useCallback(() => {
     activeRef.current = false;
@@ -61,6 +72,41 @@ export function useStkPolling({
     activeRef.current = true;
     attemptsRef.current = 0;
     consecutiveFailRef.current = 0;
+    completedRef.current = false;
+
+    const finishComplete = () => {
+      if (completedRef.current) return;
+      completedRef.current = true;
+      cleanup();
+      onComplete();
+    };
+
+    const finishFailed = (desc?: string) => {
+      if (completedRef.current) return;
+      completedRef.current = true;
+      cleanup();
+      onFailed(desc);
+    };
+
+    const channel = supabase
+      .channel(`stk-status-${transactionId || paymentRequestId || checkoutRequestId}`)
+      .on('postgres_changes', {
+        event: 'UPDATE', schema: 'public', table: 'transactions',
+        filter: transactionId ? `id=eq.${transactionId}` : `mpesa_receipt=eq.${checkoutRequestId}`,
+      }, (payload) => {
+        const row = payload.new as { status?: string; result_desc?: string };
+        if (isCompletedStatus(row.status)) finishComplete();
+        if (isFinalFailureStatus(row.status)) finishFailed(row.result_desc);
+      })
+      .on('postgres_changes', {
+        event: 'UPDATE', schema: 'public', table: 'payment_requests',
+        filter: paymentRequestId ? `id=eq.${paymentRequestId}` : `checkout_request_id=eq.${checkoutRequestId}`,
+      }, (payload) => {
+        const row = payload.new as { status?: string; result_desc?: string };
+        if (isCompletedStatus(row.status)) finishComplete();
+        if (isFinalFailureStatus(row.status)) finishFailed(row.result_desc);
+      })
+      .subscribe();
 
     const poll = async () => {
       if (!activeRef.current) return;
@@ -77,22 +123,19 @@ export function useStkPolling({
           // transient — keep polling
           console.warn('STK query transient error:', error);
         } else if (data?.status === 'completed') {
-          cleanup();
-          onComplete();
+          finishComplete();
           return;
         } else if (data?.status === 'failed') {
           const code = Number(data.resultCode);
           // Only treat as failure on definitive codes. Otherwise wait for callback.
           if (DEFINITIVE_FAILURE_CODES.has(code)) {
-            cleanup();
-            onFailed(data.resultDesc);
+            finishFailed(data.resultDesc);
             return;
           }
           // Transient/ambiguous — bump counter; only fail after 3 consecutive ambiguous failures
           consecutiveFailRef.current++;
           if (consecutiveFailRef.current >= 6) {
-            cleanup();
-            onFailed(data.resultDesc);
+            finishFailed(data.resultDesc);
             return;
           }
         } else {
@@ -111,13 +154,13 @@ export function useStkPolling({
         return;
       }
 
-      timerRef.current = setTimeout(poll, intervalMs);
+      timerRef.current = setTimeout(poll, getNextDelay(attemptsRef.current, intervalMs));
     };
 
-    // Initial delay so STK push has time to deliver (reduced for snappier UX)
-    timerRef.current = setTimeout(poll, 2500);
+    // First check almost immediately; realtime callback wins when M-PESA responds first.
+    timerRef.current = setTimeout(poll, 700);
 
-    return cleanup;
+    return () => { supabase.removeChannel(channel); cleanup(); };
   }, [enabled, checkoutRequestId, transactionId, paymentRequestId, onComplete, onFailed, onTimeout, maxAttempts, intervalMs, cleanup]);
 
   return { stop: cleanup };

@@ -7,7 +7,7 @@ import { Navigate } from 'react-router-dom';
 import {
   Shield, Coins, Users, Settings, CreditCard, DollarSign, Layout, 
   ArrowDownToLine, Bot, Ban, Bell, Mail, MessageSquare, Phone,
-  BarChart3, Plug, ChevronLeft, ChevronRight, ShieldCheck, Send, CalendarClock, Radio
+  BarChart3, Plug, ChevronLeft, ChevronRight, ShieldCheck, Send, CalendarClock, Radio, Activity
 } from 'lucide-react';
 import { MpesaSettings } from '@/components/admin/MpesaSettings';
 import { PlatformSettings } from '@/components/admin/PlatformSettings';
@@ -30,6 +30,7 @@ import { VerificationSettings } from '@/components/admin/VerificationSettings';
 import { LiveStreamManagement } from '@/components/admin/LiveStreamManagement';
 import { AutoGenerateToken } from '@/components/admin/AutoGenerateToken';
 import { SocialAuthSettings } from '@/components/admin/SocialAuthSettings';
+import { PerformanceMonitorPanel } from '@/components/admin/PerformanceMonitorPanel';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -53,6 +54,7 @@ const sidebarSections: SidebarSection[] = [
     items: [
       { id: 'analytics', label: 'Analytics', icon: BarChart3 },
       { id: 'commissions', label: 'Revenue', icon: DollarSign },
+      { id: 'performance', label: 'Performance', icon: Activity },
     ],
   },
   {
@@ -117,6 +119,7 @@ export default function Admin() {
     switch (activeItem) {
       case 'analytics': return <AdminAnalytics />;
       case 'commissions': return <CommissionDashboard />;
+      case 'performance': return <PerformanceMonitorPanel />;
       case 'coins': return <div className="space-y-4"><AutoGenerateToken userId={user.id} onSuccess={() => {}} /><CoinManagement userId={user.id} isSuperAdmin={true} /><BlockedWordsManager /></div>;
       case 'users': return <UserManagement currentUserId={user.id} isSuperAdmin={true} />;
       case 'live-streams': return <LiveStreamManagement />;

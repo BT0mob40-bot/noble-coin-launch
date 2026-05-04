@@ -153,10 +153,12 @@ Deno.serve(async (req) => {
     const b2cResult = await b2cResponse.json().catch(() => ({}));
 
     if (!b2cResponse.ok) {
-      await adminClient
-        .from("wallet_withdrawals")
-        .update({ status: "failed", admin_note: b2cResult.errorMessage || "B2C request failed" })
-        .eq("id", withdrawal.id);
+      await adminClient.rpc("process_mpesa_withdrawal_result", {
+        _withdrawal_id: withdrawal.id,
+        _success: false,
+        _mpesa_receipt: b2cResult.ConversationID || b2cResult.OriginatorConversationID || null,
+        _result_desc: b2cResult.errorMessage || "B2C request failed",
+      });
 
       return new Response(JSON.stringify({ error: b2cResult.errorMessage || "B2C request failed" }), {
         status: 500,
@@ -167,15 +169,15 @@ Deno.serve(async (req) => {
     await adminClient
       .from("wallet_withdrawals")
       .update({
-        status: "completed",
+        status: "processing",
         checkout_request_id: b2cResult.ConversationID || b2cResult.OriginatorConversationID || null,
         mpesa_receipt: b2cResult.ConversationID || null,
-        admin_note: b2cResult.ResponseDescription || "Sent to M-PESA",
+        admin_note: b2cResult.ResponseDescription || "Sent to M-PESA, awaiting final result",
       })
       .eq("id", withdrawal.id);
 
     return new Response(
-      JSON.stringify({ success: true, message: "Withdrawal sent to M-PESA", result: b2cResult }),
+      JSON.stringify({ success: true, message: "Withdrawal sent to M-PESA", status: "processing", result: b2cResult }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error: unknown) {

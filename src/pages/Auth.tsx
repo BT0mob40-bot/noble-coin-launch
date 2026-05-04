@@ -111,42 +111,13 @@ export default function Auth() {
     const refCode = getReferralCode();
     if (!refCode) return;
 
-    // Retry up to 3 times — covers race with handle_new_user trigger creating profile
+    // Server-side claim is idempotent and updates both profile + referral row.
     for (let attempt = 0; attempt < 3; attempt++) {
       try {
-        const { data: referrerProfile } = await supabase
-          .from('profiles')
-          .select('user_id')
-          .eq('referral_code', refCode)
-          .maybeSingle();
-
-        if (!referrerProfile || referrerProfile.user_id === newUserId) {
+        const { data, error } = await (supabase.rpc as any)('claim_referral', { _referral_code: refCode });
+        if (error) throw error;
+        if (data?.ok || data?.already_claimed || data?.reason === 'invalid_referrer') {
           clearReferralCode();
-          return;
-        }
-
-        // Idempotent: only insert if no existing referral row
-        const { data: existing } = await supabase
-          .from('referrals')
-          .select('id')
-          .eq('referred_id', newUserId)
-          .maybeSingle();
-
-        if (!existing) {
-          await supabase.from('referrals').insert({
-            referrer_id: referrerProfile.user_id,
-            referred_id: newUserId,
-          });
-        }
-
-        const { error: profileErr } = await supabase
-          .from('profiles')
-          .update({ referred_by: refCode } as any)
-          .eq('user_id', newUserId);
-
-        if (!profileErr) {
-          clearReferralCode();
-          // Cache success so we don't retry on next login
           sessionStorage.setItem(`ref_processed_${newUserId}`, '1');
           return;
         }

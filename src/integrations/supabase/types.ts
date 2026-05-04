@@ -527,6 +527,45 @@ export type Database = {
         }
         Relationships: []
       }
+      performance_metrics: {
+        Row: {
+          created_at: string
+          duration_ms: number
+          endpoint: string | null
+          id: string
+          metadata: Json
+          metric_type: string
+          route: string | null
+          status_code: number | null
+          success: boolean
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          duration_ms: number
+          endpoint?: string | null
+          id?: string
+          metadata?: Json
+          metric_type: string
+          route?: string | null
+          status_code?: number | null
+          success?: boolean
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          duration_ms?: number
+          endpoint?: string | null
+          id?: string
+          metadata?: Json
+          metric_type?: string
+          route?: string | null
+          status_code?: number | null
+          success?: boolean
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       phone_otps: {
         Row: {
           attempts: number
@@ -1057,6 +1096,7 @@ export type Database = {
           coin_id: string
           created_at: string
           id: string
+          merchant_request_id: string | null
           mpesa_receipt: string | null
           phone: string | null
           price_per_coin: number
@@ -1071,6 +1111,7 @@ export type Database = {
           coin_id: string
           created_at?: string
           id?: string
+          merchant_request_id?: string | null
           mpesa_receipt?: string | null
           phone?: string | null
           price_per_coin: number
@@ -1085,6 +1126,7 @@ export type Database = {
           coin_id?: string
           created_at?: string
           id?: string
+          merchant_request_id?: string | null
           mpesa_receipt?: string | null
           phone?: string | null
           price_per_coin?: number
@@ -1246,6 +1288,7 @@ export type Database = {
         }
         Returns: number
       }
+      claim_referral: { Args: { _referral_code: string }; Returns: Json }
       complete_mpesa_buy: {
         Args: { _mpesa_receipt: string; _transaction_id: string }
         Returns: Json
@@ -1291,6 +1334,15 @@ export type Database = {
           _user_id: string
         }
         Returns: boolean
+      }
+      process_mpesa_withdrawal_result: {
+        Args: {
+          _mpesa_receipt: string
+          _result_desc: string
+          _success: boolean
+          _withdrawal_id: string
+        }
+        Returns: Json
       }
     }
     Enums: {

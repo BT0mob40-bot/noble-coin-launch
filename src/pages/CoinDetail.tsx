@@ -263,8 +263,6 @@ export default function CoinDetail() {
         // Store the checkoutRequestId for polling
         if (stkData?.checkoutRequestId) {
           setCheckoutRequestId(stkData.checkoutRequestId);
-          // Also save to transaction for callback matching
-          await supabase.from('transactions').update({ mpesa_receipt: stkData.checkoutRequestId }).eq('id', transaction.id);
         }
 
         toast.success('Check your phone for M-PESA prompt!');

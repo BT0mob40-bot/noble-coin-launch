@@ -10,7 +10,7 @@ function Root() {
   useEffect(() => {
     const timer = setTimeout(() => {
       setShowLoader(false);
-    }, 2500);
+    }, 900);
 
     return () => clearTimeout(timer);
   }, []);

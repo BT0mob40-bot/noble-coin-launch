@@ -23,10 +23,52 @@ Deno.serve(async (req) => {
     );
 
     const body = await req.json();
+    const b2cResult = body?.Result;
+    if (b2cResult) {
+      const conversationId = b2cResult.ConversationID || b2cResult.OriginatorConversationID;
+      const receipt = b2cResult.TransactionID || conversationId || "";
+      const success = Number(b2cResult.ResultCode) === 0;
+      const { data: withdrawal } = await supabase
+        .from("wallet_withdrawals")
+        .select("id,user_id,amount,net_amount,phone")
+        .or(`checkout_request_id.eq.${conversationId},mpesa_receipt.eq.${conversationId}`)
+        .maybeSingle();
+
+      if (withdrawal?.id) {
+        const { error } = await supabase.rpc("process_mpesa_withdrawal_result", {
+          _withdrawal_id: withdrawal.id,
+          _success: success,
+          _mpesa_receipt: receipt,
+          _result_desc: b2cResult.ResultDesc || (success ? "completed" : "failed"),
+        });
+        if (error) console.error("process_mpesa_withdrawal_result error:", error);
+        else {
+          try {
+            const { data: profile } = await supabase
+              .from("profiles").select("email").eq("user_id", withdrawal.user_id).maybeSingle();
+            if (profile?.email) {
+              supabase.functions.invoke("smtp-email", {
+                body: {
+                  type: success ? "withdrawal_approved" : "withdrawal_rejected",
+                  email: profile.email,
+                  amount: withdrawal.net_amount || withdrawal.amount,
+                  phone: withdrawal.phone,
+                  reference: receipt,
+                  status: success ? "Completed" : "Failed",
+                  reason: b2cResult.ResultDesc || "M-PESA payout failed",
+                },
+              }).catch(() => {});
+            }
+          } catch (_) {}
+        }
+      }
+      return acceptedResponse;
+    }
+
     const stkCallback = body?.Body?.stkCallback;
     if (!stkCallback) return acceptedResponse;
 
-    const { CheckoutRequestID, ResultCode, ResultDesc, CallbackMetadata } = stkCallback;
+    const { MerchantRequestID, CheckoutRequestID, ResultCode, ResultDesc, CallbackMetadata } = stkCallback;
 
     let mpesaReceiptNumber = "";
     if (CallbackMetadata?.Item) {
@@ -36,7 +78,7 @@ Deno.serve(async (req) => {
     }
 
     let { data: transaction } = await supabase
-      .from("transactions").select("id,status").eq("mpesa_receipt", CheckoutRequestID).maybeSingle();
+      .from("transactions").select("id,status").or(`mpesa_receipt.eq.${CheckoutRequestID},merchant_request_id.eq.${MerchantRequestID}`).maybeSingle();
 
     let { data: paymentRequest } = await supabase
       .from("payment_requests").select("id,status").eq("checkout_request_id", CheckoutRequestID).maybeSingle();
@@ -51,7 +93,7 @@ Deno.serve(async (req) => {
         .maybeSingle();
       if (txFallback.data?.id) {
         transaction = txFallback.data;
-        await supabase.from("transactions").update({ mpesa_receipt: CheckoutRequestID }).eq("id", txFallback.data.id);
+        await supabase.from("transactions").update({ mpesa_receipt: CheckoutRequestID, merchant_request_id: MerchantRequestID }).eq("id", txFallback.data.id);
       }
     }
 
@@ -110,7 +152,13 @@ Deno.serve(async (req) => {
               .from("profiles").select("email").eq("user_id", pr.user_id).maybeSingle();
             if (profile?.email) {
               supabase.functions.invoke("smtp-email", {
-                body: { type: "deposit", email: profile.email, amount: pr.amount },
+                body: {
+                  type: "deposit",
+                  email: profile.email,
+                  amount: pr.amount,
+                  reference: mpesaReceiptNumber || CheckoutRequestID,
+                  status: "Completed",
+                },
               }).catch(() => {});
             }
           }

@@ -81,7 +81,7 @@ export function WithdrawalManagement() {
         const { data: profile } = await supabase.from('profiles').select('email').eq('user_id', row.user_id).maybeSingle();
         if (profile?.email) {
           supabase.functions.invoke('smtp-email', {
-            body: { type: 'withdrawal_approved', email: profile.email, amount: row.net_amount, phone: row.phone, origin: window.location.origin },
+            body: { type: 'withdrawal_approved', email: profile.email, amount: row.net_amount, phone: row.phone, reference: data?.result?.ConversationID || row.id.slice(0, 8), status: 'Processing', origin: window.location.origin },
           }).catch(() => {});
         }
       } catch {}
@@ -133,7 +133,7 @@ export function WithdrawalManagement() {
         const { data: profile } = await supabase.from('profiles').select('email').eq('user_id', row.user_id).maybeSingle();
         if (profile?.email) {
           supabase.functions.invoke('smtp-email', {
-            body: { type: 'withdrawal_rejected', email: profile.email, amount: row.amount, reason: note, origin: window.location.origin },
+            body: { type: 'withdrawal_rejected', email: profile.email, amount: row.amount, reason: note, reference: row.id.slice(0, 8), status: 'Rejected', origin: window.location.origin },
           }).catch(() => {});
         }
       } catch {}

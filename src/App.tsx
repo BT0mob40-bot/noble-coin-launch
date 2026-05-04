@@ -8,6 +8,7 @@ import { AuthProvider } from "@/lib/auth-context";
 import { SiteSettingsProvider } from "@/lib/site-settings-context";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { MobileBottomNav } from "@/components/layout/MobileBottomNav";
+import { PerformanceMonitor } from "@/lib/performance-monitor";
 import { Loader2 } from "lucide-react";
 
 // Lazy-load all pages for code splitting
@@ -56,6 +57,7 @@ const App = () => (
           <Toaster />
           <Sonner />
           <BrowserRouter>
+            <PerformanceMonitor />
             <Suspense fallback={<PageLoader />}>
               <Routes>
                 <Route path="/" element={<Landing />} />

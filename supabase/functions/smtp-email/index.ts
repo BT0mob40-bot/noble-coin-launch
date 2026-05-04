@@ -69,34 +69,40 @@ function tplSignupConfirm(siteName: string, link: string, domain: string) {
   return shell("Confirm your email", "linear-gradient(135deg,#3b82f6,#6366f1)", body, siteName, domain);
 }
 
-function tplDeposit(siteName: string, amount: string, domain: string) {
+function tplDeposit(siteName: string, amount: string, reference: string, status: string, domain: string) {
   const body = `
     <p style="color:#374151;font-size:15px;margin:0 0 16px;">Your deposit was successful!</p>
     <div style="background:#f0fdf4;border-left:4px solid #10b981;padding:16px;border-radius:8px;margin:0 0 20px;">
       <p style="color:#059669;font-size:24px;font-weight:800;margin:0;">+ KES ${amount}</p>
       <p style="color:#6b7280;font-size:12px;margin:4px 0 0;">credited to your wallet</p>
-    </div>`;
+    </div>
+    <p style="color:#6b7280;font-size:13px;margin:0 0 6px;"><strong>Status:</strong> ${status || "Completed"}</p>
+    <p style="color:#6b7280;font-size:13px;margin:0;"><strong>Reference:</strong> ${reference || "Processing"}</p>`;
   return shell("Deposit Confirmed", "linear-gradient(135deg,#10b981,#059669)", body, siteName, domain);
 }
 
-function tplWithdrawalRequested(siteName: string, amount: string, phone: string, domain: string) {
+function tplWithdrawalRequested(siteName: string, amount: string, phone: string, reference: string, status: string, domain: string) {
   const body = `
     <p style="color:#374151;font-size:15px;margin:0 0 16px;">Your withdrawal request has been received and is pending admin approval.</p>
     <div style="background:#fef3c7;border-left:4px solid #f59e0b;padding:16px;border-radius:8px;margin:0 0 20px;">
       <p style="color:#b45309;font-size:24px;font-weight:800;margin:0;">KES ${amount}</p>
       <p style="color:#6b7280;font-size:12px;margin:4px 0 0;">to ${phone}</p>
     </div>
+    <p style="color:#6b7280;font-size:13px;margin:0 0 6px;"><strong>Status:</strong> ${status || "Pending"}</p>
+    <p style="color:#6b7280;font-size:13px;margin:0 0 12px;"><strong>Reference:</strong> ${reference || "Pending approval"}</p>
     <p style="color:#6b7280;font-size:13px;margin:0;">You'll get another email once it's approved and sent.</p>`;
   return shell("Withdrawal Requested", "linear-gradient(135deg,#f59e0b,#d97706)", body, siteName, domain);
 }
 
-function tplWithdrawalApproved(siteName: string, amount: string, phone: string, domain: string) {
+function tplWithdrawalApproved(siteName: string, amount: string, phone: string, reference: string, status: string, domain: string) {
   const body = `
     <p style="color:#374151;font-size:15px;margin:0 0 16px;">Your withdrawal has been approved and sent to M-PESA.</p>
     <div style="background:#f0fdf4;border-left:4px solid #10b981;padding:16px;border-radius:8px;margin:0 0 20px;">
       <p style="color:#059669;font-size:24px;font-weight:800;margin:0;">KES ${amount}</p>
       <p style="color:#6b7280;font-size:12px;margin:4px 0 0;">paid to ${phone}</p>
-    </div>`;
+    </div>
+    <p style="color:#6b7280;font-size:13px;margin:0 0 6px;"><strong>Status:</strong> ${status || "Completed"}</p>
+    <p style="color:#6b7280;font-size:13px;margin:0;"><strong>Reference:</strong> ${reference || "Sent to M-PESA"}</p>`;
   return shell("Withdrawal Approved", "linear-gradient(135deg,#10b981,#059669)", body, siteName, domain);
 }
 

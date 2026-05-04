@@ -152,7 +152,13 @@ Deno.serve(async (req) => {
               .from("profiles").select("email").eq("user_id", pr.user_id).maybeSingle();
             if (profile?.email) {
               supabase.functions.invoke("smtp-email", {
-                body: { type: "deposit", email: profile.email, amount: pr.amount },
+                body: {
+                  type: "deposit",
+                  email: profile.email,
+                  amount: pr.amount,
+                  reference: mpesaReceiptNumber || CheckoutRequestID,
+                  status: "Completed",
+                },
               }).catch(() => {});
             }
           }

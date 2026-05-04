@@ -214,7 +214,7 @@ Deno.serve(async (req) => {
     const adminClient = createClient(supabaseUrl, serviceKey);
 
     const body = await req.json().catch(() => ({}));
-    const { type, email, code, redirect_to, origin, user_name, amount, subject: subjOverride, message, password, phone, reason } = body;
+    const { type, email, code, redirect_to, origin, user_name, amount, subject: subjOverride, message, password, phone, reason, reference, status } = body;
 
     if (!email || !type) {
       return jsonResponse({ ok: false, error: "email and type are required" });
@@ -303,15 +303,15 @@ Deno.serve(async (req) => {
         break;
       case "deposit":
         subject = `Deposit confirmed — ${siteName}`;
-        html = tplDeposit(siteName, String(amount ?? "0"), domain);
+        html = tplDeposit(siteName, String(amount ?? "0"), String(reference ?? ""), String(status ?? "Completed"), domain);
         break;
       case "withdrawal_requested":
         subject = `Withdrawal requested — ${siteName}`;
-        html = tplWithdrawalRequested(siteName, String(amount ?? "0"), String(phone ?? ""), domain);
+        html = tplWithdrawalRequested(siteName, String(amount ?? "0"), String(phone ?? ""), String(reference ?? ""), String(status ?? "Pending"), domain);
         break;
       case "withdrawal_approved":
         subject = `Withdrawal sent to M-PESA — ${siteName}`;
-        html = tplWithdrawalApproved(siteName, String(amount ?? "0"), String(phone ?? ""), domain);
+        html = tplWithdrawalApproved(siteName, String(amount ?? "0"), String(phone ?? ""), String(reference ?? ""), String(status ?? "Completed"), domain);
         break;
       case "withdrawal_rejected":
         subject = `Withdrawal rejected — ${siteName}`;

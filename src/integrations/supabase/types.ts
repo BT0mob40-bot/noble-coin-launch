@@ -1335,6 +1335,15 @@ export type Database = {
         }
         Returns: boolean
       }
+      process_mpesa_withdrawal_result: {
+        Args: {
+          _mpesa_receipt: string
+          _result_desc: string
+          _success: boolean
+          _withdrawal_id: string
+        }
+        Returns: Json
+      }
     }
     Enums: {
       app_role: "super_admin" | "admin" | "coin_creator" | "user" | "banned"

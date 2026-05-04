@@ -37,7 +37,7 @@ export function PerformanceMonitorPanel() {
       .gte('created_at', since)
       .order('created_at', { ascending: false })
       .limit(500);
-    setMetrics((data || []) as PerfMetric[]);
+    setMetrics(((data || []) as unknown) as PerfMetric[]);
     setLoading(false);
   };
 

@@ -36,6 +36,21 @@ async function getMpesaConfig(adminClient: any) {
   return data;
 }
 
+async function retryDbWrite(label: string, work: () => Promise<void>, attempts = 4) {
+  let lastError: unknown;
+  for (let i = 0; i < attempts; i++) {
+    try {
+      await work();
+      return;
+    } catch (error) {
+      lastError = error;
+      console.error(`${label} failed attempt ${i + 1}:`, error);
+      await new Promise((resolve) => setTimeout(resolve, 350 * (i + 1)));
+    }
+  }
+  console.error(`${label} permanently failed:`, lastError);
+}
+
 interface STKPushRequest {
   phone: string;
   amount: number;
@@ -226,25 +241,27 @@ Deno.serve(async (req) => {
     const merchantRequestId = stkResult.MerchantRequestID as string;
 
     // Fire-and-forget DB writes — don't block response to user
-    const dbWrites = (async () => {
+    const dbWrites = retryDbWrite("Post-STK DB write", async () => {
       if (type === "buy" && transactionId) {
-        await adminClient
+        const { error } = await adminClient
           .from("transactions")
-          .update({ mpesa_receipt: checkoutRequestId, status: "stk_sent" })
+          .update({ mpesa_receipt: checkoutRequestId, merchant_request_id: merchantRequestId, status: "stk_sent" })
           .eq("id", transactionId)
           .eq("user_id", authenticatedUserId);
+        if (error) throw error;
       }
       if (type === "deposit" || type === "coin_creation") {
         if (paymentRequestId) {
-          await adminClient.from("payment_requests").update({
+          const { error } = await adminClient.from("payment_requests").update({
             coin_id: type === "coin_creation" ? transactionId || null : null,
             checkout_request_id: checkoutRequestId,
             merchant_request_id: merchantRequestId,
             phone: formattedPhone,
             status: "stk_sent",
           }).eq("id", paymentRequestId).eq("user_id", userId || authenticatedUserId);
+          if (error) throw error;
         } else {
-          await adminClient.from("payment_requests").insert({
+          const { error } = await adminClient.from("payment_requests").insert({
             user_id: userId || authenticatedUserId,
             coin_id: type === "coin_creation" ? transactionId || null : null,
             type,
@@ -254,9 +271,10 @@ Deno.serve(async (req) => {
             merchant_request_id: merchantRequestId,
             status: "stk_sent",
           });
+          if (error) throw error;
         }
       }
-    })().catch((e) => console.error("Post-STK DB write failed:", e));
+    });
 
     // Use EdgeRuntime.waitUntil if available so the runtime keeps the task alive
     try { (globalThis as any).EdgeRuntime?.waitUntil?.(dbWrites); } catch {}

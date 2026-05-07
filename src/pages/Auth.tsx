@@ -514,6 +514,12 @@ export default function Auth() {
                       {isSubmitting ? <><Loader2 className="h-4 w-4 animate-spin" /> Signing in...</> : 'Sign In'}
                     </Button>
                   </form>
+                  <p className="text-sm text-center text-muted-foreground">
+                    Don't have an account?{' '}
+                    <button type="button" onClick={() => { setActiveTab('signup'); setError(null); }} className="text-primary font-medium hover:underline">
+                      Create account
+                    </button>
+                  </p>
                   <SocialLogin />
                 </div>
               </TabsContent>

@@ -166,6 +166,8 @@ export function TradingChart({ symbol, currentPrice, volatility, coinId, isOverr
         filter: `coin_id=eq.${coinId}`,
       }, (payload) => {
         const newRecord = payload.new as any;
+        // Skip synthetic drift ticks — charts must be 100% market-driven
+        if (newRecord?.trade_type === 'drift') return;
         setChartData((prev) => {
           const newPoint = {
             time: new Date(newRecord.created_at).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),

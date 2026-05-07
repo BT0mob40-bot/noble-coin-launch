@@ -573,6 +573,12 @@ export default function Auth() {
                       {isSubmitting ? <><Loader2 className="h-4 w-4 animate-spin" /> Creating account...</> : 'Create Account'}
                     </Button>
                   </form>
+                  <p className="text-sm text-center text-muted-foreground">
+                    Already have an account?{' '}
+                    <button type="button" onClick={() => { setActiveTab('signin'); setError(null); }} className="text-primary font-medium hover:underline">
+                      Sign in
+                    </button>
+                  </p>
                   <SocialLogin />
                   <p className="text-xs text-center text-muted-foreground">
                     By creating an account, you agree to our{' '}

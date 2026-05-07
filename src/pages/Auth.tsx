@@ -410,11 +410,10 @@ export default function Auth() {
               </div>
             </motion.div>
           ) : (
-            <Tabs value={activeTab} onValueChange={setActiveTab}>
-              <TabsList className="grid w-full grid-cols-3 mb-6">
-                <TabsTrigger value="signin">Sign In</TabsTrigger>
+    <Tabs value={activeTab} onValueChange={setActiveTab}>
+              <TabsList className="grid w-full grid-cols-2 mb-6">
+                <TabsTrigger value="signin">{activeTab === 'signup' ? 'Sign Up' : 'Sign In'}</TabsTrigger>
                 <TabsTrigger value="otp">Email Code</TabsTrigger>
-                <TabsTrigger value="signup">Sign Up</TabsTrigger>
               </TabsList>
 
               <TabsContent value="otp">

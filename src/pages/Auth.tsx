@@ -411,10 +411,69 @@ export default function Auth() {
             </motion.div>
           ) : (
             <Tabs value={activeTab} onValueChange={setActiveTab}>
-              <TabsList className="grid w-full grid-cols-2 mb-6">
+              <TabsList className="grid w-full grid-cols-3 mb-6">
                 <TabsTrigger value="signin">Sign In</TabsTrigger>
+                <TabsTrigger value="otp">Email Code</TabsTrigger>
                 <TabsTrigger value="signup">Sign Up</TabsTrigger>
               </TabsList>
+
+              <TabsContent value="otp">
+                <div className="space-y-6">
+                  <div className="space-y-2 text-center">
+                    <h2 className="text-xl sm:text-2xl font-bold font-display">Login with Email Code</h2>
+                    <p className="text-muted-foreground text-sm">
+                      {otpStage === 'request'
+                        ? 'We will email you a 6-digit code'
+                        : `Enter the code sent to ${otpEmail}`}
+                    </p>
+                  </div>
+                  {otpStage === 'request' ? (
+                    <div className="space-y-4">
+                      <div className="space-y-2">
+                        <Label>Email</Label>
+                        <div className="relative">
+                          <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                          <Input type="email" placeholder="you@example.com" value={otpEmail} onChange={(e) => setOtpEmail(e.target.value)} className="pl-10" />
+                        </div>
+                      </div>
+                      <Button variant="hero" className="w-full" onClick={handleSendOtp} disabled={otpLoading}>
+                        {otpLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                        Send Code
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      <div className="space-y-2">
+                        <Label>6-digit code</Label>
+                        <div className="relative">
+                          <ShieldCheck className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                          <Input
+                            inputMode="numeric"
+                            maxLength={6}
+                            placeholder="123456"
+                            value={otpCode}
+                            onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                            className="pl-10 tracking-widest text-center text-lg font-mono"
+                          />
+                        </div>
+                      </div>
+                      <Button variant="hero" className="w-full" onClick={handleVerifyOtp} disabled={otpLoading}>
+                        {otpLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                        Verify & Sign In
+                      </Button>
+                      <div className="flex justify-between text-xs">
+                        <button type="button" className="text-muted-foreground hover:text-foreground" onClick={() => { setOtpStage('request'); setOtpCode(''); }}>
+                          Use different email
+                        </button>
+                        <button type="button" className="text-primary hover:underline" onClick={handleSendOtp} disabled={otpLoading}>
+                          Resend code
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                  <SocialLogin />
+                </div>
+              </TabsContent>
 
               <TabsContent value="signin">
                 <div className="space-y-6">

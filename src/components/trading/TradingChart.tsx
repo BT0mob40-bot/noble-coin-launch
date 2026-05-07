@@ -66,11 +66,8 @@ export function TradingChart({ symbol, currentPrice, volatility, coinId, isOverr
 
     if (error || !data || data.length < 2) return null;
 
-    // Hide drift candles on short timeframes so trader-driven moves stand out
-    const hideDrift = timeframe === '1M' || timeframe === '5M';
-    const filtered = hideDrift
-      ? data.filter((r: any) => r.trade_type !== 'drift')
-      : data;
+    // Charts are 100% market-driven: always exclude synthetic drift candles
+    const filtered = data.filter((r: any) => r.trade_type !== 'drift');
     if (filtered.length < 2) return null;
 
     // Bucket data into time intervals

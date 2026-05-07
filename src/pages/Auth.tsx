@@ -412,7 +412,9 @@ export default function Auth() {
           ) : (
     <Tabs value={activeTab} onValueChange={setActiveTab}>
               <TabsList className="grid w-full grid-cols-2 mb-6">
-                <TabsTrigger value="signin">Sign In</TabsTrigger>
+                <TabsTrigger value={activeTab === 'signup' ? 'signup' : 'signin'}>
+                  {activeTab === 'signup' ? 'Sign Up' : 'Sign In'}
+                </TabsTrigger>
                 <TabsTrigger value="otp">Email Code</TabsTrigger>
               </TabsList>
 

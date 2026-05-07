@@ -181,6 +181,44 @@ export default function Auth() {
     }
   };
 
+  const handleSendOtp = async () => {
+    if (!otpEmail) { toast.error('Enter your email'); return; }
+    setOtpLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('send-login-otp', {
+        body: { email: otpEmail, origin: window.location.origin, create_user: true },
+      });
+      if (error) throw new Error(error.message);
+      if ((data as any)?.ok === false) throw new Error((data as any).error || 'Failed to send OTP');
+      toast.success('Code sent! Check your email.');
+      setOtpStage('verify');
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to send code');
+    } finally {
+      setOtpLoading(false);
+    }
+  };
+
+  const handleVerifyOtp = async () => {
+    if (!otpCode || otpCode.length < 6) { toast.error('Enter the 6-digit code'); return; }
+    setOtpLoading(true);
+    try {
+      const { data, error } = await supabase.auth.verifyOtp({
+        email: otpEmail,
+        token: otpCode,
+        type: 'email',
+      });
+      if (error) throw error;
+      if (!data.session) throw new Error('No session created');
+      toast.success('Signed in!');
+      // useEffect on user will handle the rest of the verification flow
+    } catch (err: any) {
+      toast.error(err.message || 'Invalid or expired code');
+    } finally {
+      setOtpLoading(false);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);

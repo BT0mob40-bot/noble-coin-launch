@@ -53,6 +53,12 @@ export default function Auth() {
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
 
+  // OTP login state
+  const [otpStage, setOtpStage] = useState<'request' | 'verify'>('request');
+  const [otpEmail, setOtpEmail] = useState('');
+  const [otpCode, setOtpCode] = useState('');
+  const [otpLoading, setOtpLoading] = useState(false);
+
   // Verification flow state
   const [authStep, setAuthStep] = useState<AuthStep>('auth');
   const [verificationSettings, setVerificationSettings] = useState({

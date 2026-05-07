@@ -26,11 +26,12 @@ const DEFINITIVE_FAILURE_CODES = new Set([
   9999, // Generic failure
 ]);
 
-const getNextDelay = (attempt: number, base: number) => {
-  if (attempt <= 4) return Math.min(1200, base);
-  if (attempt <= 10) return Math.min(2500, Math.max(1500, base));
-  if (attempt <= 20) return Math.min(5000, Math.max(2500, base));
-  return Math.min(8000, Math.max(5000, base));
+const getNextDelay = (attempt: number, _base: number) => {
+  // Aggressive early polling so user sees PIN-entered/cancelled outcome sooner
+  if (attempt <= 6) return 1000;
+  if (attempt <= 16) return 1800;
+  if (attempt <= 30) return 3000;
+  return 5000;
 };
 
 const isCompletedStatus = (status?: string | null) => status === 'completed';

@@ -410,11 +410,12 @@ export default function Auth() {
               </div>
             </motion.div>
           ) : (
-            <Tabs value={activeTab} onValueChange={setActiveTab}>
-              <TabsList className="grid w-full grid-cols-3 mb-6">
-                <TabsTrigger value="signin">Sign In</TabsTrigger>
+    <Tabs value={activeTab} onValueChange={setActiveTab}>
+              <TabsList className="grid w-full grid-cols-2 mb-6">
+                <TabsTrigger value={activeTab === 'signup' ? 'signup' : 'signin'}>
+                  {activeTab === 'signup' ? 'Sign Up' : 'Sign In'}
+                </TabsTrigger>
                 <TabsTrigger value="otp">Email Code</TabsTrigger>
-                <TabsTrigger value="signup">Sign Up</TabsTrigger>
               </TabsList>
 
               <TabsContent value="otp">
@@ -515,6 +516,12 @@ export default function Auth() {
                       {isSubmitting ? <><Loader2 className="h-4 w-4 animate-spin" /> Signing in...</> : 'Sign In'}
                     </Button>
                   </form>
+                  <p className="text-sm text-center text-muted-foreground">
+                    Don't have an account?{' '}
+                    <button type="button" onClick={() => { setActiveTab('signup'); setError(null); }} className="text-primary font-medium hover:underline">
+                      Create account
+                    </button>
+                  </p>
                   <SocialLogin />
                 </div>
               </TabsContent>
@@ -568,6 +575,12 @@ export default function Auth() {
                       {isSubmitting ? <><Loader2 className="h-4 w-4 animate-spin" /> Creating account...</> : 'Create Account'}
                     </Button>
                   </form>
+                  <p className="text-sm text-center text-muted-foreground">
+                    Already have an account?{' '}
+                    <button type="button" onClick={() => { setActiveTab('signin'); setError(null); }} className="text-primary font-medium hover:underline">
+                      Sign in
+                    </button>
+                  </p>
                   <SocialLogin />
                   <p className="text-xs text-center text-muted-foreground">
                     By creating an account, you agree to our{' '}

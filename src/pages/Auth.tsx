@@ -203,15 +203,12 @@ export default function Auth() {
     if (!otpCode || otpCode.length < 6) { toast.error('Enter the 6-digit code'); return; }
     setOtpLoading(true);
     try {
-      const { data, error } = await supabase.auth.verifyOtp({
-        email: otpEmail,
-        token: otpCode,
-        type: 'email',
+      const { data, error } = await supabase.functions.invoke('verify-login-otp', {
+        body: { email: otpEmail, code: otpCode, origin: window.location.origin },
       });
-      if (error) throw error;
-      if (!data.session) throw new Error('No session created');
-      toast.success('Signed in!');
-      // useEffect on user will handle the rest of the verification flow
+      if (error) throw new Error(error.message);
+      if ((data as any)?.ok === false || !(data as any)?.actionLink) throw new Error((data as any)?.error || 'Could not create session');
+      window.location.href = (data as any).actionLink;
     } catch (err: any) {
       toast.error(err.message || 'Invalid or expired code');
     } finally {
@@ -266,10 +263,18 @@ export default function Auth() {
           localStorage.removeItem('signup_profile_data');
         });
       }
-      // Always retry referral on login if a code is still pending and not yet processed
-      if (getReferralCode() && !sessionStorage.getItem(`ref_processed_${user.id}`)) {
-        processReferral(user.id);
-      }
+      const pendingRef = getReferralCode();
+      supabase.rpc('ensure_user_bootstrap' as any, {
+        _referral_code: pendingRef,
+        _full_name: stored ? JSON.parse(stored).fullName : null,
+        _phone: stored ? JSON.parse(stored).phone : null,
+      }).then(() => {
+        if (pendingRef) {
+          clearReferralCode();
+          sessionStorage.setItem(`ref_processed_${user.id}`, '1');
+        }
+      });
+      if (pendingRef && !sessionStorage.getItem(`ref_processed_${user.id}`)) processReferral(user.id);
     }
   }, [user]);
 

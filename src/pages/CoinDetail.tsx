@@ -69,6 +69,7 @@ interface SiteSettings {
 }
 
 type PaymentStatus = 'waiting' | 'success' | 'failed' | 'timeout';
+type StkStage = 'sent' | 'pin_prompt' | 'pin_entered' | 'received' | 'cancelled' | 'processing';
 
 export default function CoinDetail() {
   const { id } = useParams<{ id: string }>();
@@ -90,6 +91,7 @@ export default function CoinDetail() {
   const [processing, setProcessing] = useState(false);
   const [mobileTab, setMobileTab] = useState<'chart' | 'orderbook' | 'trades'>('chart');
   const [pendingBuyAmount, setPendingBuyAmount] = useState(0);
+  const [stkStage, setStkStage] = useState<StkStage>('sent');
   const { sendLocalNotification } = usePushNotifications(user?.id);
   const { checkAlerts } = usePriceAlerts();
 
@@ -110,6 +112,7 @@ export default function CoinDetail() {
     onTimeout: useCallback(() => {
       setPaymentStatus('timeout');
     }, []),
+    onStatus: useCallback((status: StkStage) => setStkStage(status), []),
   });
 
   const priceMultiplier = coin && coin.initial_price > 0 ? coin.price / coin.initial_price : 1;
@@ -247,6 +250,7 @@ export default function CoinDetail() {
 
         setPendingTransactionId(transaction.id);
         setPendingBuyAmount(amount);
+        setStkStage('sent');
         setPaymentStatus('waiting');
         setShowPaymentModal(true);
 
@@ -264,6 +268,7 @@ export default function CoinDetail() {
         if (stkData?.checkoutRequestId) {
           setCheckoutRequestId(stkData.checkoutRequestId);
         }
+        setStkStage('pin_prompt');
 
         toast.success('Check your phone for M-PESA prompt!');
       }
@@ -458,6 +463,7 @@ export default function CoinDetail() {
           if (!v) { setPaymentStatus('waiting'); setCheckoutRequestId(null); setPendingTransactionId(null); }
         }}
         status={paymentStatus}
+        stage={stkStage}
         coinSymbol={coin.symbol}
         amount={pendingBuyAmount * coin.price}
         onRetry={() => { setPaymentStatus('waiting'); setShowPaymentModal(false); setCheckoutRequestId(null); setPendingTransactionId(null); }}

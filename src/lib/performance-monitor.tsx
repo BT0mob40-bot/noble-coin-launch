@@ -37,7 +37,7 @@ function recordMetric(payload: {
     success: payload.success ?? true,
     metadata: payload.metadata ?? {},
   };
-  const schedule = window.requestIdleCallback || ((cb: IdleRequestCallback) => window.setTimeout(cb, 1500));
+  const schedule = window.requestIdleCallback || ((cb: () => void) => window.setTimeout(cb, 1500));
   schedule(() => {
     supabase.from('performance_metrics' as any).insert(body).then(() => undefined);
   });

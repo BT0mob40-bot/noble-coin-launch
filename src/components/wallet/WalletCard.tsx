@@ -18,6 +18,7 @@ interface WalletCardProps {
 }
 
 type DepositStatus = 'form' | 'processing' | 'success' | 'failed' | 'timeout';
+type StkStage = 'sent' | 'pin_prompt' | 'pin_entered' | 'received' | 'cancelled' | 'processing';
 
 export function WalletCard({ fiatBalance, userId, onBalanceChange }: WalletCardProps) {
   const [showDeposit, setShowDeposit] = useState(false);
@@ -31,6 +32,7 @@ export function WalletCard({ fiatBalance, userId, onBalanceChange }: WalletCardP
   const [elapsed, setElapsed] = useState(0);
   const [checkoutRequestId, setCheckoutRequestId] = useState<string | null>(null);
   const [paymentRequestId, setPaymentRequestId] = useState<string | null>(null);
+  const [stkStage, setStkStage] = useState<StkStage>('sent');
 
   // Track last deposit amount/phone for email notification
   const [lastDepositAmount, setLastDepositAmount] = useState<number>(0);
@@ -43,22 +45,14 @@ export function WalletCard({ fiatBalance, userId, onBalanceChange }: WalletCardP
     onComplete: useCallback(async () => {
       setDepositStatus('success');
       onBalanceChange();
-      // Fire-and-forget deposit confirmation email
-      try {
-        const { data: profile } = await supabase.from('profiles').select('email').eq('user_id', userId).maybeSingle();
-        if (profile?.email && lastDepositAmount > 0) {
-          supabase.functions.invoke('smtp-email', {
-            body: { type: 'deposit', email: profile.email, amount: lastDepositAmount, reference: checkoutRequestId, status: 'Completed', origin: window.location.origin },
-          }).catch(() => {});
-        }
-      } catch {}
-    }, [onBalanceChange, userId, lastDepositAmount, checkoutRequestId]),
+    }, [onBalanceChange]),
     onFailed: useCallback(() => {
       setDepositStatus('failed');
     }, []),
     onTimeout: useCallback(() => {
       setDepositStatus('timeout');
     }, []),
+    onStatus: useCallback((status: StkStage) => setStkStage(status), []),
   });
 
   useEffect(() => {
@@ -122,6 +116,7 @@ export function WalletCard({ fiatBalance, userId, onBalanceChange }: WalletCardP
       if (data?.checkoutRequestId) {
         setCheckoutRequestId(data.checkoutRequestId);
       }
+      setStkStage('pin_prompt');
 
       toast.success('STK Push sent! Check your phone.');
     } catch (error: any) {
@@ -172,7 +167,7 @@ export function WalletCard({ fiatBalance, userId, onBalanceChange }: WalletCardP
   };
 
   const closeDeposit = () => {
-    setShowDeposit(false); setDepositStatus('form'); setAmount(''); setPhone(''); setElapsed(0); setCheckoutRequestId(null); setPaymentRequestId(null);
+    setShowDeposit(false); setDepositStatus('form'); setAmount(''); setPhone(''); setElapsed(0); setCheckoutRequestId(null); setPaymentRequestId(null); setStkStage('sent');
   };
 
   return (

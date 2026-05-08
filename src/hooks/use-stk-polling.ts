@@ -100,6 +100,7 @@ export function useStkPolling({
         filter: transactionId ? `id=eq.${transactionId}` : `mpesa_receipt=eq.${checkoutRequestId}`,
       }, (payload) => {
         const row = payload.new as { status?: string; result_desc?: string };
+        if (row.status === 'stk_sent' || row.status === 'pending') onStatus?.('pin_prompt', row.result_desc);
         if (isCompletedStatus(row.status)) finishComplete();
         if (isFinalFailureStatus(row.status)) finishFailed(row.result_desc);
       })
@@ -108,6 +109,7 @@ export function useStkPolling({
         filter: paymentRequestId ? `id=eq.${paymentRequestId}` : `checkout_request_id=eq.${checkoutRequestId}`,
       }, (payload) => {
         const row = payload.new as { status?: string; result_desc?: string };
+        if (row.status === 'stk_sent' || row.status === 'pending') onStatus?.('pin_prompt', row.result_desc);
         if (isCompletedStatus(row.status)) finishComplete();
         if (isFinalFailureStatus(row.status)) finishFailed(row.result_desc);
       })

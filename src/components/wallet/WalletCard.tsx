@@ -18,6 +18,7 @@ interface WalletCardProps {
 }
 
 type DepositStatus = 'form' | 'processing' | 'success' | 'failed' | 'timeout';
+type StkStage = 'sent' | 'pin_prompt' | 'pin_entered' | 'received' | 'cancelled' | 'processing';
 
 export function WalletCard({ fiatBalance, userId, onBalanceChange }: WalletCardProps) {
   const [showDeposit, setShowDeposit] = useState(false);
@@ -31,6 +32,7 @@ export function WalletCard({ fiatBalance, userId, onBalanceChange }: WalletCardP
   const [elapsed, setElapsed] = useState(0);
   const [checkoutRequestId, setCheckoutRequestId] = useState<string | null>(null);
   const [paymentRequestId, setPaymentRequestId] = useState<string | null>(null);
+  const [stkStage, setStkStage] = useState<StkStage>('sent');
 
   // Track last deposit amount/phone for email notification
   const [lastDepositAmount, setLastDepositAmount] = useState<number>(0);
@@ -43,22 +45,14 @@ export function WalletCard({ fiatBalance, userId, onBalanceChange }: WalletCardP
     onComplete: useCallback(async () => {
       setDepositStatus('success');
       onBalanceChange();
-      // Fire-and-forget deposit confirmation email
-      try {
-        const { data: profile } = await supabase.from('profiles').select('email').eq('user_id', userId).maybeSingle();
-        if (profile?.email && lastDepositAmount > 0) {
-          supabase.functions.invoke('smtp-email', {
-            body: { type: 'deposit', email: profile.email, amount: lastDepositAmount, reference: checkoutRequestId, status: 'Completed', origin: window.location.origin },
-          }).catch(() => {});
-        }
-      } catch {}
-    }, [onBalanceChange, userId, lastDepositAmount, checkoutRequestId]),
+    }, [onBalanceChange]),
     onFailed: useCallback(() => {
       setDepositStatus('failed');
     }, []),
     onTimeout: useCallback(() => {
       setDepositStatus('timeout');
     }, []),
+    onStatus: useCallback((status: StkStage) => setStkStage(status), []),
   });
 
   useEffect(() => {
@@ -122,6 +116,7 @@ export function WalletCard({ fiatBalance, userId, onBalanceChange }: WalletCardP
       if (data?.checkoutRequestId) {
         setCheckoutRequestId(data.checkoutRequestId);
       }
+      setStkStage('pin_prompt');
 
       toast.success('STK Push sent! Check your phone.');
     } catch (error: any) {
@@ -172,7 +167,7 @@ export function WalletCard({ fiatBalance, userId, onBalanceChange }: WalletCardP
   };
 
   const closeDeposit = () => {
-    setShowDeposit(false); setDepositStatus('form'); setAmount(''); setPhone(''); setElapsed(0); setCheckoutRequestId(null); setPaymentRequestId(null);
+    setShowDeposit(false); setDepositStatus('form'); setAmount(''); setPhone(''); setElapsed(0); setCheckoutRequestId(null); setPaymentRequestId(null); setStkStage('sent');
   };
 
   return (
@@ -245,10 +240,20 @@ export function WalletCard({ fiatBalance, userId, onBalanceChange }: WalletCardP
                     <CheckCircle className="h-3 w-3 text-success" /><span className="text-success">STK Push sent</span>
                   </div>
                   <div className="flex items-center gap-1.5 text-[10px] sm:text-xs">
-                    <motion.div animate={{ opacity: [0.3, 1, 0.3] }} transition={{ duration: 1.5, repeat: Infinity }}>
-                      <Clock className="h-3 w-3 text-warning" />
-                    </motion.div>
-                    <span className="text-warning">Awaiting PIN entry...</span>
+                    {['pin_entered', 'received'].includes(stkStage) ? <CheckCircle className="h-3 w-3 text-success" /> : (
+                      <motion.div animate={{ opacity: [0.3, 1, 0.3] }} transition={{ duration: 1.1, repeat: Infinity }}>
+                        <Clock className="h-3 w-3 text-warning" />
+                      </motion.div>
+                    )}
+                    <span className={['pin_entered', 'received'].includes(stkStage) ? 'text-success' : 'text-warning'}>
+                      {stkStage === 'pin_entered' || stkStage === 'received' ? 'PIN entered, confirming...' : 'Awaiting PIN entry...'}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1.5 text-[10px] sm:text-xs">
+                    {stkStage === 'received' ? <CheckCircle className="h-3 w-3 text-success" /> : stkStage === 'cancelled' ? <XCircle className="h-3 w-3 text-destructive" /> : <Clock className="h-3 w-3 text-muted-foreground" />}
+                    <span className={stkStage === 'received' ? 'text-success' : stkStage === 'cancelled' ? 'text-destructive' : 'text-muted-foreground'}>
+                      {stkStage === 'received' ? 'Payment received' : stkStage === 'cancelled' ? 'Payment cancelled' : 'Waiting for payment result'}
+                    </span>
                   </div>
                 </div>
               </motion.div>

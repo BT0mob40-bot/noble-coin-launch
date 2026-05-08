@@ -100,6 +100,35 @@ export function WithdrawalManagement() {
     }
   };
 
+  const markManualPaid = async (row: WithdrawalRow) => {
+    setActingId(row.id);
+    try {
+      const reference = `MANUAL-${Date.now().toString().slice(-8)}`;
+      const { error } = await supabase
+        .from('wallet_withdrawals')
+        .update({ status: 'completed', mpesa_receipt: reference, admin_note: 'Paid manually by admin' })
+        .eq('id', row.id)
+        .in('status', ['pending', 'approved', 'processing'] as any);
+      if (error) throw error;
+
+      try {
+        const { data: profile } = await supabase.from('profiles').select('email').eq('user_id', row.user_id).maybeSingle();
+        if (profile?.email) {
+          supabase.functions.invoke('smtp-email', {
+            body: { type: 'withdrawal_approved', email: profile.email, amount: row.net_amount, phone: row.phone, reference, status: 'Completed', origin: window.location.origin },
+          }).catch(() => {});
+        }
+      } catch {}
+
+      toast.success('Withdrawal marked as manually paid');
+      fetchRows();
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to mark withdrawal paid');
+    } finally {
+      setActingId(null);
+    }
+  };
+
   const rejectWithdrawal = async (row: WithdrawalRow) => {
     setActingId(row.id);
     const note = rejectNotes[row.id]?.trim() || 'Rejected by admin';
@@ -202,17 +231,16 @@ export function WithdrawalManagement() {
                     <TableCell className="text-right font-mono">KES {Number(row.net_amount).toLocaleString()}</TableCell>
                     <TableCell>{statusBadge(row.status)}</TableCell>
                     <TableCell className="text-right">
-                      {row.status === 'pending' ? (
+                      {['pending', 'approved', 'processing'].includes(row.status) ? (
                         <div className="flex justify-end gap-2">
-                          <Button
-                            size="sm"
-                            variant="success"
-                            className="gap-1"
-                            disabled={actingId === row.id}
-                            onClick={() => approveWithdrawal(row)}
-                          >
-                            {actingId === row.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
-                            Approve
+                          {row.status === 'pending' && (
+                            <Button size="sm" variant="success" className="gap-1" disabled={actingId === row.id} onClick={() => approveWithdrawal(row)}>
+                              {actingId === row.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
+                              Auto Pay
+                            </Button>
+                          )}
+                          <Button size="sm" variant="outline" className="gap-1" disabled={actingId === row.id} onClick={() => markManualPaid(row)}>
+                            <CheckCircle2 className="h-3.5 w-3.5" /> Manual Paid
                           </Button>
                           <Button
                             size="sm"

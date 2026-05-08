@@ -13,6 +13,18 @@ function json(payload: any, status = 200) {
   });
 }
 
+async function sha256(value: string) {
+  const bytes = new TextEncoder().encode(value);
+  const hash = await crypto.subtle.digest("SHA-256", bytes);
+  return Array.from(new Uint8Array(hash)).map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+function sixDigitCode() {
+  const bytes = new Uint32Array(1);
+  crypto.getRandomValues(bytes);
+  return String(100000 + (bytes[0] % 900000));
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: corsHeaders });
   try {
@@ -24,39 +36,32 @@ Deno.serve(async (req) => {
     const { email, origin, create_user } = await req.json().catch(() => ({} as any));
     if (!email || typeof email !== "string") return json({ ok: false, error: "email required" }, 400);
 
-    const redirectTo = `${origin || ""}/dashboard`;
-
-    // Check if user exists
-    const { data: list } = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 });
-    let existing = list?.users?.find((u: any) => (u.email || "").toLowerCase() === email.toLowerCase());
-
-    // Auto-create new user (email-confirmed) so magiclink OTP works for sign-in
-    if (!existing) {
-      if (!create_user) return json({ ok: false, error: "No account found for this email" }, 404);
+    let createdUserId: string | null = null;
+    if (create_user) {
       const { data: created, error: createErr } = await admin.auth.admin.createUser({
         email,
         email_confirm: true,
         password: crypto.randomUUID() + "Aa1!",
       });
-      if (createErr || !created?.user) {
-        return json({ ok: false, error: createErr?.message || "Failed to create user" }, 500);
+      if (created?.user?.id) createdUserId = created.user.id;
+      if (createErr && !/already|registered|exists/i.test(createErr.message || "")) {
+        return json({ ok: false, error: createErr.message || "Failed to prepare OTP login" }, 500);
       }
-      existing = created.user as any;
     }
 
-    // Always use magiclink — produces a 6-digit OTP that verifies with type 'email'
-    const { data: linkData, error: linkErr } = await admin.auth.admin.generateLink({
-      type: "magiclink",
-      email,
-      options: { redirectTo },
+    const normalizedEmail = email.trim().toLowerCase();
+    const otp = sixDigitCode();
+    const codeHash = await sha256(`${normalizedEmail}:${otp}:${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`);
+    const tokenHash = await sha256(`${crypto.randomUUID()}:${normalizedEmail}`);
+
+    await admin.from("email_login_otps").insert({
+      email: normalizedEmail,
+      user_id: createdUserId,
+      code_hash: codeHash,
+      token_hash: tokenHash,
+      origin: origin || req.headers.get("origin") || null,
+      expires_at: new Date(Date.now() + 10 * 60 * 1000).toISOString(),
     });
-
-    const rawOtp = linkData?.properties?.email_otp || "";
-    // Normalize to digits only and take first 6 (Supabase default is 6-digit)
-    const otp = String(rawOtp).replace(/\D/g, "").slice(0, 6);
-    if (!otp || otp.length < 6) {
-      return json({ ok: false, error: linkErr?.message || "Failed to generate OTP" }, 500);
-    }
 
     const { data: smtpRes, error: smtpErr } = await admin.functions.invoke("smtp-email", {
       body: { type: "2fa_code", email, code: otp, origin },

@@ -12,6 +12,7 @@ import {
 } from '@/components/ui/dialog';
 
 type PaymentStatus = 'waiting' | 'success' | 'failed' | 'timeout';
+type StkStage = 'sent' | 'pin_prompt' | 'pin_entered' | 'received' | 'cancelled' | 'processing';
 
 interface MpesaPaymentModalProps {
   open: boolean;
@@ -20,6 +21,7 @@ interface MpesaPaymentModalProps {
   onRetry?: () => void;
   coinSymbol?: string;
   amount?: number;
+  stage?: StkStage;
 }
 
 export function MpesaPaymentModal({
@@ -29,6 +31,7 @@ export function MpesaPaymentModal({
   onRetry,
   coinSymbol,
   amount,
+  stage = 'sent',
 }: MpesaPaymentModalProps) {
   const [elapsed, setElapsed] = useState(0);
 
@@ -95,17 +98,18 @@ export function MpesaPaymentModal({
                   <span className="text-success">STK Push sent to your phone</span>
                 </div>
                 <div className="flex items-center gap-2 text-xs">
-                  <motion.div
-                    animate={{ opacity: [0.3, 1, 0.3] }}
-                    transition={{ duration: 1.5, repeat: Infinity }}
-                  >
-                    <Clock className="h-4 w-4 text-warning flex-shrink-0" />
-                  </motion.div>
-                  <span className="text-warning">Awaiting M-PESA PIN entry...</span>
+                  {['pin_entered', 'received'].includes(stage) ? <CheckCircle className="h-4 w-4 text-success flex-shrink-0" /> : (
+                    <motion.div animate={{ opacity: [0.3, 1, 0.3] }} transition={{ duration: 1.1, repeat: Infinity }}>
+                      <Clock className="h-4 w-4 text-warning flex-shrink-0" />
+                    </motion.div>
+                  )}
+                  <span className={['pin_entered', 'received'].includes(stage) ? 'text-success' : 'text-warning'}>
+                    {['pin_entered', 'received'].includes(stage) ? 'PIN entered, confirming payment...' : 'Awaiting M-PESA PIN entry...'}
+                  </span>
                 </div>
-                <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                  <div className="h-4 w-4 rounded-full border border-border flex-shrink-0" />
-                  <span>Confirming payment</span>
+                <div className="flex items-center gap-2 text-xs">
+                  {stage === 'received' ? <CheckCircle className="h-4 w-4 text-success flex-shrink-0" /> : stage === 'cancelled' ? <XCircle className="h-4 w-4 text-destructive flex-shrink-0" /> : <div className="h-4 w-4 rounded-full border border-border flex-shrink-0" />}
+                  <span className={stage === 'received' ? 'text-success' : stage === 'cancelled' ? 'text-destructive' : 'text-muted-foreground'}>{stage === 'received' ? 'Payment received' : stage === 'cancelled' ? 'Payment cancelled' : 'Confirming payment'}</span>
                 </div>
                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
                   <div className="h-4 w-4 rounded-full border border-border flex-shrink-0" />

@@ -202,6 +202,45 @@ export type Database = {
           },
         ]
       }
+      email_login_otps: {
+        Row: {
+          attempts: number
+          code_hash: string
+          created_at: string
+          email: string
+          expires_at: string
+          id: string
+          origin: string | null
+          token_hash: string
+          used_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          attempts?: number
+          code_hash: string
+          created_at?: string
+          email: string
+          expires_at: string
+          id?: string
+          origin?: string | null
+          token_hash: string
+          used_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          attempts?: number
+          code_hash?: string
+          created_at?: string
+          email?: string
+          expires_at?: string
+          id?: string
+          origin?: string | null
+          token_hash?: string
+          used_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       holdings: {
         Row: {
           amount: number
@@ -1280,6 +1319,16 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      bootstrap_user_record: {
+        Args: {
+          _email?: string
+          _full_name?: string
+          _phone?: string
+          _referral_code?: string
+          _user_id: string
+        }
+        Returns: Json
+      }
       calculate_bonding_price: {
         Args: {
           _bonding_factor: number
@@ -1295,6 +1344,10 @@ export type Database = {
       }
       complete_mpesa_deposit: {
         Args: { _mpesa_receipt: string; _payment_request_id: string }
+        Returns: Json
+      }
+      ensure_user_bootstrap: {
+        Args: { _full_name?: string; _phone?: string; _referral_code?: string }
         Returns: Json
       }
       execute_trade: {

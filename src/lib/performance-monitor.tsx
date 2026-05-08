@@ -3,7 +3,7 @@ import { useLocation } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth-context';
 
-const METRIC_SAMPLE_RATE = 1;
+const METRIC_SAMPLE_RATE = 0.15;
 const MAX_ENDPOINT_LENGTH = 180;
 
 function sanitizeEndpoint(input: string) {
@@ -37,9 +37,10 @@ function recordMetric(payload: {
     success: payload.success ?? true,
     metadata: payload.metadata ?? {},
   };
-  setTimeout(() => {
+  const schedule = window.requestIdleCallback || ((cb: () => void) => window.setTimeout(cb, 1500));
+  schedule(() => {
     supabase.from('performance_metrics' as any).insert(body).then(() => undefined);
-  }, 0);
+  });
 }
 
 let fetchPatched = false;

@@ -135,6 +135,15 @@ function injectJsonLd(settings: SiteSettings) {
   });
 }
 
+function updateFavicon(iconUrl?: string | null) {
+  const href = iconUrl || '/favicon.png';
+  document.querySelectorAll<HTMLLinkElement>('link[rel="icon"], link[rel="shortcut icon"], link[rel="apple-touch-icon"]').forEach((link) => {
+    link.href = href;
+  });
+  updateMetaTag('meta[property="og:image"]', 'content', href);
+  updateMetaTag('meta[name="twitter:image"]', 'content', href);
+}
+
 export function SiteSettingsProvider({ children }: { children: ReactNode }) {
   const [settings, setSettings] = useState<SiteSettings>(defaultSettings);
   const [loading, setLoading] = useState(true);
@@ -186,6 +195,9 @@ export function SiteSettingsProvider({ children }: { children: ReactNode }) {
 
         // JSON-LD
         injectJsonLd(merged);
+
+        // Favicon follows the admin-set logo immediately for SEO crawlers/browsers.
+        updateFavicon((data as any).logo_url);
       }
     } catch (error) {
       console.error('Error fetching site settings:', error);

@@ -9,6 +9,7 @@ interface UseStkPollingOptions {
   onComplete: () => void;
   onFailed: (desc?: string) => void;
   onTimeout: () => void;
+  onStatus?: (status: 'sent' | 'pin_prompt' | 'pin_entered' | 'received' | 'cancelled' | 'processing', desc?: string) => void;
   maxAttempts?: number;
   intervalMs?: number;
 }
@@ -27,11 +28,11 @@ const DEFINITIVE_FAILURE_CODES = new Set([
 ]);
 
 const getNextDelay = (attempt: number, _base: number) => {
-  // Aggressive early polling so user sees PIN-entered/cancelled outcome sooner
-  if (attempt <= 6) return 1000;
-  if (attempt <= 16) return 1800;
-  if (attempt <= 30) return 3000;
-  return 5000;
+  // Aggressive early polling for the first minute; callback/realtime still wins instantly.
+  if (attempt <= 8) return 650;
+  if (attempt <= 20) return 1200;
+  if (attempt <= 40) return 2200;
+  return 4000;
 };
 
 const isCompletedStatus = (status?: string | null) => status === 'completed';
@@ -45,6 +46,7 @@ export function useStkPolling({
   onComplete,
   onFailed,
   onTimeout,
+  onStatus,
   maxAttempts = 36, // 36 * 5s = 3 minutes
   intervalMs = 5000,
 }: UseStkPollingOptions) {
@@ -77,6 +79,7 @@ export function useStkPolling({
 
     const finishComplete = () => {
       if (completedRef.current) return;
+      onStatus?.('received');
       completedRef.current = true;
       cleanup();
       onComplete();
@@ -84,6 +87,7 @@ export function useStkPolling({
 
     const finishFailed = (desc?: string) => {
       if (completedRef.current) return;
+      onStatus?.('cancelled', desc);
       completedRef.current = true;
       cleanup();
       onFailed(desc);
@@ -141,6 +145,7 @@ export function useStkPolling({
           }
         } else {
           // pending — reset consecutive fail
+          onStatus?.(attemptsRef.current <= 2 ? 'pin_prompt' : 'pin_entered', data?.message || data?.resultDesc);
           consecutiveFailRef.current = 0;
         }
       } catch (err) {
@@ -159,10 +164,11 @@ export function useStkPolling({
     };
 
     // First check almost immediately; realtime callback wins when M-PESA responds first.
-    timerRef.current = setTimeout(poll, 700);
+    onStatus?.('sent');
+    timerRef.current = setTimeout(poll, 250);
 
     return () => { supabase.removeChannel(channel); cleanup(); };
-  }, [enabled, checkoutRequestId, transactionId, paymentRequestId, onComplete, onFailed, onTimeout, maxAttempts, intervalMs, cleanup]);
+  }, [enabled, checkoutRequestId, transactionId, paymentRequestId, onComplete, onFailed, onTimeout, onStatus, maxAttempts, intervalMs, cleanup]);
 
   return { stop: cleanup };
 }

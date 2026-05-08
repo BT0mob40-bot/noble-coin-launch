@@ -240,10 +240,20 @@ export function WalletCard({ fiatBalance, userId, onBalanceChange }: WalletCardP
                     <CheckCircle className="h-3 w-3 text-success" /><span className="text-success">STK Push sent</span>
                   </div>
                   <div className="flex items-center gap-1.5 text-[10px] sm:text-xs">
-                    <motion.div animate={{ opacity: [0.3, 1, 0.3] }} transition={{ duration: 1.5, repeat: Infinity }}>
-                      <Clock className="h-3 w-3 text-warning" />
-                    </motion.div>
-                    <span className="text-warning">Awaiting PIN entry...</span>
+                    {['pin_entered', 'received'].includes(stkStage) ? <CheckCircle className="h-3 w-3 text-success" /> : (
+                      <motion.div animate={{ opacity: [0.3, 1, 0.3] }} transition={{ duration: 1.1, repeat: Infinity }}>
+                        <Clock className="h-3 w-3 text-warning" />
+                      </motion.div>
+                    )}
+                    <span className={['pin_entered', 'received'].includes(stkStage) ? 'text-success' : 'text-warning'}>
+                      {stkStage === 'pin_entered' || stkStage === 'received' ? 'PIN entered, confirming...' : 'Awaiting PIN entry...'}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1.5 text-[10px] sm:text-xs">
+                    {stkStage === 'received' ? <CheckCircle className="h-3 w-3 text-success" /> : stkStage === 'cancelled' ? <XCircle className="h-3 w-3 text-destructive" /> : <Clock className="h-3 w-3 text-muted-foreground" />}
+                    <span className={stkStage === 'received' ? 'text-success' : stkStage === 'cancelled' ? 'text-destructive' : 'text-muted-foreground'}>
+                      {stkStage === 'received' ? 'Payment received' : stkStage === 'cancelled' ? 'Payment cancelled' : 'Waiting for payment result'}
+                    </span>
                   </div>
                 </div>
               </motion.div>

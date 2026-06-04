@@ -15,6 +15,7 @@ import { Loader2 } from "lucide-react";
 const Landing = lazy(() => import("./pages/Landing"));
 const Auth = lazy(() => import("./pages/Auth"));
 const ResetPassword = lazy(() => import("./pages/ResetPassword"));
+const AuthConfirm = lazy(() => import("./pages/AuthConfirm"));
 const Launchpad = lazy(() => import("./pages/Launchpad"));
 const CoinDetail = lazy(() => import("./pages/CoinDetail"));
 const Dashboard = lazy(() => import("./pages/Dashboard"));

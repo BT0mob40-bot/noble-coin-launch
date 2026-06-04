@@ -15,6 +15,7 @@ import { Loader2 } from "lucide-react";
 const Landing = lazy(() => import("./pages/Landing"));
 const Auth = lazy(() => import("./pages/Auth"));
 const ResetPassword = lazy(() => import("./pages/ResetPassword"));
+const AuthConfirm = lazy(() => import("./pages/AuthConfirm"));
 const Launchpad = lazy(() => import("./pages/Launchpad"));
 const CoinDetail = lazy(() => import("./pages/CoinDetail"));
 const Dashboard = lazy(() => import("./pages/Dashboard"));
@@ -63,6 +64,8 @@ const App = () => (
                 <Route path="/" element={<Landing />} />
                 <Route path="/auth" element={<Auth />} />
                 <Route path="/reset-password" element={<ResetPassword />} />
+                <Route path="/auth/confirm" element={<AuthConfirm />} />
+                <Route path="/auth/callback" element={<AuthConfirm />} />
                 <Route path="/launchpad" element={<Launchpad />} />
                 <Route path="/coin/:id" element={<CoinDetail />} />
                 <Route path="/blockchain" element={<Blockchain />} />

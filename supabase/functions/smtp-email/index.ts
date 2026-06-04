@@ -318,35 +318,53 @@ Deno.serve(async (req) => {
         html = tplWithdrawalRejected(siteName, String(amount ?? "0"), String(reason || "Not specified"), domain);
         break;
       case "signup_confirm": {
-        // Generate the official Supabase email-confirmation link, but deliver it via OUR working SMTP.
-        // Works whether the user already exists (unconfirmed) or not (we create them inline).
-        const redirectTo = redirect_to || `${baseOrigin || ""}/`;
+        // Build a confirmation URL on the SITE's own domain (not supabase.co).
+        // We use generateLink only to obtain the hashed_token, then point the user
+        // at /auth/confirm on their origin where supabase.auth.verifyOtp runs.
+        const siteOrigin = (baseOrigin || origin || "").replace(/\/$/, "");
+        const nextPath = (() => {
+          try {
+            if (!redirect_to) return "/";
+            const u = new URL(redirect_to);
+            return (u.pathname || "/") + (u.search || "");
+          } catch { return "/"; }
+        })();
+
         let linkData: any = null;
         let linkErr: any = null;
 
-        // Try as new signup first (only works if user doesn't exist yet)
         if (password) {
           const r = await adminClient.auth.admin.generateLink({
             type: "signup",
             email,
             password,
-            options: { redirectTo },
+            options: { redirectTo: siteOrigin + nextPath },
           });
           linkData = r.data; linkErr = r.error;
         }
-        // Fallback: user already created → generate confirmation link via invite/magiclink type
-        if (!linkData?.properties?.action_link) {
+        if (!linkData?.properties?.hashed_token) {
           const r = await adminClient.auth.admin.generateLink({
             type: "magiclink",
             email,
-            options: { redirectTo },
+            options: { redirectTo: siteOrigin + nextPath },
           });
           linkData = r.data; linkErr = r.error;
         }
-        if (!linkData?.properties?.action_link) {
-          return jsonResponse({ ok: false, error: "Could not generate confirmation link: " + (linkErr?.message || "unknown") });
+
+        const hashed = linkData?.properties?.hashed_token;
+        const verifyType = linkData?.properties?.verification_type || "signup";
+        if (!hashed) {
+          // Fallback to action_link if for any reason hashed_token isn't available
+          const fallback = linkData?.properties?.action_link;
+          if (!fallback) {
+            return jsonResponse({ ok: false, error: "Could not generate confirmation link: " + (linkErr?.message || "unknown") });
+          }
+          subject = `Confirm your email — ${siteName}`;
+          html = tplSignupConfirm(siteName, fallback, domain);
+          break;
         }
-        const confirmLink = linkData.properties.action_link;
+
+        const confirmLink = `${siteOrigin}/auth/confirm?token_hash=${encodeURIComponent(hashed)}&type=${encodeURIComponent(verifyType)}&next=${encodeURIComponent(nextPath)}`;
         subject = `Confirm your email — ${siteName}`;
         html = tplSignupConfirm(siteName, confirmLink, domain);
         break;

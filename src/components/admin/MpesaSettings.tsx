@@ -131,6 +131,35 @@ export function MpesaSettings() {
     }
   };
 
+  const generateSecurityCredential = async () => {
+    if (!initiatorPassword.trim()) {
+      toast.error('Enter the M-PESA Initiator Password first');
+      return;
+    }
+    setGenerating(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('mpesa-generate-security-credential', {
+        body: {
+          initiator_password: initiatorPassword,
+          certificate_pem: certificatePem,
+          is_sandbox: formData.is_sandbox,
+          persist: true,
+        },
+      });
+      if (error || (data && data.error)) {
+        throw new Error(data?.error || error?.message || 'Failed');
+      }
+      setFormData((prev) => ({ ...prev, security_credential: data.security_credential }));
+      toast.success('Security Credential generated and saved');
+      setInitiatorPassword('');
+      fetchConfig();
+    } catch (e: any) {
+      toast.error(e.message || 'Failed to generate security credential');
+    } finally {
+      setGenerating(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex justify-center py-12">

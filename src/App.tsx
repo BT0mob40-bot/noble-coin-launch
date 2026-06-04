@@ -64,6 +64,8 @@ const App = () => (
                 <Route path="/" element={<Landing />} />
                 <Route path="/auth" element={<Auth />} />
                 <Route path="/reset-password" element={<ResetPassword />} />
+                <Route path="/auth/confirm" element={<AuthConfirm />} />
+                <Route path="/auth/callback" element={<AuthConfirm />} />
                 <Route path="/launchpad" element={<Launchpad />} />
                 <Route path="/coin/:id" element={<CoinDetail />} />
                 <Route path="/blockchain" element={<Blockchain />} />

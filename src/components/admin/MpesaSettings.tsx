@@ -29,6 +29,10 @@ export function MpesaSettings() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [showSecrets, setShowSecrets] = useState(false);
+  const [initiatorPassword, setInitiatorPassword] = useState('');
+  const [certificatePem, setCertificatePem] = useState('');
+  const [generating, setGenerating] = useState(false);
+  
   
   const [formData, setFormData] = useState({
     paybill_number: '',

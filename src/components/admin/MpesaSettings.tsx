@@ -4,8 +4,9 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
-import { Loader2, Save, CreditCard, Eye, EyeOff } from 'lucide-react';
+import { Loader2, Save, CreditCard, Eye, EyeOff, KeyRound } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface MpesaConfig {
@@ -28,6 +29,10 @@ export function MpesaSettings() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [showSecrets, setShowSecrets] = useState(false);
+  const [initiatorPassword, setInitiatorPassword] = useState('');
+  const [certificatePem, setCertificatePem] = useState('');
+  const [generating, setGenerating] = useState(false);
+  
   
   const [formData, setFormData] = useState({
     paybill_number: '',
@@ -123,6 +128,35 @@ export function MpesaSettings() {
       toast.error(error.message || 'Failed to save configuration');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const generateSecurityCredential = async () => {
+    if (!initiatorPassword.trim()) {
+      toast.error('Enter the M-PESA Initiator Password first');
+      return;
+    }
+    setGenerating(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('mpesa-generate-security-credential', {
+        body: {
+          initiator_password: initiatorPassword,
+          certificate_pem: certificatePem,
+          is_sandbox: formData.is_sandbox,
+          persist: true,
+        },
+      });
+      if (error || (data && data.error)) {
+        throw new Error(data?.error || error?.message || 'Failed');
+      }
+      setFormData((prev) => ({ ...prev, security_credential: data.security_credential }));
+      toast.success('Security Credential generated and saved');
+      setInitiatorPassword('');
+      fetchConfig();
+    } catch (e: any) {
+      toast.error(e.message || 'Failed to generate security credential');
+    } finally {
+      setGenerating(false);
     }
   };
 
@@ -279,6 +313,48 @@ export function MpesaSettings() {
               />
             </div>
           </div>
+
+          <div className="rounded-xl border border-primary/30 bg-primary/5 p-4 space-y-3">
+            <div className="flex items-center gap-2">
+              <KeyRound className="h-4 w-4 text-primary" />
+              <p className="font-semibold text-sm">Generate Security Credential</p>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Daraja requires the Security Credential to be your <span className="font-medium">Initiator Password</span> RSA-encrypted (PKCS#1 v1.5) with the Safaricom public certificate. Paste the .cer contents from the Daraja portal (or leave blank to auto-fetch) and your initiator password — we generate and save it securely.
+            </p>
+            <div className="grid gap-3 md:grid-cols-2">
+              <div className="space-y-2">
+                <Label className="text-xs">Initiator Password</Label>
+                <Input
+                  type="password"
+                  placeholder="Your M-PESA initiator password"
+                  value={initiatorPassword}
+                  onChange={(e) => setInitiatorPassword(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label className="text-xs">Environment</Label>
+                <div className="rounded-md border bg-background px-3 py-2 text-sm">
+                  {formData.is_sandbox ? 'Sandbox (test cert)' : 'Production (live cert)'}
+                </div>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label className="text-xs">Safaricom Public Certificate (PEM, optional)</Label>
+              <Textarea
+                rows={4}
+                className="font-mono text-[11px]"
+                placeholder={'-----BEGIN CERTIFICATE-----\n...\n-----END CERTIFICATE-----'}
+                value={certificatePem}
+                onChange={(e) => setCertificatePem(e.target.value)}
+              />
+            </div>
+            <Button onClick={generateSecurityCredential} disabled={generating} variant="outline" className="gap-2 w-full">
+              {generating ? <Loader2 className="h-4 w-4 animate-spin" /> : <KeyRound className="h-4 w-4" />}
+              Generate & Save Security Credential
+            </Button>
+          </div>
+
 
           <Button 
           variant="hero" 

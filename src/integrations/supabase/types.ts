@@ -839,6 +839,7 @@ export type Database = {
         Row: {
           admin_commission: number
           allow_2fa_optional: boolean
+          buy_slippage_percentage: number
           coin_creation_fee: number
           created_at: string
           creator_commission_percentage: number
@@ -867,12 +868,15 @@ export type Database = {
           live_fee: number
           logo_url: string | null
           max_buy_amount: number
+          max_buy_supply_percentage: number
           min_buy_amount: number
           primary_color: string | null
           referral_commission_percentage: number
           require_2fa: boolean
           require_email_verification: boolean
           require_phone_verification: boolean
+          sell_pressure_multiplier: number
+          sell_slippage_percentage: number
           seo_keywords: string | null
           site_description: string | null
           site_name: string
@@ -889,6 +893,7 @@ export type Database = {
         Insert: {
           admin_commission?: number
           allow_2fa_optional?: boolean
+          buy_slippage_percentage?: number
           coin_creation_fee?: number
           created_at?: string
           creator_commission_percentage?: number
@@ -917,12 +922,15 @@ export type Database = {
           live_fee?: number
           logo_url?: string | null
           max_buy_amount?: number
+          max_buy_supply_percentage?: number
           min_buy_amount?: number
           primary_color?: string | null
           referral_commission_percentage?: number
           require_2fa?: boolean
           require_email_verification?: boolean
           require_phone_verification?: boolean
+          sell_pressure_multiplier?: number
+          sell_slippage_percentage?: number
           seo_keywords?: string | null
           site_description?: string | null
           site_name?: string
@@ -939,6 +947,7 @@ export type Database = {
         Update: {
           admin_commission?: number
           allow_2fa_optional?: boolean
+          buy_slippage_percentage?: number
           coin_creation_fee?: number
           created_at?: string
           creator_commission_percentage?: number
@@ -967,12 +976,15 @@ export type Database = {
           live_fee?: number
           logo_url?: string | null
           max_buy_amount?: number
+          max_buy_supply_percentage?: number
           min_buy_amount?: number
           primary_color?: string | null
           referral_commission_percentage?: number
           require_2fa?: boolean
           require_email_verification?: boolean
           require_phone_verification?: boolean
+          sell_pressure_multiplier?: number
+          sell_slippage_percentage?: number
           seo_keywords?: string | null
           site_description?: string | null
           site_name?: string

@@ -58,21 +58,21 @@ Deno.serve(async (req) => {
 
     await admin.from("email_login_otps").update({ used_at: new Date().toISOString() }).eq("id", otp.id);
 
-    const safeOrigin = (() => {
-      try { return new URL(origin || otp.origin || req.headers.get("origin") || "").origin; }
-      catch { return Deno.env.get("SITE_URL") || ""; }
-    })();
-
+    // Return the hashed_token so the CLIENT can call supabase.auth.verifyOtp()
+    // on the user's own domain. Avoids the /auth/v1/verify redirect which
+    // always lands on the Supabase-configured Site URL (e.g. lovable.app).
     const { data: linkData, error: linkErr } = await admin.auth.admin.generateLink({
       type: "magiclink",
       email: normalizedEmail,
-      options: { redirectTo: `${safeOrigin}/dashboard` },
+      options: { redirectTo: origin || req.headers.get("origin") || undefined },
     });
 
-    const actionLink = linkData?.properties?.action_link;
-    if (linkErr || !actionLink) return json({ ok: false, error: linkErr?.message || "Could not create login session" }, 500);
+    const tokenHash = (linkData as any)?.properties?.hashed_token;
+    if (linkErr || !tokenHash) {
+      return json({ ok: false, error: linkErr?.message || "Could not create login session" }, 500);
+    }
 
-    return json({ ok: true, actionLink });
+    return json({ ok: true, token_hash: tokenHash, type: "magiclink" });
   } catch (e: any) {
     return json({ ok: false, error: e?.message || String(e) }, 500);
   }

@@ -54,14 +54,55 @@ export function CoinList() {
   });
 
   useEffect(() => {
+    // Live market feed: patch coin rows in place on UPDATE for instant
+    // price/market-cap/liquidity feel, and only refetch on INSERT/DELETE
+    // where row identity changes.
     const channel = supabase
       .channel('coins-realtime')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'coins' }, () => {
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'coins' }, (payload) => {
+        const updated = payload.new as any;
+        queryClient.setQueriesData({ queryKey: ['coins'] }, (old: any) => {
+          if (!Array.isArray(old)) return old;
+          let changed = false;
+          const next = old.map((c) => {
+            if (c.id !== updated.id) return c;
+            changed = true;
+            return {
+              ...c,
+              price: updated.price,
+              market_cap: updated.market_cap,
+              liquidity: updated.liquidity,
+              circulating_supply: updated.circulating_supply,
+              holders_count: updated.holders_count,
+              trading_paused: updated.trading_paused,
+              is_active: updated.is_active,
+              is_approved: updated.is_approved,
+              updated_at: updated.updated_at,
+            };
+          });
+          return changed ? next : old;
+        });
+      })
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'coins' }, () => {
         queryClient.invalidateQueries({ queryKey: ['coins'] });
+      })
+      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'coins' }, () => {
+        queryClient.invalidateQueries({ queryKey: ['coins'] });
+      })
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'price_history' }, (payload) => {
+        const row = payload.new as any;
+        if (row?.trade_type !== 'buy' && row?.trade_type !== 'sell') return;
+        queryClient.setQueriesData({ queryKey: ['coins'] }, (old: any) => {
+          if (!Array.isArray(old)) return old;
+          return old.map((c) => c.id === row.coin_id
+            ? { ...c, last_trade_at: row.created_at, last_trade_volume: Number(row.volume || 0) }
+            : c);
+        });
       })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [queryClient]);
+
 
   const showAsList = (coins?.length || 0) > 10;
 

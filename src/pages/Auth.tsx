@@ -207,8 +207,12 @@ export default function Auth() {
         body: { email: otpEmail, code: otpCode, origin: window.location.origin },
       });
       if (error) throw new Error(error.message);
-      if ((data as any)?.ok === false || !(data as any)?.actionLink) throw new Error((data as any)?.error || 'Could not create session');
-      window.location.href = (data as any).actionLink;
+      const payload: any = data;
+      if (payload?.ok === false || !payload?.token_hash) throw new Error(payload?.error || 'Could not create session');
+      const { error: verifyErr } = await supabase.auth.verifyOtp({ token_hash: payload.token_hash, type: payload.type || 'magiclink' });
+      if (verifyErr) throw new Error(verifyErr.message);
+      toast.success('Signed in!');
+      window.location.assign('/dashboard');
     } catch (err: any) {
       toast.error(err.message || 'Invalid or expired code');
     } finally {
